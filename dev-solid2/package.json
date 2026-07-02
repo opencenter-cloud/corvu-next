@@ -1,0 +1,26 @@
+{
+  "name": "@corvu-next/dev",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@corvu-next/dismissible": "workspace:~",
+    "@corvu-next/focus-trap": "workspace:~",
+    "@corvu-next/list": "workspace:~",
+    "@corvu-next/presence": "workspace:~",
+    "@corvu-next/prevent-scroll": "workspace:~",
+    "@corvu-next/utils": "workspace:~",
+    "@solidjs/web": "2.0.0-beta.15",
+    "solid-js": "2.0.0-beta.15"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vite": "^6.0.0",
+    "vite-plugin-solid": "3.0.0-next.5"
+  }
+}
