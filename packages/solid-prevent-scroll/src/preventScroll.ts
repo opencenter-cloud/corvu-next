@@ -6,13 +6,7 @@
  */
 
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import {
-  createEffect,
-  createSignal,
-  createUniqueId,
-  mergeProps,
-  onCleanup,
-} from 'solid-js'
+import { createEffect, createSignal, createUniqueId, merge } from 'solid-js'
 import type { Axis } from '@corvu-next/utils'
 import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
@@ -42,7 +36,7 @@ const createPreventScroll = (props: {
   restoreScrollPosition?: MaybeAccessor<boolean>
   allowPinchZoom?: MaybeAccessor<boolean>
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       element: null,
       enabled: true,
@@ -61,97 +55,122 @@ const createPreventScroll = (props: {
   let currentTouchStartAxis: Axis | null = null
   let currentTouchStartDelta: number | null = null
 
-  createEffect(() => {
-    if (!access(defaultedProps.enabled)) return
+  // Effect 1: Stack management
+  createEffect(
+    (prev: undefined | boolean) => {
+      const enabled = access(defaultedProps.enabled)
+      return enabled
+    },
+    (enabled: boolean, prev?: boolean) => {
+      if (!enabled) return
 
-    setPreventScrollStack((stack) => [...stack, preventScrollId])
+      setPreventScrollStack((stack) => [...stack, preventScrollId])
 
-    onCleanup(() => {
-      setPreventScrollStack((stack) =>
-        stack.filter((id) => id !== preventScrollId),
-      )
-    })
-  })
+      return () => {
+        setPreventScrollStack((stack) =>
+          stack.filter((id) => id !== preventScrollId),
+        )
+      }
+    },
+  )
 
-  createEffect(() => {
-    if (
-      !access(defaultedProps.enabled) ||
-      !access(defaultedProps.hideScrollbar)
-    )
-      return
+  // Effect 2: Body style application (scrollbar hide + shift compensation)
+  createEffect(
+    (prev: undefined | { enabled: boolean; hideScrollbar: boolean }) => {
+      const enabled = access(defaultedProps.enabled)
+      const hideScrollbar = access(defaultedProps.hideScrollbar)
+      return { enabled, hideScrollbar }
+    },
+    (
+      next: { enabled: boolean; hideScrollbar: boolean },
+      prev?: { enabled: boolean; hideScrollbar: boolean },
+    ) => {
+      if (!next.enabled || !next.hideScrollbar) return
 
-    const { body } = document
+      const { body } = document
 
-    const scrollbarWidth = window.innerWidth - body.offsetWidth
+      const scrollbarWidth = window.innerWidth - body.offsetWidth
 
-    if (access(defaultedProps.preventScrollbarShift)) {
-      const style: Partial<CSSStyleDeclaration> = { overflow: 'hidden' }
-      const properties: { key: string; value: string }[] = []
+      if (access(defaultedProps.preventScrollbarShift)) {
+        const style: Partial<CSSStyleDeclaration> = { overflow: 'hidden' }
+        const properties: { key: string; value: string }[] = []
 
-      if (scrollbarWidth > 0) {
-        if (access(defaultedProps.preventScrollbarShiftMode) === 'padding') {
-          style.paddingRight = `calc(${
-            window.getComputedStyle(body).paddingRight
-          } + ${scrollbarWidth}px)`
-        } else {
-          style.marginRight = `calc(${
-            window.getComputedStyle(body).marginRight
-          } + ${scrollbarWidth}px)`
+        if (scrollbarWidth > 0) {
+          if (access(defaultedProps.preventScrollbarShiftMode) === 'padding') {
+            style.paddingRight = `calc(${
+              window.getComputedStyle(body).paddingRight
+            } + ${scrollbarWidth}px)`
+          } else {
+            style.marginRight = `calc(${
+              window.getComputedStyle(body).marginRight
+            } + ${scrollbarWidth}px)`
+          }
+
+          properties.push({
+            key: '--scrollbar-width',
+            value: `${scrollbarWidth}px`,
+          })
         }
 
-        properties.push({
-          key: '--scrollbar-width',
-          value: `${scrollbarWidth}px`,
+        const offsetTop = window.scrollY
+        const offsetLeft = window.scrollX
+
+        createStyle({
+          key: 'prevent-scroll',
+          element: body,
+          style,
+          properties,
+          cleanup: () => {
+            if (
+              access(defaultedProps.restoreScrollPosition) &&
+              scrollbarWidth > 0
+            ) {
+              window.scrollTo(offsetLeft, offsetTop)
+            }
+          },
+        })
+      } else {
+        createStyle({
+          key: 'prevent-scroll',
+          element: body,
+          style: {
+            overflow: 'hidden',
+          },
         })
       }
+    },
+  )
 
-      const offsetTop = window.scrollY
-      const offsetLeft = window.scrollX
+  // Effect 3: Wheel/touch listener attachment
+  createEffect(
+    (prev: undefined | { active: boolean; enabled: boolean }) => {
+      const active = isActive(preventScrollId)
+      const enabled = access(defaultedProps.enabled)
+      return { active, enabled }
+    },
+    (
+      next: { active: boolean; enabled: boolean },
+      prev?: { active: boolean; enabled: boolean },
+    ) => {
+      if (!next.active || !next.enabled) return
 
-      createStyle({
-        key: 'prevent-scroll',
-        element: body,
-        style,
-        properties,
-        cleanup: () => {
-          if (
-            access(defaultedProps.restoreScrollPosition) &&
-            scrollbarWidth > 0
-          ) {
-            window.scrollTo(offsetLeft, offsetTop)
-          }
-        },
+      document.addEventListener('wheel', maybePreventWheel, {
+        passive: false,
       })
-    } else {
-      createStyle({
-        key: 'prevent-scroll',
-        element: body,
-        style: {
-          overflow: 'hidden',
-        },
+      document.addEventListener('touchstart', logTouchStart, {
+        passive: false,
       })
-    }
-  })
+      document.addEventListener('touchmove', maybePreventTouch, {
+        passive: false,
+      })
 
-  createEffect(() => {
-    if (!isActive(preventScrollId) || !access(defaultedProps.enabled)) return
-
-    document.addEventListener('wheel', maybePreventWheel, {
-      passive: false,
-    })
-    document.addEventListener('touchstart', logTouchStart, {
-      passive: false,
-    })
-    document.addEventListener('touchmove', maybePreventTouch, {
-      passive: false,
-    })
-
-    onCleanup(() => {
-      document.removeEventListener('wheel', maybePreventWheel)
-      document.removeEventListener('touchstart', logTouchStart)
-      document.removeEventListener('touchmove', maybePreventTouch)
-    })
-  })
+      return () => {
+        document.removeEventListener('wheel', maybePreventWheel)
+        document.removeEventListener('touchstart', logTouchStart)
+        document.removeEventListener('touchmove', maybePreventTouch)
+      }
+    },
+  )
 
   const logTouchStart = (event: TouchEvent) => {
     currentTouchStart = getTouchXY(event)
