@@ -1,12 +1,11 @@
 import {
   children,
   createMemo,
-  type JSX,
-  mergeProps,
+  merge,
+  omit,
   Show,
-  splitProps,
-  type ValidComponent,
 } from 'solid-js'
+import type { JSX, ValidComponent } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@src/dynamic'
 import { combineStyle } from '@src/dom'
 import type { FloatingState } from '@src/create/floating'
@@ -52,41 +51,42 @@ const TransformOrigin = {
 const FloatingArrow = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, FloatingArrowProps<T>>,
 ) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       size: 16,
     },
     props as FloatingArrowProps & { as?: ValidComponent },
   )
 
-  const [localProps, otherProps] = splitProps(defaultedProps, [
+  const otherProps = omit(
+    defaultedProps,
     'as',
     'floatingState',
     'size',
     'style',
     'children',
-  ])
+  )
 
   const arrowDirection = createMemo(
     () =>
       PositionToDirection[
-        localProps.floatingState.placement.split('-')[0] as Position
+        defaultedProps.floatingState.placement.split('-')[0] as Position
       ] as Position,
   )
 
   const arrowTop = createMemo(() => {
-    const y = localProps.floatingState.arrowY
+    const y = defaultedProps.floatingState.arrowY
     if (y === null) return undefined
     return `${y}px`
   })
 
   const arrowLeft = createMemo(() => {
-    const x = localProps.floatingState.arrowX
+    const x = defaultedProps.floatingState.arrowX
     if (x === null) return undefined
     return `${x}px`
   })
 
-  const resolveChildren = children(() => localProps.children)
+  const resolveChildren = children(() => defaultedProps.children)
 
   const defaultArrow = () => resolveChildren.toArray().length === 0
 
@@ -102,11 +102,11 @@ const FloatingArrow = <T extends ValidComponent = 'div'>(
           [arrowDirection()]: '0px',
           transform: Transform[arrowDirection()],
           'transform-origin': TransformOrigin[arrowDirection()],
-          height: defaultArrow() ? `${localProps.size}px` : undefined,
-          width: defaultArrow() ? `${localProps.size}px` : undefined,
+          height: defaultArrow() ? `${defaultedProps.size}px` : undefined,
+          width: defaultArrow() ? `${defaultedProps.size}px` : undefined,
           'pointer-events': 'none',
         },
-        localProps.style,
+        defaultedProps.style,
       )}
       {...otherProps}
     >

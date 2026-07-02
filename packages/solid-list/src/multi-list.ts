@@ -1,5 +1,5 @@
-import { access, type MaybeAccessor } from '@corvu/utils/reactivity'
-import createControllableSignal from '@corvu/utils/create/controllableSignal'
+import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
+import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import { mergeProps } from 'solid-js'
 
 /**
