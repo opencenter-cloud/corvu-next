@@ -3,7 +3,7 @@ import createEscapeKeyDown from '@src/create/escapeKeyDown'
 import createNoPointerEvents from '@src/create/noPointerEvents'
 import createOutsideFocus from '@src/create/outsideFocus'
 import createOutsidePointer from '@src/create/outsidePointer'
-import { mergeProps } from 'solid-js'
+import { merge } from 'solid-js'
 
 export type CreateDismissibleProps = {
   /**
@@ -71,7 +71,7 @@ export type CreateDismissibleProps = {
  * @param props.onOutsidePointer - Callback fired when a pointer down event happens outside the element. Can be prevented by calling `event.preventDefault`.
  */
 const createDismissible = (props: CreateDismissibleProps) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       dismissOnEscapeKeyDown: true,
       dismissOnOutsideFocus: true,

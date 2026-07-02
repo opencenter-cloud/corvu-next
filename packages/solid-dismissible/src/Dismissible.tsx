@@ -6,13 +6,12 @@ import {
   createMemo,
   createSignal,
   createUniqueId,
-  type JSX,
-  mergeProps,
-  onCleanup,
-  splitProps,
+  merge,
+  omit,
   untrack,
   useContext,
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import { access } from '@corvu-next/utils/reactivity'
 import createDismissible from '@src/create/dismissible'
 import type { CreateDismissibleProps } from '@src/create/dismissible'
@@ -43,7 +42,7 @@ export type DismissibleChildrenProps = {
 
 /** A component that can be dismissed by pressing the escape key or clicking outside of it. Can be nested. */
 const Dismissible: Component<DismissibleProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       dismissibleId: createUniqueId(),
     },
@@ -69,7 +68,7 @@ const Dismissible: Component<DismissibleProps> = (props) => {
     }
 
     return (
-      <DismissibleContext.Provider
+      <DismissibleContext
         value={{
           layers,
           onLayerShow,
@@ -77,7 +76,7 @@ const Dismissible: Component<DismissibleProps> = (props) => {
         }}
       >
         <DismissibleLayer {...props} />
-      </DismissibleContext.Provider>
+      </DismissibleContext>
     )
   })
 
@@ -87,7 +86,7 @@ const Dismissible: Component<DismissibleProps> = (props) => {
 const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>([])
 
 const DismissibleLayer: Component<DismissibleProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       enabled: true,
       dismissibleId: createUniqueId(),
@@ -100,7 +99,7 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     props,
   )
 
-  const [localProps, otherProps] = splitProps(defaultedProps, [
+  const otherProps = omit(defaultedProps,
     'enabled',
     'children',
     'dismissOnEscapeKeyDown',
@@ -110,35 +109,38 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     'outsidePointerIgnore',
     'noOutsidePointerEvents',
     'onDismiss',
-  ])
+  )
 
   const context = useContext(DismissibleContext) as DismissibleContextValue
 
-  onCleanup(() => {
-    context.onLayerDismiss(defaultedProps.dismissibleId)
-    setActiveDismissibles((activeDismissibles) =>
-      activeDismissibles.filter(
-        (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-      ),
-    )
-  })
+  createEffect(
+    () => defaultedProps.enabled,
+    (enabled) => {
+      if (enabled) {
+        context.onLayerShow(defaultedProps.dismissibleId)
+        setActiveDismissibles((activeDismissibles) => [
+          ...activeDismissibles,
+          defaultedProps.dismissibleId,
+        ])
+      } else {
+        context.onLayerDismiss(defaultedProps.dismissibleId)
+        setActiveDismissibles((activeDismissibles) =>
+          activeDismissibles.filter(
+            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
+          ),
+        )
+      }
 
-  createEffect(() => {
-    if (localProps.enabled) {
-      context.onLayerShow(defaultedProps.dismissibleId)
-      setActiveDismissibles((activeDismissibles) => [
-        ...activeDismissibles,
-        defaultedProps.dismissibleId,
-      ])
-    } else {
-      context.onLayerDismiss(defaultedProps.dismissibleId)
-      setActiveDismissibles((activeDismissibles) =>
-        activeDismissibles.filter(
-          (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-        ),
-      )
-    }
-  })
+      return () => {
+        context.onLayerDismiss(defaultedProps.dismissibleId)
+        setActiveDismissibles((activeDismissibles) =>
+          activeDismissibles.filter(
+            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
+          ),
+        )
+      }
+    },
+  )
 
   const isLastLayer = () => {
     return (
@@ -149,28 +151,28 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
 
   createDismissible({
     dismissOnEscapeKeyDown: () =>
-      access(localProps.dismissOnEscapeKeyDown) &&
+      access(defaultedProps.dismissOnEscapeKeyDown) &&
       isLastLayer() &&
-      localProps.enabled,
+      defaultedProps.enabled,
     dismissOnOutsideFocus: () =>
-      access(localProps.dismissOnOutsideFocus) &&
+      access(defaultedProps.dismissOnOutsideFocus) &&
       isLastLayer() &&
-      localProps.enabled,
+      defaultedProps.enabled,
     dismissOnOutsidePointer: () =>
-      access(localProps.dismissOnOutsidePointer) &&
+      access(defaultedProps.dismissOnOutsidePointer) &&
       isLastLayer() &&
-      localProps.enabled,
-    outsidePointerStrategy: localProps.outsidePointerStrategy,
-    outsidePointerIgnore: localProps.outsidePointerIgnore,
+      defaultedProps.enabled,
+    outsidePointerStrategy: defaultedProps.outsidePointerStrategy,
+    outsidePointerIgnore: defaultedProps.outsidePointerIgnore,
     noOutsidePointerEvents: () =>
-      access(localProps.noOutsidePointerEvents) && localProps.enabled,
+      access(defaultedProps.noOutsidePointerEvents) && defaultedProps.enabled,
     onDismiss: (reason) => {
-      localProps.onDismiss(reason)
+      defaultedProps.onDismiss(reason)
     },
     ...otherProps,
   })
 
-  const memoizedChildren = createMemo(() => localProps.children)
+  const memoizedChildren = createMemo(() => defaultedProps.children)
 
   const resolveChildren = () => {
     const children = memoizedChildren()

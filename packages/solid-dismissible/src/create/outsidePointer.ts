@@ -1,5 +1,5 @@
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, mergeProps, onCleanup } from 'solid-js'
+import { createEffect, merge } from 'solid-js'
 import { contains } from '@corvu-next/utils/dom'
 
 /**
@@ -18,26 +18,13 @@ const createOutsidePointer = (props: {
   ignore?: MaybeAccessor<(HTMLElement | null)[]>
   onPointer: (event: PointerEvent) => void
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       enabled: true,
       strategy: 'pointerup' as const,
     },
     props,
   )
-
-  createEffect(() => {
-    if (!access(defaultedProps.enabled)) {
-      return
-    }
-    const strategy = access(defaultedProps.strategy)
-
-    document.addEventListener(strategy, handlePointer)
-
-    onCleanup(() => {
-      document.removeEventListener(strategy, handlePointer)
-    })
-  })
 
   const handlePointer = (event: PointerEvent) => {
     const element = access(defaultedProps.element)
@@ -57,6 +44,22 @@ const createOutsidePointer = (props: {
       defaultedProps.onPointer(event)
     }
   }
+
+  createEffect(
+    () => ({
+      enabled: access(defaultedProps.enabled),
+      strategy: access(defaultedProps.strategy),
+    }),
+    ({ enabled, strategy }) => {
+      if (!enabled) return
+
+      document.addEventListener(strategy, handlePointer)
+
+      return () => {
+        document.removeEventListener(strategy, handlePointer)
+      }
+    },
+  )
 }
 
 export default createOutsidePointer
