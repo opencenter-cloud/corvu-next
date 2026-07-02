@@ -13,8 +13,11 @@ import createStyle from '@corvu-next/utils/create/style'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
 
 const [preventScrollStack, setPreventScrollStack] = createSignal<string[]>([])
-const isActive = (id: string) =>
-  preventScrollStack().indexOf(id) === preventScrollStack().length - 1
+const isActive = (id: string) => {
+  const stack = preventScrollStack()
+  const index = stack.indexOf(id)
+  return index !== -1 && index === stack.length - 1
+}
 
 /**
  * Prevents scroll outside of the given element.
