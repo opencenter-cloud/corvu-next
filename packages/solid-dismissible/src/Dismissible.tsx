@@ -23,7 +23,7 @@ type DismissibleContextValue = {
   onLayerDismiss: (dismissedLayer: string) => void
 }
 
-const DismissibleContext = createContext<DismissibleContextValue>()
+const DismissibleContext = createContext<DismissibleContextValue | null>(null)
 
 export type DismissibleProps = {
   /**
@@ -51,7 +51,7 @@ const Dismissible: Component<DismissibleProps> = (props) => {
 
   const memoizedDismissible = createMemo(() => {
     const dismissibleContext = useContext(DismissibleContext)
-    if (dismissibleContext) {
+    if (dismissibleContext !== null) {
       return <DismissibleLayer {...props} />
     }
 
