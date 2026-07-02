@@ -5,7 +5,7 @@
  * https://github.com/solidjs-community/solid-primitives
  */
 import type { EventHandlerEvent } from '@src/dom'
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 
 const extractCSSregex = /((?:--)?(?:\w+-?)+)\s*:\s*([^;]*)/g
 

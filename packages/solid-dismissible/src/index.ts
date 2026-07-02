@@ -1,6 +1,6 @@
 import Dismissible, { activeDismissibles } from '@src/Dismissible'
 
-export type { MaybeAccessor } from '@corvu/utils/reactivity'
+export type { MaybeAccessor } from '@corvu-next/utils/reactivity'
 export type {
   DismissibleProps,
   DismissibleChildrenProps,

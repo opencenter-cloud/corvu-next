@@ -3,11 +3,7 @@
     "module": "ESNext",
     "target": "ESNext",
     "newLine": "LF",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ESNext"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "moduleResolution": "Bundler",
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
@@ -19,17 +15,12 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "verbatimModuleSyntax": true,
     "baseUrl": ".",
     "paths": {
-      "@src/*": [
-        "./src/*"
-      ]
+      "@src/*": ["./src/*"]
     }
   },
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "exclude": ["node_modules", "dist"]
 }

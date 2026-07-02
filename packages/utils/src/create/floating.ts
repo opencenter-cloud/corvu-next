@@ -22,8 +22,7 @@ import {
   size,
   type Strategy,
 } from '@floating-ui/dom'
-import { createSignal, mergeProps, onCleanup } from 'solid-js'
-import { createEffect } from 'solid-js'
+import { createEffect, createSignal, merge } from 'solid-js'
 
 export type FloatingOptions = {
   offset?: OffsetOptions
@@ -60,7 +59,7 @@ const createFloating = (props: {
   strategy?: MaybeAccessor<Strategy>
   options?: MaybeAccessor<FloatingOptions | null>
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       enabled: true,
       placement: 'bottom' as const,
@@ -82,122 +81,127 @@ const createFloating = (props: {
     arrowY: null,
   })
 
-  createEffect(() => {
-    if (!access(defaultedProps.enabled)) return
+  createEffect(
+    () => ({
+      enabled: access(defaultedProps.enabled),
+      reference: access(defaultedProps.reference),
+      floating: access(defaultedProps.floating),
+      arrowElement: access(defaultedProps.arrow),
+      options: access(defaultedProps.options),
+    }),
+    ({ enabled, reference, floating, arrowElement, options }) => {
+      if (!enabled) return
+      if (!reference || !floating) return
 
-    const reference = access(defaultedProps.reference)
-    const floating = access(defaultedProps.floating)
-    if (!reference || !floating) return
+      const middleware: Middleware[] = []
 
-    const middleware: Middleware[] = []
-    const options = access(defaultedProps.options)
+      if (options?.offset !== undefined) {
+        middleware.push(offset(options.offset))
+      }
+      if (options?.shift !== undefined && options.shift !== false) {
+        const shiftOptions = options.shift === true ? undefined : options.shift
+        middleware.push(shift(shiftOptions))
+      }
+      if (arrowElement) {
+        middleware.push(
+          arrow({
+            element: arrowElement,
+            padding: options?.arrow,
+          }),
+        )
+      }
 
-    if (options?.offset !== undefined) {
-      middleware.push(offset(options.offset))
-    }
-    if (options?.shift !== undefined && options.shift !== false) {
-      const shiftOptions = options.shift === true ? undefined : options.shift
-      middleware.push(shift(shiftOptions))
-    }
-    const arrowElement = access(defaultedProps.arrow)
-    if (arrowElement) {
-      middleware.push(
-        arrow({
-          element: arrowElement,
-          padding: options?.arrow,
-        }),
-      )
-    }
+      const flipEnabled = options?.flip !== undefined && options.flip !== false
+      const flipOptions =
+        typeof options?.flip === 'boolean' ? undefined : options?.flip
 
-    const flipEnabled = options?.flip !== undefined && options.flip !== false
-    const flipOptions =
-      typeof options?.flip === 'boolean' ? undefined : options?.flip
+      if (flipEnabled && flipOptions?.fallbackStrategy !== 'initialPlacement') {
+        middleware.push(flip(flipOptions))
+      }
 
-    if (flipEnabled && flipOptions?.fallbackStrategy !== 'initialPlacement') {
-      middleware.push(flip(flipOptions))
-    }
+      if (options?.size) {
+        middleware.push(
+          size({
+            apply: ({ availableWidth, availableHeight, ...state }) => {
+              const newFloatingState: Partial<FloatingState> = {}
 
-    if (options?.size) {
-      middleware.push(
-        size({
-          apply: ({ availableWidth, availableHeight, ...state }) => {
-            const newFloatingState: Partial<FloatingState> = {}
-
-            if (options.size!.matchSize === true) {
-              if (
-                state.placement.startsWith('top') ||
-                state.placement.startsWith('bottom')
-              ) {
-                newFloatingState.width = state.rects.reference.width
-              } else {
-                newFloatingState.height = state.rects.reference.height
+              if (options.size!.matchSize === true) {
+                if (
+                  state.placement.startsWith('top') ||
+                  state.placement.startsWith('bottom')
+                ) {
+                  newFloatingState.width = state.rects.reference.width
+                } else {
+                  newFloatingState.height = state.rects.reference.height
+                }
               }
-            }
-            if (options.size!.fitViewPort === true) {
-              if (
-                state.placement.startsWith('top') ||
-                state.placement.startsWith('bottom')
-              ) {
-                newFloatingState.maxHeight = availableHeight
-              } else {
-                newFloatingState.maxWidth = availableWidth
+              if (options.size!.fitViewPort === true) {
+                if (
+                  state.placement.startsWith('top') ||
+                  state.placement.startsWith('bottom')
+                ) {
+                  newFloatingState.maxHeight = availableHeight
+                } else {
+                  newFloatingState.maxWidth = availableWidth
+                }
               }
-            }
 
-            if (!floatingStatesMatch(floatingState(), newFloatingState)) {
-              setFloatingState((state) => ({ ...state, ...newFloatingState }))
-            }
-          },
-          ...options.size,
-        }),
-      )
-    }
+              if (!floatingStatesMatch(floatingState(), newFloatingState)) {
+                setFloatingState((state) => ({ ...state, ...newFloatingState }))
+              }
+            },
+            ...options.size,
+          }),
+        )
+      }
 
-    if (flipEnabled && flipOptions?.fallbackStrategy === 'bestFit') {
-      middleware.push(flip(flipOptions))
-    }
+      if (flipEnabled && flipOptions?.fallbackStrategy === 'bestFit') {
+        middleware.push(flip(flipOptions))
+      }
 
-    if (
-      !flipEnabled &&
-      options?.autoPlacement !== undefined &&
-      options.autoPlacement !== false
-    ) {
-      const autoPlacementOptions =
-        options.autoPlacement === true ? undefined : options.autoPlacement
-      middleware.push(autoPlacement(autoPlacementOptions))
-    }
+      if (
+        !flipEnabled &&
+        options?.autoPlacement !== undefined &&
+        options.autoPlacement !== false
+      ) {
+        const autoPlacementOptions =
+          options.autoPlacement === true ? undefined : options.autoPlacement
+        middleware.push(autoPlacement(autoPlacementOptions))
+      }
 
-    if (options?.hide !== undefined && options.hide !== false) {
-      const hideOptions = options.hide === true ? undefined : options.hide
-      middleware.push(hide(hideOptions))
-    }
+      if (options?.hide !== undefined && options.hide !== false) {
+        const hideOptions = options.hide === true ? undefined : options.hide
+        middleware.push(hide(hideOptions))
+      }
 
-    if (options?.inline !== undefined && options.inline !== false) {
-      const inlineOptions = options.inline === true ? undefined : options.inline
-      middleware.push(inline(inlineOptions))
-    }
+      if (options?.inline !== undefined && options.inline !== false) {
+        const inlineOptions =
+          options.inline === true ? undefined : options.inline
+        middleware.push(inline(inlineOptions))
+      }
 
-    const cleanup = autoUpdate(reference, floating, () => {
-      computePosition(reference, floating, {
-        placement: access(defaultedProps.placement),
-        strategy: access(defaultedProps.strategy),
-        middleware,
-      }).then(({ placement, x, y, middlewareData }) => {
-        const newFloatingState = {
-          placement,
-          x,
-          y,
-          arrowX: middlewareData.arrow?.x ?? null,
-          arrowY: middlewareData.arrow?.y ?? null,
-        }
-        if (!floatingStatesMatch(floatingState(), newFloatingState)) {
-          setFloatingState((state) => ({ ...state, ...newFloatingState }))
-        }
+      const cleanup = autoUpdate(reference, floating, () => {
+        computePosition(reference, floating, {
+          placement: access(defaultedProps.placement),
+          strategy: access(defaultedProps.strategy),
+          middleware,
+        }).then(({ placement, x, y, middlewareData }) => {
+          const newFloatingState = {
+            placement,
+            x,
+            y,
+            arrowX: middlewareData.arrow?.x ?? null,
+            arrowY: middlewareData.arrow?.y ?? null,
+          }
+          if (!floatingStatesMatch(floatingState(), newFloatingState)) {
+            setFloatingState((state) => ({ ...state, ...newFloatingState }))
+          }
+        })
       })
-    })
 
-    onCleanup(cleanup)
-  })
+      return cleanup
+    },
+  )
 
   return floatingState
 }

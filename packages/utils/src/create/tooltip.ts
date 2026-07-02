@@ -1,5 +1,5 @@
 import { access, type MaybeAccessor } from '@src/reactivity'
-import { type Accessor, createEffect, onCleanup, untrack } from 'solid-js'
+import { type Accessor, createEffect, untrack } from 'solid-js'
 import { afterPaint } from '@src/dom'
 
 type Point = { x: number; y: number }
@@ -8,7 +8,7 @@ const tooltipGroups = new Map<
   boolean | string,
   {
     skipDelay: boolean
-    skipDelayTimeout: number | null
+    skipDelayTimeout: ReturnType<typeof setTimeout> | null
     tooltips: {
       id: string
       close: () => void
@@ -75,12 +75,12 @@ const createTooltip = (props: {
   let tooltipState: 'focus' | 'entering' | 'hover' | null = null
   let clickedTrigger = false
 
-  let timeout: number | null = null
+  let timeout: ReturnType<typeof setTimeout> | null = null
   let insideSafeArea = false
 
   // Local skip delay state for tooltips without a group
   let localSkipDelay = false
-  let localSkipDelayTimeout: number | null = null
+  let localSkipDelayTimeout: ReturnType<typeof setTimeout> | null = null
 
   const getSkipDelay = () => {
     const group = access(props.group)
@@ -92,7 +92,7 @@ const createTooltip = (props: {
     if (group === null) return (localSkipDelay = value)
     tooltipGroups.get(group)!.skipDelay = value
   }
-  const setSkipDelayTimeout = (value: number | null) => {
+  const setSkipDelayTimeout = (value: ReturnType<typeof setTimeout> | null) => {
     const group = access(props.group)
     if (group === null) return (localSkipDelayTimeout = value)
     tooltipGroups.get(group)!.skipDelayTimeout = value
@@ -103,88 +103,111 @@ const createTooltip = (props: {
     return tooltipGroups.get(group)!.skipDelayTimeout
   }
 
-  createEffect(() => {
-    const group = access(props.group)
-    const id = access(props.id)
-    if (group === null) return
-    registerTooltip(group, id, () => {
-      tooltipState = null
-      props.close()
-    })
-    onCleanup(() => {
-      unregisterTooltip(group, id)
-    })
-  })
-
-  createEffect(() => {
-    if (!props.open()) return
-    untrack(() => {
-      const group = access(props.group)
+  // Effect 1: register in tooltip group and unregister on cleanup.
+  createEffect(
+    () => ({
+      group: access(props.group),
+      id: access(props.id),
+    }),
+    ({ group, id }) => {
       if (group === null) return
-      closeTooltipGroup(group, access(props.id))
-    })
-  })
+      registerTooltip(group, id, () => {
+        tooltipState = null
+        props.close()
+      })
+      return () => {
+        unregisterTooltip(group, id)
+      }
+    },
+  )
 
-  createEffect(() => {
-    if (!access(props.openOnHover)) return
-    const trigger = access(props.trigger)
-    if (!trigger) return
+  // Effect 2: on open, close other tooltips in the same group.
+  createEffect(
+    () => props.open(),
+    (open) => {
+      if (!open) return
+      untrack(() => {
+        const group = access(props.group)
+        if (group === null) return
+        closeTooltipGroup(group, access(props.id))
+      })
+    },
+  )
 
-    const onPointerEnter = (event: PointerEvent) =>
-      afterPaint(() => openTooltip('hover', event))
-    const onPointerDown = (event: PointerEvent) => {
-      clickedTrigger = true
-      closeTooltip('click', event)
-    }
-    const onPointerLeave = (event: PointerEvent) => {
-      if (tooltipState === 'hover') return
-      closeTooltip('leave', event)
-    }
+  // Effect 3: pointer (hover) listeners on the trigger.
+  createEffect(
+    () => ({
+      openOnHover: access(props.openOnHover),
+      trigger: access(props.trigger),
+    }),
+    ({ openOnHover, trigger }) => {
+      if (!openOnHover || !trigger) return
 
-    trigger.addEventListener('pointerenter', onPointerEnter)
-    trigger.addEventListener('pointerdown', onPointerDown)
-    trigger.addEventListener('pointerleave', onPointerLeave)
+      const onPointerEnter = (event: PointerEvent) =>
+        afterPaint(() => openTooltip('hover', event))
+      const onPointerDown = (event: PointerEvent) => {
+        clickedTrigger = true
+        closeTooltip('click', event)
+      }
+      const onPointerLeave = (event: PointerEvent) => {
+        if (tooltipState === 'hover') return
+        closeTooltip('leave', event)
+      }
 
-    onCleanup(() => {
-      trigger.removeEventListener('pointerenter', onPointerEnter)
-      trigger.removeEventListener('pointerdown', onPointerDown)
-      trigger.removeEventListener('pointerleave', onPointerLeave)
-    })
-  })
+      trigger.addEventListener('pointerenter', onPointerEnter)
+      trigger.addEventListener('pointerdown', onPointerDown)
+      trigger.addEventListener('pointerleave', onPointerLeave)
 
-  createEffect(() => {
-    if (!access(props.openOnFocus)) return
-    const trigger = access(props.trigger)
-    if (!trigger) return
+      return () => {
+        trigger.removeEventListener('pointerenter', onPointerEnter)
+        trigger.removeEventListener('pointerdown', onPointerDown)
+        trigger.removeEventListener('pointerleave', onPointerLeave)
+      }
+    },
+  )
 
-    const onFocus = (event: FocusEvent) => openTooltip('focus', event)
+  // Effect 4: focus/blur listeners on the trigger.
+  createEffect(
+    () => ({
+      openOnFocus: access(props.openOnFocus),
+      trigger: access(props.trigger),
+    }),
+    ({ openOnFocus, trigger }) => {
+      if (!openOnFocus || !trigger) return
 
-    const onBlur = (event: FocusEvent) => closeTooltip('blur', event)
+      const onFocus = (event: FocusEvent) => openTooltip('focus', event)
+      const onBlur = (event: FocusEvent) => closeTooltip('blur', event)
 
-    trigger.addEventListener('focus', onFocus)
-    trigger.addEventListener('blur', onBlur)
-    onCleanup(() => {
-      trigger.removeEventListener('focus', onFocus)
-      trigger.removeEventListener('blur', onBlur)
-    })
-  })
+      trigger.addEventListener('focus', onFocus)
+      trigger.addEventListener('blur', onBlur)
+      return () => {
+        trigger.removeEventListener('focus', onFocus)
+        trigger.removeEventListener('blur', onBlur)
+      }
+    },
+  )
 
-  createEffect(() => {
-    if (!access(props.hoverableContent)) return
-    const content = access(props.content)
-    if (!content) return
+  // Effect 5: allow hover-lock inside content.
+  createEffect(
+    () => ({
+      hoverableContent: access(props.hoverableContent),
+      content: access(props.content),
+    }),
+    ({ hoverableContent, content }) => {
+      if (!hoverableContent || !content) return
 
-    const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return
-      if (tooltipState !== 'focus') return
-      tooltipState = 'hover'
-    }
+      const onPointerDown = (event: PointerEvent) => {
+        if (event.pointerType === 'touch') return
+        if (tooltipState !== 'focus') return
+        tooltipState = 'hover'
+      }
 
-    content.addEventListener('pointerdown', onPointerDown)
-    onCleanup(() => {
-      content.removeEventListener('pointerdown', onPointerDown)
-    })
-  })
+      content.addEventListener('pointerdown', onPointerDown)
+      return () => {
+        content.removeEventListener('pointerdown', onPointerDown)
+      }
+    },
+  )
 
   const openTooltip = (
     reason: 'focus' | 'hover',

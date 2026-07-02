@@ -1,9 +1,9 @@
 import {
   createMemo,
   createSignal,
-  splitProps,
-  type ValidComponent,
+  omit,
 } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
 import type { ElementOf, Ref } from '@src/dom'
 import createTagName from '@src/create/tagName'
 import Dynamic from '@src/dynamic/Dynamic'
@@ -32,10 +32,8 @@ const DynamicButton = <T extends ValidComponent = 'button'>(
 ) => {
   const [ref, setRef] = createSignal<HTMLElement | null>(null)
 
-  const [localProps, otherProps] = splitProps(
-    props as DynamicButtonProps<'button'>,
-    ['ref', 'type'],
-  )
+  const buttonProps = props as DynamicButtonProps<'button'>
+  const otherProps = omit(buttonProps, 'ref', 'type')
 
   const tagName = createTagName({
     element: ref,
@@ -43,14 +41,14 @@ const DynamicButton = <T extends ValidComponent = 'button'>(
   })
 
   const memoizedIsButton = createMemo(() => {
-    return isButton(tagName(), localProps.type)
+    return isButton(tagName(), buttonProps.type)
   })
 
   return (
     <Dynamic<DynamicButtonElementProps>
       as="button"
       // === SharedElementProps ===
-      ref={mergeRefs(setRef, localProps.ref)}
+      ref={mergeRefs(setRef, buttonProps.ref)}
       type={memoizedIsButton() ? 'button' : undefined}
       // === ElementProps ===
       role={!memoizedIsButton() ? 'button' : undefined}

@@ -1,17 +1,13 @@
 {
-  "name": "solid-dismissible",
-  "version": "0.1.1",
-  "private": false,
-  "description": "SolidJS utility for creating dismissible, nestable layers.",
-  "keywords": [
-    "solid",
-    "solidjs",
-    "dismissible",
-    "dismiss",
-    "layers",
-    "close",
-    "escape"
-  ],
+  "name": "@corvu-next/dismissible",
+  "version": "0.1.0",
+  "description": "SolidJS 2 utility for creating dismissible, nestable layers.",
+  "license": "MIT",
+  "author": {
+    "name": "Jasmin Noetzli (upstream), @corvu-next contributors (fork)",
+    "email": "code@jasi.dev",
+    "url": "https://github.com/GiyoMoon"
+  },
   "homepage": "https://corvu.dev/docs/utilities/dismissible",
   "bugs": {
     "url": "https://github.com/corvudev/corvu/issues",
@@ -21,57 +17,40 @@
     "type": "git",
     "url": "git+https://github.com/corvudev/corvu.git"
   },
-  "license": "MIT",
-  "author": {
-    "name": "Jasmin Noetzli",
-    "email": "code@jasi.dev",
-    "url": "https://github.com/GiyoMoon"
-  },
-  "sideEffects": false,
   "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "keywords": ["solid", "solidjs", "dismissible", "dismiss", "layers"],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "solid": "./dist/index.jsx",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "*": [
-        "./dist/index.d.ts"
-      ]
+      "*": ["./dist/index.d.ts"]
     }
   },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "clean": "rm -rf .turbo dist node_modules api.json",
-    "lint": "eslint --max-warnings=0 .",
-    "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts"
-  },
   "dependencies": {
-    "@corvu/utils": "workspace:~"
-  },
-  "devDependencies": {
-    "@typescript-eslint/parser": "^8.39.0",
-    "esbuild-plugin-solid": "^0.6.0",
-    "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-solid": "^0.14.5",
-    "prettier": "^3.6.2",
-    "solid-js": "^1.9.8",
-    "tsup": "^8.5.0",
-    "typedoc": "^0.27.9",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0"
+    "@corvu-next/utils": "workspace:~"
   },
   "peerDependencies": {
-    "solid-js": "^1.8"
+    "solid-js": "2.0.0-beta.15"
+  },
+  "devDependencies": {
+    "@solidjs/web": "2.0.0-beta.15",
+    "esbuild-plugin-solid": "^0.6.0",
+    "solid-js": "2.0.0-beta.15",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf .turbo dist node_modules",
+    "lint": "tsc --noEmit"
   }
 }
