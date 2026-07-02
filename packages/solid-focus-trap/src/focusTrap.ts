@@ -1,12 +1,5 @@
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  mergeProps,
-  onCleanup,
-  untrack,
-} from 'solid-js'
+import { createEffect, createMemo, createSignal, merge, untrack } from 'solid-js'
 import { afterPaint } from '@corvu-next/utils/dom'
 
 const focusableElementSelector =
@@ -38,7 +31,7 @@ const createFocusTrap = (props: {
   onInitialFocus?: (event: Event) => void
   onFinalFocus?: (event: Event) => void
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       enabled: true,
       observeChanges: true,
@@ -75,9 +68,19 @@ const createFocusTrap = (props: {
     })
   }
 
-  createEffect(() => {
-    const container = access(defaultedProps.element)
-    if (container && access(defaultedProps.enabled)) {
+  // Effect 1: Main lifecycle — container + enabled → setup trap; cleanup → teardown
+  createEffect(
+    (prev: undefined | { container: HTMLElement; observeChanges: boolean }) => {
+      const container = access(defaultedProps.element)
+      const enabled = access(defaultedProps.enabled)
+      if (!container || !enabled) return undefined
+      const observeChanges = access(defaultedProps.observeChanges)
+      return { container, observeChanges }
+    },
+    (next, prev) => {
+      if (!next) return
+      const { container, observeChanges } = next
+
       originalFocusedElement = document.activeElement as HTMLElement | null
 
       untrack(() => {
@@ -85,8 +88,9 @@ const createFocusTrap = (props: {
         initialFocus(container)
       })
 
-      const observer = new MutationObserver(mutationObserverCallback)
-      if (access(defaultedProps.observeChanges)) {
+      let observer: MutationObserver | undefined
+      if (observeChanges) {
+        observer = new MutationObserver(mutationObserverCallback)
         observer.observe(container, {
           subtree: true,
           childList: true,
@@ -95,51 +99,63 @@ const createFocusTrap = (props: {
         })
       }
 
-      onCleanup(() => {
-        if (access(defaultedProps.observeChanges)) {
+      return () => {
+        if (observer) {
           observer.disconnect()
         }
         setFocusableElements(null)
         restoreFocus(container)
-      })
-    }
-  })
+      }
+    },
+  )
 
-  createEffect(() => {
-    const _focusableElements = focusableElements()
-    if (_focusableElements === null || _focusableElements.length !== 0) return
+  // Effect 2: No focusable elements → prevent Tab from leaving
+  createEffect(
+    (prev: undefined | boolean) => {
+      const _focusableElements = focusableElements()
+      if (_focusableElements === null || _focusableElements.length !== 0)
+        return false
+      return true
+    },
+    (shouldPrevent) => {
+      if (!shouldPrevent) return
 
-    document.addEventListener('keydown', preventFocusChange)
-    onCleanup(() => {
-      document.removeEventListener('keydown', preventFocusChange)
-    })
-  })
+      document.addEventListener('keydown', preventFocusChange)
+      return () => {
+        document.removeEventListener('keydown', preventFocusChange)
+      }
+    },
+  )
 
-  createEffect(() => {
-    const _firstFocusElement = firstFocusElement()
-    if (!_firstFocusElement) return
+  // Effect 3: First focus element → wrap Shift+Tab to last
+  createEffect(
+    (prev: undefined | HTMLElement | null) => {
+      return firstFocusElement()
+    },
+    (element) => {
+      if (!element) return
 
-    _firstFocusElement.addEventListener('keydown', onFirstFocusElementKeyDown)
-    onCleanup(() => {
-      _firstFocusElement.removeEventListener(
-        'keydown',
-        onFirstFocusElementKeyDown,
-      )
-    })
-  })
+      element.addEventListener('keydown', onFirstFocusElementKeyDown)
+      return () => {
+        element.removeEventListener('keydown', onFirstFocusElementKeyDown)
+      }
+    },
+  )
 
-  createEffect(() => {
-    const _lastFocusElement = lastFocusElement()
-    if (!_lastFocusElement) return
+  // Effect 4: Last focus element → wrap Tab to first
+  createEffect(
+    (prev: undefined | HTMLElement | null) => {
+      return lastFocusElement()
+    },
+    (element) => {
+      if (!element) return
 
-    _lastFocusElement.addEventListener('keydown', onLastFocusElementKeyDown)
-    onCleanup(() => {
-      _lastFocusElement.removeEventListener(
-        'keydown',
-        onLastFocusElementKeyDown,
-      )
-    })
-  })
+      element.addEventListener('keydown', onLastFocusElementKeyDown)
+      return () => {
+        element.removeEventListener('keydown', onLastFocusElementKeyDown)
+      }
+    },
+  )
 
   const loadFocusTrap = (container: HTMLElement) => {
     const focusableElements = (
