@@ -1,5 +1,5 @@
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, mergeProps, onCleanup } from 'solid-js'
+import { createEffect, merge } from 'solid-js'
 import { contains } from '@corvu-next/utils/dom'
 
 const EVENT_ON_FOCUS = 'dismissible.outsideFocus'
@@ -19,7 +19,7 @@ const createOutsideFocus = (props: {
   onFocus: (event: CustomEvent) => void
   ignorePointerEvents?: MaybeAccessor<boolean>
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       enabled: true,
       ignorePointerEvents: false,
@@ -28,26 +28,6 @@ const createOutsideFocus = (props: {
   )
 
   let pointerDown = false
-
-  createEffect(() => {
-    if (!access(defaultedProps.enabled)) {
-      return
-    }
-
-    const ignorePointerEvents = access(defaultedProps.ignorePointerEvents)
-
-    document.addEventListener('focusin', handleFocus)
-    if (ignorePointerEvents) {
-      document.addEventListener('pointerdown', handlePointerDown)
-    }
-
-    onCleanup(() => {
-      document.removeEventListener('focusin', handleFocus)
-      if (ignorePointerEvents) {
-        document.removeEventListener('pointerdown', handlePointerDown)
-      }
-    })
-  })
 
   const handleFocus = (event: FocusEvent) => {
     if (pointerDown) {
@@ -65,6 +45,28 @@ const createOutsideFocus = (props: {
   const handlePointerDown = () => {
     pointerDown = true
   }
+
+  createEffect(
+    () => ({
+      enabled: access(defaultedProps.enabled),
+      ignorePointerEvents: access(defaultedProps.ignorePointerEvents),
+    }),
+    ({ enabled, ignorePointerEvents }) => {
+      if (!enabled) return
+
+      document.addEventListener('focusin', handleFocus)
+      if (ignorePointerEvents) {
+        document.addEventListener('pointerdown', handlePointerDown)
+      }
+
+      return () => {
+        document.removeEventListener('focusin', handleFocus)
+        if (ignorePointerEvents) {
+          document.removeEventListener('pointerdown', handlePointerDown)
+        }
+      }
+    },
+  )
 }
 
 export default createOutsideFocus
