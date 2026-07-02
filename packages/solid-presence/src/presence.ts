@@ -4,7 +4,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  onCleanup,
   untrack,
 } from 'solid-js'
 
@@ -49,71 +48,80 @@ const createPresence = (props: {
 
   let animationName = 'none'
 
-  createEffect((prevShow) => {
-    const show = access(props.show)
+  // Effect 1: react to `show` prop changes, compute next present state.
+  // compute receives prev (undefined on first run, then the last returned value).
+  // We return { prev, show } — `prev` is the previous `show` value.
+  createEffect(
+    (prevResult: { prev: boolean; show: boolean } | undefined) => {
+      const show = access(props.show)
+      const prev = prevResult?.show ?? show
+      return { prev, show }
+    },
+    ({ prev, show }) => {
+      if (prev === show) return
 
-    untrack(() => {
-      if (prevShow === show) return show
+      untrack(() => {
+        const prevAnimationName = animationName
+        const currentAnimationName = getAnimationName()
 
-      const prevAnimationName = animationName
-      const currentAnimationName = getAnimationName()
-
-      if (show) {
-        setPresentState('present')
-      } else if (
-        currentAnimationName === 'none' ||
-        refStyles()?.display === 'none'
-      ) {
-        setPresentState('hidden')
-      } else {
-        const isAnimating = prevAnimationName !== currentAnimationName
-
-        if (prevShow === true && isAnimating) {
-          setPresentState('hiding')
+        if (show) {
+          setPresentState('present')
+        } else if (
+          currentAnimationName === 'none' ||
+          refStyles()?.display === 'none'
+        ) {
+          setPresentState('hidden')
         } else {
+          const isAnimating = prevAnimationName !== currentAnimationName
+
+          if (prev === true && isAnimating) {
+            setPresentState('hiding')
+          } else {
+            setPresentState('hidden')
+          }
+        }
+      })
+    },
+  )
+
+  // Effect 2: attach animation event listeners to the tracked element.
+  // Split-phase: compute reads `element`; apply attaches listeners and returns cleanup.
+  createEffect(
+    () => access(props.element),
+    (element) => {
+      if (!element) return
+
+      const handleAnimationStart = (event: AnimationEvent) => {
+        if (event.target === element) {
+          animationName = getAnimationName()
+        }
+      }
+
+      const handleAnimationEnd = (event: AnimationEvent) => {
+        const currentAnimationName = getAnimationName()
+        const isCurrentAnimation = currentAnimationName.includes(
+          event.animationName,
+        )
+        if (
+          event.target === element &&
+          isCurrentAnimation &&
+          presentState() === 'hiding'
+        ) {
           setPresentState('hidden')
         }
       }
-    })
 
-    return show
-  }, access(props.show))
+      element.addEventListener('animationstart', handleAnimationStart)
+      element.addEventListener('animationcancel', handleAnimationEnd)
+      element.addEventListener('animationend', handleAnimationEnd)
 
-  createEffect(() => {
-    const element = access(props.element)
-
-    if (!element) return
-
-    const handleAnimationStart = (event: AnimationEvent) => {
-      if (event.target === element) {
-        animationName = getAnimationName()
+      return () => {
+        element.removeEventListener('animationstart', handleAnimationStart)
+        element.removeEventListener('animationcancel', handleAnimationEnd)
+        element.removeEventListener('animationend', handleAnimationEnd)
       }
-    }
-
-    const handleAnimationEnd = (event: AnimationEvent) => {
-      const currentAnimationName = getAnimationName()
-      const isCurrentAnimation = currentAnimationName.includes(
-        event.animationName,
-      )
-      if (
-        event.target === element &&
-        isCurrentAnimation &&
-        presentState() === 'hiding'
-      ) {
-        setPresentState('hidden')
-      }
-    }
-
-    element.addEventListener('animationstart', handleAnimationStart)
-    element.addEventListener('animationcancel', handleAnimationEnd)
-    element.addEventListener('animationend', handleAnimationEnd)
-
-    onCleanup(() => {
-      element.removeEventListener('animationstart', handleAnimationStart)
-      element.removeEventListener('animationcancel', handleAnimationEnd)
-      element.removeEventListener('animationend', handleAnimationEnd)
-    })
-  })
+    },
+  )
 
   return {
     present: () => presentState() === 'present' || presentState() === 'hiding',
