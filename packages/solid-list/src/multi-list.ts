@@ -1,6 +1,6 @@
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
-import { mergeProps } from 'solid-js'
+import { merge } from 'solid-js'
 
 /**
  * Creates a keyboard navigable multiselect list.
@@ -52,7 +52,7 @@ const createMultiList = <T>(props: {
   onActiveChange?: (active: T[]) => void
   onSelectedChange?: (selected: T[]) => void
 }) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       initialCursor: null,
       initialActive: [],
