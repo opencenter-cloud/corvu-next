@@ -9,3 +9,4 @@ packages/*/README.md
 !packages/solid-*/README.md
 packages/*/api.json
 tsup.config.*.mjs
+.npmrc
