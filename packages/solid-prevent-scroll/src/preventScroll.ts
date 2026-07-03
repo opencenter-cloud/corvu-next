@@ -118,7 +118,7 @@ const createPreventScroll = (props: {
         const offsetTop = window.scrollY
         const offsetLeft = window.scrollX
 
-        createStyle({
+        const revertStyle = createStyle({
           key: 'prevent-scroll',
           element: body,
           style,
@@ -132,14 +132,16 @@ const createPreventScroll = (props: {
             }
           },
         })
+        return revertStyle
       } else {
-        createStyle({
+        const revertStyle = createStyle({
           key: 'prevent-scroll',
           element: body,
           style: {
             overflow: 'hidden',
           },
         })
+        return revertStyle
       }
     },
   )

@@ -14,21 +14,54 @@ importers:
 
   dev-solid2:
     dependencies:
+      '@corvu-next/accordion':
+        specifier: workspace:~
+        version: link:../packages/accordion
+      '@corvu-next/calendar':
+        specifier: workspace:~
+        version: link:../packages/calendar
+      '@corvu-next/dialog':
+        specifier: workspace:~
+        version: link:../packages/dialog
+      '@corvu-next/disclosure':
+        specifier: workspace:~
+        version: link:../packages/disclosure
       '@corvu-next/dismissible':
         specifier: workspace:~
         version: link:../packages/solid-dismissible
+      '@corvu-next/drawer':
+        specifier: workspace:~
+        version: link:../packages/drawer
       '@corvu-next/focus-trap':
         specifier: workspace:~
         version: link:../packages/solid-focus-trap
       '@corvu-next/list':
         specifier: workspace:~
         version: link:../packages/solid-list
+      '@corvu-next/otp-field':
+        specifier: workspace:~
+        version: link:../packages/otp-field
+      '@corvu-next/persistent':
+        specifier: workspace:~
+        version: link:../packages/solid-persistent
+      '@corvu-next/popover':
+        specifier: workspace:~
+        version: link:../packages/popover
       '@corvu-next/presence':
         specifier: workspace:~
         version: link:../packages/solid-presence
       '@corvu-next/prevent-scroll':
         specifier: workspace:~
         version: link:../packages/solid-prevent-scroll
+      '@corvu-next/resizable':
+        specifier: workspace:~
+        version: link:../packages/resizable
+      '@corvu-next/tooltip':
+        specifier: workspace:~
+        version: link:../packages/tooltip
+      '@corvu-next/transition-size':
+        specifier: workspace:~
+        version: link:../packages/solid-transition-size
       '@corvu-next/utils':
         specifier: workspace:~
         version: link:../packages/utils
