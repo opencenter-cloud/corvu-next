@@ -5,22 +5,21 @@ import {
 import {
   createMemo,
   createUniqueId,
-  type JSX,
-  mergeProps,
-  splitProps,
-  type ValidComponent,
+  merge,
+  omit,
 } from 'solid-js'
+import type { JSX, ValidComponent } from '@solidjs/web'
 import type {
   RootChildrenProps as DisclosureRootChildrenProps,
   RootProps as DisclosureRootProps,
   DynamicProps,
-} from '@corvu/disclosure'
-import createOnce from '@corvu/utils/create/once'
-import createRegister from '@corvu/utils/create/register'
-import Disclosure from '@corvu/disclosure'
-import { Dynamic } from '@corvu/utils/dynamic'
-import Fragment from '@corvu/utils/components/Fragment'
-import { isFunction } from '@corvu/utils'
+} from '@corvu-next/disclosure'
+import createOnce from '@corvu-next/utils/create/once'
+import createRegister from '@corvu-next/utils/create/register'
+import Disclosure from '@corvu-next/disclosure'
+import { Dynamic } from '@corvu-next/utils/dynamic'
+import Fragment from '@corvu-next/utils/components/Fragment'
+import { isFunction } from '@corvu-next/utils'
 import { useInternalAccordionContext } from '@src/context'
 
 export type AccordionItemCorvuProps = {
@@ -78,45 +77,44 @@ export type AccordionItemChildrenProps = {
 const AccordionItem = <T extends ValidComponent = typeof Fragment>(
   props: DynamicProps<T, AccordionItemProps<T>>,
 ) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       accordionId: createUniqueId(),
     },
     props,
   )
-  const [localProps, otherProps] = splitProps(
-    defaultedProps as AccordionItemProps,
-    [
-      'value',
-      'disabled',
-      'collapseBehavior',
-      'preventInitialContentAnimation',
-      'triggerId',
-      'contextId',
-      'children',
-    ],
+  const typedProps = defaultedProps as AccordionItemProps
+  const otherProps = omit(
+    typedProps,
+    'value',
+    'disabled',
+    'collapseBehavior',
+    'preventInitialContentAnimation',
+    'triggerId',
+    'contextId',
+    'children',
   )
 
   const [triggerId, registerTriggerId, unregisterTriggerId] = createRegister({
-    value: () => localProps.triggerId ?? createUniqueId(),
+    value: () => typedProps.triggerId ?? createUniqueId(),
   })
 
   const context = createMemo(() =>
-    useInternalAccordionContext(localProps.contextId),
+    useInternalAccordionContext(typedProps.contextId),
   )
 
-  const value = createMemo(() => localProps.value ?? createUniqueId())
+  const value = createMemo(() => typedProps.value ?? createUniqueId())
 
   const expanded = createMemo(() => context().internalValue().includes(value()))
   const disabled = createMemo(
-    () => (localProps.disabled ?? context().disabled()) as boolean,
+    () => (typedProps.disabled ?? context().disabled()) as boolean,
   )
   const collapseBehavior = createMemo(
-    () => localProps.collapseBehavior ?? context().collapseBehavior(),
+    () => typedProps.collapseBehavior ?? context().collapseBehavior(),
   )
   const preventInitialContentAnimation = createMemo(
     () =>
-      localProps.preventInitialContentAnimation ??
+      typedProps.preventInitialContentAnimation ??
       context().preventInitialContentAnimation(),
   )
 
@@ -132,14 +130,14 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
     },
   }
 
-  const memoizedChildren = createOnce(() => localProps.children)
+  const memoizedChildren = createOnce(() => typedProps.children)
 
   const resolveChildren = (
     disclosureChildrenProps: DisclosureRootChildrenProps,
   ) => {
     const children = memoizedChildren()()
     if (isFunction(children)) {
-      const mergedProps = mergeProps(disclosureChildrenProps, childrenProps)
+      const mergedProps = merge(disclosureChildrenProps, childrenProps)
       return children(mergedProps)
     }
     return children
@@ -147,21 +145,21 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
 
   const memoizedAccordionItem = createMemo(() => {
     const AccordionItemContext = createAccordionItemContext(
-      localProps.contextId,
+      typedProps.contextId,
     )
     const InternalAccordionItemContext = createInternalAccordionItemContext(
-      localProps.contextId,
+      typedProps.contextId,
     )
 
     return (
-      <AccordionItemContext.Provider
+      <AccordionItemContext
         value={{
           value,
           disabled,
           triggerId,
         }}
       >
-        <InternalAccordionItemContext.Provider
+        <InternalAccordionItemContext
           value={{
             value,
             disabled,
@@ -184,7 +182,7 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
               }}
               collapseBehavior={collapseBehavior()}
               preventInitialContentAnimation={preventInitialContentAnimation()}
-              contextId={localProps.contextId}
+              contextId={typedProps.contextId}
               {...otherProps}
             >
               {(disclosureChildrenProps) =>
@@ -192,8 +190,8 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
               }
             </Disclosure>
           </Dynamic>
-        </InternalAccordionItemContext.Provider>
-      </AccordionItemContext.Provider>
+        </InternalAccordionItemContext>
+      </AccordionItemContext>
     )
   })
 

@@ -1,10 +1,11 @@
-import { type Component, createMemo, type ValidComponent } from 'solid-js'
+import { type Component, createMemo } from 'solid-js'
+import { type ValidComponent } from '@solidjs/web'
 import Disclosure, {
   type ContentCorvuProps as DisclosureContentCorvuProps,
   type ContentElementProps as DisclosureContentElementProps,
   type ContentSharedElementProps as DisclosureContentSharedElementProps,
-} from '@corvu/disclosure'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+} from '@corvu-next/disclosure'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 import { useInternalAccordionItemContext } from '@src/itemContext'
 
 export type AccordionContentCorvuProps = DisclosureContentCorvuProps

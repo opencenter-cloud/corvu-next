@@ -2,7 +2,7 @@ import { type Accessor, createContext, useContext } from 'solid-js'
 import {
   createKeyedContext,
   useKeyedContext,
-} from '@corvu/utils/create/keyedContext'
+} from '@corvu-next/utils/create/keyedContext'
 
 export type AccordionItemContextValue = {
   /** Value of the accordion item. */
@@ -13,7 +13,7 @@ export type AccordionItemContextValue = {
   triggerId: Accessor<string | undefined>
 }
 
-const AccordionItemContext = createContext<AccordionItemContextValue>()
+const AccordionItemContext = createContext<AccordionItemContextValue | null>(null)
 
 export const createAccordionItemContext = (contextId?: string) => {
   if (contextId === undefined) return AccordionItemContext
@@ -25,10 +25,10 @@ export const createAccordionItemContext = (contextId?: string) => {
 }
 
 /** Context which exposes various properties to interact with the accordion. Optionally provide a contextId to access a keyed context. */
-export const useAccordionItemContext = (contextId?: string) => {
+export const useAccordionItemContext = (contextId?: string): AccordionItemContextValue => {
   if (contextId === undefined) {
     const context = useContext(AccordionItemContext)
-    if (!context) {
+    if (context === null) {
       throw new Error(
         '[corvu]: Accordion Item context not found. Make sure to wrap Accordion Item components in <Accordion.Item>',
       )
@@ -53,7 +53,7 @@ export type InternalAccordionItemContextValue = AccordionItemContextValue & {
 }
 
 const InternalAccordionItemContext =
-  createContext<InternalAccordionItemContextValue>()
+  createContext<InternalAccordionItemContextValue | null>(null)
 
 export const createInternalAccordionItemContext = (contextId?: string) => {
   if (contextId === undefined) return InternalAccordionItemContext
@@ -64,10 +64,10 @@ export const createInternalAccordionItemContext = (contextId?: string) => {
   return context
 }
 
-export const useInternalAccordionItemContext = (contextId?: string) => {
+export const useInternalAccordionItemContext = (contextId?: string): InternalAccordionItemContextValue => {
   if (contextId === undefined) {
     const context = useContext(InternalAccordionItemContext)
-    if (!context) {
+    if (context === null) {
       throw new Error(
         '[corvu]: Accordion context not found. Make sure to wrap Accordion components in <Accordion.Root>',
       )

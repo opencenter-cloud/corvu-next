@@ -11,7 +11,7 @@ import {
 import {
   type ContextValue as DisclosureContextValue,
   useContext as useDisclosureContext,
-} from '@corvu/disclosure'
+} from '@corvu-next/disclosure'
 import Item, {
   type AccordionItemChildrenProps as ItemChildrenProps,
   type AccordionItemCorvuProps as ItemCorvuProps,
@@ -33,7 +33,7 @@ import Trigger, {
   type AccordionTriggerProps as TriggerProps,
   type AccordionTriggerSharedElementProps as TriggerSharedElementProps,
 } from '@src/Trigger'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 
 export type {
   RootProps,
