@@ -9,11 +9,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@corvu-next/accordion": "workspace:~",
+    "@corvu-next/calendar": "workspace:~",
+    "@corvu-next/dialog": "workspace:~",
+    "@corvu-next/disclosure": "workspace:~",
     "@corvu-next/dismissible": "workspace:~",
+    "@corvu-next/drawer": "workspace:~",
     "@corvu-next/focus-trap": "workspace:~",
     "@corvu-next/list": "workspace:~",
+    "@corvu-next/otp-field": "workspace:~",
+    "@corvu-next/persistent": "workspace:~",
+    "@corvu-next/popover": "workspace:~",
     "@corvu-next/presence": "workspace:~",
     "@corvu-next/prevent-scroll": "workspace:~",
+    "@corvu-next/resizable": "workspace:~",
+    "@corvu-next/tooltip": "workspace:~",
+    "@corvu-next/transition-size": "workspace:~",
     "@corvu-next/utils": "workspace:~",
     "@solidjs/web": "2.0.0-beta.15",
     "solid-js": "2.0.0-beta.15"

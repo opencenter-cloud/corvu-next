@@ -27,20 +27,11 @@ export default function DialogDemo() {
 
   return (
     <div>
-      <p>
-        Scroll this page to test scrollbar behavior. Click the button to open
-        a dialog. The dialog should:
-      </p>
-      <ul>
-        <li>Fade in with animation</li>
-        <li>Trap focus (Tab loops inside)</li>
-        <li>Lock body scroll</li>
-        <li>Dismiss on Escape, outside click, or Close button</li>
-        <li>Fade out with animation on close</li>
-      </ul>
-      <div style="height: 200vh; padding-top: 1rem;">
+      <h2>Dialog (Primitives)</h2>
+      <p>Tests: presence animation, scroll lock, focus trap, dismissible layers.</p>
+      <div style="height: 150vh; padding-top: 1rem;">
         <button onClick={() => setOpen(true)}>Open Dialog</button>
-        <p style="margin-top: 50vh;">Middle of the page</p>
+        <p style="margin-top: 30vh;">Scroll position marker</p>
       </div>
 
       <Show when={present()}>
@@ -58,13 +49,15 @@ export default function DialogDemo() {
                 role="dialog"
                 aria-modal="true"
               >
-                <h2>Dialog Title</h2>
-                <p>Focus should be trapped here.</p>
-                <input placeholder="Try tabbing through these" />
+                <h3>Dialog Title</h3>
+                <p>Focus is trapped. Body scroll is locked.</p>
+                <input placeholder="Tab cycles through inputs" />
                 <br /><br />
-                <button>Some action</button>
-                {' '}
+                <button>Action</button>{' '}
                 <button onClick={() => setOpen(false)}>Close</button>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
+                  Dismiss: Escape key, click overlay, or Close button.
+                </p>
               </div>
             </div>
           </Dismissible>
