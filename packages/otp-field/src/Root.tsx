@@ -109,12 +109,14 @@ const OtpFieldRoot = <T extends ValidComponent = 'div'>(
     dimension: 'height',
   })
 
-  createEffect((prev: undefined | string) => {
-    const value_ = value()
-    if (value_.length !== defaultedProps.maxLength) return value_
-    defaultedProps.onComplete?.(value_)
-    return value_
-  })
+  createEffect(
+    () => value(),
+    (currentValue) => {
+      if (currentValue.length === defaultedProps.maxLength) {
+        defaultedProps.onComplete?.(currentValue)
+      }
+    },
+  )
 
   const [isFocused, setIsFocused] = createSignal(false)
   const [isHovered, setIsHovered] = createSignal(false)
