@@ -1,14 +1,9 @@
-import { combineStyle, type ElementOf, type Ref } from '@corvu/utils/dom'
-import {
-  createMemo,
-  type JSX,
-  Show,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
-import { Dynamic, type DynamicProps } from '@corvu/utils/dynamic'
-import { mergeRefs, some } from '@corvu/utils/reactivity'
-import { dataIf } from '@corvu/utils'
+import { combineStyle, type ElementOf, type Ref } from '@corvu-next/utils/dom'
+import { createMemo, omit, Show } from 'solid-js'
+import { type JSX, type ValidComponent } from '@solidjs/web'
+import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
+import { mergeRefs, some } from '@corvu-next/utils/reactivity'
+import { dataIf } from '@corvu-next/utils'
 import { useInternalDisclosureContext } from '@src/context'
 
 export type DisclosureContentCorvuProps = {
@@ -52,21 +47,23 @@ export type DisclosureContentProps<T extends ValidComponent = 'div'> =
 const DisclosureContent = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, DisclosureContentProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as DisclosureContentProps, [
+  const typedProps = props as DisclosureContentProps
+  const otherProps = omit(
+    typedProps,
     'forceMount',
     'contextId',
     'ref',
     'style',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalDisclosureContext(localProps.contextId),
+    useInternalDisclosureContext(typedProps.contextId),
   )
 
   const show = () =>
     some(
       context().expanded,
-      () => localProps.forceMount,
+      () => typedProps.forceMount,
       context().contentPresent,
     )
 
@@ -85,14 +82,14 @@ const DisclosureContent = <T extends ValidComponent = 'div'>(
       <Dynamic<DisclosureContentElementProps>
         as="div"
         // === SharedElementProps ===
-        ref={mergeRefs(context().setContentRef, localProps.ref)}
+        ref={mergeRefs(context().setContentRef, typedProps.ref)}
         style={combineStyle(
           {
             display: !show() ? 'none' : undefined,
             '--corvu-disclosure-content-width': `${contentWidth()}px`,
             '--corvu-disclosure-content-height': `${contentHeight()}px`,
           },
-          localProps.style,
+          typedProps.style,
         )}
         // === ElementProps ===
         id={context().disclosureId()}

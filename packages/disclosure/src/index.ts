@@ -18,7 +18,7 @@ import Trigger, {
   type DisclosureTriggerProps as TriggerProps,
   type DisclosureTriggerSharedElementProps as TriggerSharedElementProps,
 } from '@src/Trigger'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 
 export type {
   RootProps,
