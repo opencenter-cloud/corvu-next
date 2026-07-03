@@ -3,20 +3,20 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  type JSX,
-  mergeProps,
+  merge,
   type Setter,
   untrack,
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import {
   createAccordionContext,
   createInternalAccordionContext,
 } from '@src/context'
-import createControllableSignal from '@corvu/utils/create/controllableSignal'
-import { createList } from 'solid-list'
-import createOnce from '@corvu/utils/create/once'
-import { isFunction } from '@corvu/utils'
-import { sortByDocumentPosition } from '@corvu/utils/dom'
+import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
+import { createList } from '@corvu-next/list'
+import createOnce from '@corvu-next/utils/create/once'
+import { isFunction } from '@corvu-next/utils'
+import { sortByDocumentPosition } from '@corvu-next/utils/dom'
 
 export type AccordionRootProps = {
   /**
@@ -106,7 +106,7 @@ export type AccordionRootChildrenProps = {
 
 /** Context wrapper for the accordion. Is required for every accordion you create. */
 const AccordionRoot: Component<AccordionRootProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       multiple: false,
       initialValue: null,
@@ -163,19 +163,26 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
     HTMLElement[]
   >([])
 
-  createEffect(() => {
-    const observer = new MutationObserver(updateSelectableTriggers)
-    triggers().forEach((trigger) => {
-      observer.observe(trigger, {
-        attributes: true,
-        attributeFilter: ['disabled'],
+  // Split-phase effect: compute tracks triggers(), apply manages MutationObserver.
+  createEffect(
+    () => {
+      const currentTriggers = triggers()
+      return currentTriggers
+    },
+    (currentTriggers: HTMLElement[]) => {
+      const observer = new MutationObserver(updateSelectableTriggers)
+      currentTriggers.forEach((trigger) => {
+        observer.observe(trigger, {
+          attributes: true,
+          attributeFilter: ['disabled'],
+        })
       })
-    })
 
-    updateSelectableTriggers()
+      updateSelectableTriggers()
 
-    return observer.disconnect
-  })
+      return () => observer.disconnect()
+    },
+  )
 
   const updateSelectableTriggers = () => {
     setSelectableTriggers(
@@ -247,7 +254,7 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
     )
 
     return (
-      <AccordionContext.Provider
+      <AccordionContext
         value={{
           multiple: () => defaultedProps.multiple,
           value,
@@ -262,7 +269,7 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
             defaultedProps.preventInitialContentAnimation,
         }}
       >
-        <InternalAccordionContext.Provider
+        <InternalAccordionContext
           value={{
             multiple: () => defaultedProps.multiple,
             value,
@@ -287,8 +294,8 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
           }}
         >
           {untrack(() => resolveChildren())}
-        </InternalAccordionContext.Provider>
-      </AccordionContext.Provider>
+        </InternalAccordionContext>
+      </AccordionContext>
     )
   })
 

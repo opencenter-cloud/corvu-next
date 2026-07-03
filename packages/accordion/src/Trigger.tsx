@@ -1,22 +1,14 @@
-import { callEventHandler, type ElementOf } from '@corvu/utils/dom'
-import {
-  type Component,
-  createEffect,
-  createMemo,
-  createSignal,
-  type JSX,
-  onCleanup,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
+import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
+import { type Component, createEffect, createMemo, createSignal, omit } from 'solid-js'
+import { type JSX, type ValidComponent } from '@solidjs/web'
 import Disclosure, {
   type TriggerCorvuProps as DisclosureTriggerCorvuProps,
   type TriggerElementProps as DisclosureTriggerElementProps,
   type TriggerSharedElementProps as DisclosureTriggerSharedElementProps,
-} from '@corvu/disclosure'
-import { dataIf } from '@corvu/utils'
-import type { DynamicProps } from '@corvu/utils/dynamic'
-import { mergeRefs } from '@corvu/utils/reactivity'
+} from '@corvu-next/disclosure'
+import { dataIf } from '@corvu-next/utils'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalAccordionContext } from '@src/context'
 import { useInternalAccordionItemContext } from '@src/itemContext'
 
@@ -51,47 +43,60 @@ export type AccordionTriggerProps<T extends ValidComponent = 'button'> =
 const AccordionTrigger = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, AccordionTriggerProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as AccordionTriggerProps, [
+  const typedProps = props as AccordionTriggerProps
+  const otherProps = omit(
+    typedProps,
     'contextId',
     'ref',
     'onKeyDown',
     'onFocus',
     'disabled',
-  ])
+  )
   const [triggerRef, setTriggerRef] = createSignal<HTMLElement | null>(null)
 
   const accordionContext = createMemo(() =>
-    useInternalAccordionContext(localProps.contextId),
+    useInternalAccordionContext(typedProps.contextId),
   )
 
-  createEffect(() => {
-    const trigger = triggerRef()
-    const context = accordionContext()
-    if (trigger) {
-      context.registerTrigger(trigger)
-      onCleanup(() => context.unregisterTrigger(trigger))
-    }
-  })
+  // Split-phase effect: compute tracks triggerRef and context, apply registers/unregisters.
+  createEffect(
+    () => {
+      const trigger = triggerRef()
+      const ctx = accordionContext()
+      return { trigger, ctx }
+    },
+    ({ trigger, ctx }: { trigger: HTMLElement | null; ctx: ReturnType<typeof useInternalAccordionContext> }) => {
+      if (trigger) {
+        ctx.registerTrigger(trigger)
+        return () => ctx.unregisterTrigger(trigger)
+      }
+    },
+  )
 
   const context = createMemo(() =>
-    useInternalAccordionItemContext(localProps.contextId),
+    useInternalAccordionItemContext(typedProps.contextId),
   )
 
-  createEffect(() => {
-    const _context = context()
-    _context.registerTriggerId()
-    onCleanup(() => _context.unregisterTriggerId())
-  })
+  // Split-phase effect: compute tracks context, apply registers/unregisters triggerId.
+  createEffect(
+    () => {
+      return context()
+    },
+    (ctx: ReturnType<typeof useInternalAccordionItemContext>) => {
+      ctx.registerTriggerId()
+      return () => ctx.unregisterTriggerId()
+    },
+  )
 
   const onKeyDown: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent> = (
     e,
   ) => {
-    !callEventHandler(localProps.onKeyDown, e) &&
+    !callEventHandler(typedProps.onKeyDown, e) &&
       accordionContext().onTriggerKeyDown(e)
   }
 
   const onFocus: JSX.EventHandlerUnion<HTMLButtonElement, FocusEvent> = (e) => {
-    callEventHandler(localProps.onFocus, e)
+    callEventHandler(typedProps.onFocus, e)
     accordionContext().onTriggerFocus(e)
   }
 
@@ -102,15 +107,15 @@ const AccordionTrigger = <T extends ValidComponent = 'button'>(
       >
     >
       // === SharedElementProps ===
-      ref={mergeRefs(localProps.ref, setTriggerRef)}
+      ref={mergeRefs(typedProps.ref, setTriggerRef)}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
       disabled={
-        localProps.disabled === true || context().disabled() || undefined
+        typedProps.disabled === true || context().disabled() || undefined
       }
       // === ElementProps ===
       id={context().triggerId()}
-      contextId={localProps.contextId}
+      contextId={typedProps.contextId}
       aria-disabled={context().disabled() ? 'true' : undefined}
       data-disabled={dataIf(context().disabled())}
       data-corvu-accordion-trigger=""
