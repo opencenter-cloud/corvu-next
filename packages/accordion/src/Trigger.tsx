@@ -1,5 +1,5 @@
 import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
-import { type Component, createEffect, createMemo, createSignal, omit } from 'solid-js'
+import { type Component, createEffect, createSignal, omit, onCleanup } from 'solid-js'
 import { type JSX, type ValidComponent } from '@solidjs/web'
 import Disclosure, {
   type TriggerCorvuProps as DisclosureTriggerCorvuProps,
@@ -54,50 +54,35 @@ const AccordionTrigger = <T extends ValidComponent = 'button'>(
   )
   const [triggerRef, setTriggerRef] = createSignal<HTMLElement | null>(null)
 
-  const accordionContext = createMemo(() =>
-    useInternalAccordionContext(typedProps.contextId),
-  )
+  const accordionContext = useInternalAccordionContext(typedProps.contextId)
 
-  // Split-phase effect: compute tracks triggerRef and context, apply registers/unregisters.
+  // Register/unregister trigger element when ref changes
   createEffect(
-    () => {
-      const trigger = triggerRef()
-      const ctx = accordionContext()
-      return { trigger, ctx }
-    },
-    ({ trigger, ctx }: { trigger: HTMLElement | null; ctx: ReturnType<typeof useInternalAccordionContext> }) => {
+    () => triggerRef(),
+    (trigger: HTMLElement | null) => {
       if (trigger) {
-        ctx.registerTrigger(trigger)
-        return () => ctx.unregisterTrigger(trigger)
+        accordionContext.registerTrigger(trigger)
+        return () => accordionContext.unregisterTrigger(trigger)
       }
     },
   )
 
-  const context = createMemo(() =>
-    useInternalAccordionItemContext(typedProps.contextId),
-  )
+  const context = useInternalAccordionItemContext(typedProps.contextId)
 
-  // Split-phase effect: compute tracks context, apply registers/unregisters triggerId.
-  createEffect(
-    () => {
-      return context()
-    },
-    (ctx: ReturnType<typeof useInternalAccordionItemContext>) => {
-      ctx.registerTriggerId()
-      return () => ctx.unregisterTriggerId()
-    },
-  )
+  // Register triggerId on mount, unregister on dispose
+  context.registerTriggerId()
+  onCleanup(() => context.unregisterTriggerId())
 
   const onKeyDown: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent> = (
     e,
   ) => {
     !callEventHandler(typedProps.onKeyDown, e) &&
-      accordionContext().onTriggerKeyDown(e)
+      accordionContext.onTriggerKeyDown(e)
   }
 
   const onFocus: JSX.EventHandlerUnion<HTMLButtonElement, FocusEvent> = (e) => {
     callEventHandler(typedProps.onFocus, e)
-    accordionContext().onTriggerFocus(e)
+    accordionContext.onTriggerFocus(e)
   }
 
   return (
@@ -111,13 +96,13 @@ const AccordionTrigger = <T extends ValidComponent = 'button'>(
       onKeyDown={onKeyDown}
       onFocus={onFocus}
       disabled={
-        typedProps.disabled === true || context().disabled() || undefined
+        typedProps.disabled === true || context.disabled() || undefined
       }
       // === ElementProps ===
-      id={context().triggerId()}
+      id={context.triggerId()}
       contextId={typedProps.contextId}
-      aria-disabled={context().disabled() ? 'true' : undefined}
-      data-disabled={dataIf(context().disabled())}
+      aria-disabled={context.disabled() ? 'true' : undefined}
+      data-disabled={dataIf(context.disabled())}
       data-corvu-accordion-trigger=""
       // === Misc ===
       data-corvu-disclosure-trigger={null}

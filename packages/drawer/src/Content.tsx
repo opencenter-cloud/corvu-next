@@ -73,44 +73,40 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   let cachedMoveTimestamp: Date
   let cachedTranslate = 0
 
-  const drawerContext = createMemo(() =>
-    useInternalDrawerContext((props as DrawerContentProps).contextId),
-  )
-  const dialogContext = createMemo(() =>
-    Dialog.useContext((props as DrawerContentProps).contextId),
-  )
+  const drawerContext = useInternalDrawerContext((props as DrawerContentProps).contextId)
+  const dialogContext = Dialog.useContext((props as DrawerContentProps).contextId)
 
   const snapPoints = createMemo(() =>
-    drawerContext()
+    drawerContext
       .snapPoints()
       .map((snapPoint, index) =>
         resolveSnapPoint(
           snapPoint,
-          drawerContext().drawerSize(),
+          drawerContext.drawerSize(),
           index,
-          drawerContext().breakPoints(),
+          drawerContext.breakPoints(),
         ),
       ),
   )
 
   const transformValue = createMemo(() => {
-    switch (drawerContext().side()) {
+    switch (drawerContext.side()) {
       case 'top':
-        return `translate3d(0, ${-drawerContext().translate()}px, 0)`
+        return `translate3d(0, ${-drawerContext.translate()}px, 0)`
       case 'bottom':
-        return `translate3d(0, ${drawerContext().translate()}px, 0)`
+        return `translate3d(0, ${drawerContext.translate()}px, 0)`
       case 'right':
-        return `translate3d(${drawerContext().translate()}px, 0, 0)`
+        return `translate3d(${drawerContext.translate()}px, 0, 0)`
       case 'left':
-        return `translate3d(${-drawerContext().translate()}px, 0, 0)`
+        return `translate3d(${-drawerContext.translate()}px, 0, 0)`
     }
   })
 
   const transitionHeight = createMemo(() => {
-    const transitionSize = drawerContext().transitionSize()
+    const transitionSize = drawerContext.transitionSize()
     if (transitionSize === null) return undefined
 
-    switch (drawerContext().side()) {
+    switch (drawerContext.side()) {
       case 'top':
       case 'bottom':
         return `${transitionSize}px`
@@ -119,10 +115,10 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   })
 
   const transitionWidth = createMemo(() => {
-    const transitionSize = drawerContext().transitionSize()
+    const transitionSize = drawerContext.transitionSize()
     if (transitionSize === null) return undefined
 
-    switch (drawerContext().side()) {
+    switch (drawerContext.side()) {
       case 'left':
       case 'right':
         return `${transitionSize}px`
@@ -130,10 +126,10 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     return undefined
   })
 
-  // Split-phase effect: compute phase tracks `dialogContext().open()`,
+  // Split-phase effect: compute phase tracks `dialogContext.open()`,
   // effect phase adds/removes listeners.
   createEffect(
-    () => dialogContext().open(),
+    () => dialogContext.open(),
     (isOpen) => {
       if (!isOpen) return
 
@@ -154,10 +150,10 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   )
 
   createEffect(
-    () => drawerContext().transitionState(),
+    () => drawerContext.transitionState(),
     (state) => {
       if (state === 'closing') {
-        drawerContext().setIsDragging(false)
+        drawerContext.setIsDragging(false)
       }
     },
   )
@@ -167,16 +163,16 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     if (
       !locationIsDraggable(
         event.target as HTMLElement,
-        dialogContext().contentRef()!,
+        dialogContext.contentRef()!,
         event.pointerType,
       )
     )
       return
 
-    if (drawerContext().transitionState() === 'closing') return
+    if (drawerContext.transitionState() === 'closing') return
 
     pointerDown = true
-    if (drawerContext().handleScrollableElements()) {
+    if (drawerContext.handleScrollableElements()) {
       currentPointerStart = [event.clientX, event.clientY]
     }
   }
@@ -196,14 +192,14 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onMove = (target: HTMLElement, x: number, y: number) => {
     if (!pointerDown) return
 
-    if (!drawerContext().isDragging() || dragStartPos === null) {
+    if (!drawerContext.isDragging() || dragStartPos === null) {
       const selection = window.getSelection()
       if (selection && selection.toString().length > 0) {
         onUp()
         return
       }
 
-      if (drawerContext().handleScrollableElements()) {
+      if (drawerContext.handleScrollableElements()) {
         const delta = [x, y].map(
           (pointer, i) => currentPointerStart[i]! - pointer,
         ) as [number, number]
@@ -212,7 +208,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
 
         if (Math.abs(axisDelta) < 0.3) return
 
-        const wrapper = dialogContext().contentRef()!
+        const wrapper = dialogContext.contentRef()!
 
         const [availableScroll, availableScrollTop] = getScrollAtLocation(
           target,
@@ -230,7 +226,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         }
       }
 
-      switch (drawerContext().side()) {
+      switch (drawerContext.side()) {
         case 'top':
         case 'bottom':
           dragStartPos = y
@@ -241,14 +237,14 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       }
 
       cachedMoveTimestamp = new Date()
-      cachedTranslate = drawerContext().translate()
+      cachedTranslate = drawerContext.translate()
 
-      drawerContext().setIsDragging(true)
-      drawerContext().setTransitionState(null)
+      drawerContext.setIsDragging(true)
+      drawerContext.setTransitionState(null)
     }
 
     let delta: number
-    switch (drawerContext().side()) {
+    switch (drawerContext.side()) {
       case 'top':
         delta = -(dragStartPos - y)
         break
@@ -262,20 +258,20 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         delta = -(dragStartPos - x)
         break
     }
-    delta -= drawerContext().resolvedActiveSnapPoint().offset
+    delta -= drawerContext.resolvedActiveSnapPoint().offset
 
-    if (delta > 0) delta = drawerContext().dampFunction(delta)
+    if (delta > 0) delta = drawerContext.dampFunction(delta)
 
     const now = new Date()
     if (
       now.getTime() - cachedMoveTimestamp.getTime() >
-      drawerContext().velocityCacheReset()
+      drawerContext.velocityCacheReset()
     ) {
       cachedMoveTimestamp = now
-      cachedTranslate = drawerContext().translate()
+      cachedTranslate = drawerContext.translate()
     }
 
-    drawerContext().setTranslate(-delta)
+    drawerContext.setTranslate(-delta)
   }
 
   const onPointerUp = (event: PointerEvent) => {
@@ -289,36 +285,36 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onUp = () => {
     pointerDown = false
 
-    if (!drawerContext().isDragging()) return
+    if (!drawerContext.isDragging()) return
 
     const now = new Date()
-    const velocity = drawerContext().velocityFunction(
-      -(cachedTranslate - drawerContext().translate()),
+    const velocity = drawerContext.velocityFunction(
+      -(cachedTranslate - drawerContext.translate()),
       now.getTime() - cachedMoveTimestamp.getTime() || 1,
     )
 
-    const translateWithVelocity = drawerContext().translate() * velocity
+    const translateWithVelocity = drawerContext.translate() * velocity
 
     const closestSnapPoint = findClosestSnapPoint(
       snapPoints(),
-      drawerContext().translate(),
+      drawerContext.translate(),
       translateWithVelocity,
-      drawerContext().allowSkippingSnapPoints(),
+      drawerContext.allowSkippingSnapPoints(),
     )
 
-    drawerContext().setTransitionState('snapping')
-    drawerContext().setIsDragging(false)
+    drawerContext.setTransitionState('snapping')
+    drawerContext.setIsDragging(false)
 
-    drawerContext().setActiveSnapPoint(closestSnapPoint.value)
-    if (closestSnapPoint.offset === drawerContext().drawerSize()) {
-      dialogContext().setOpen(false)
+    drawerContext.setActiveSnapPoint(closestSnapPoint.value)
+    if (closestSnapPoint.offset === drawerContext.drawerSize()) {
+      dialogContext.setOpen(false)
     } else {
-      drawerContext().setTranslate(closestSnapPoint.offset)
+      drawerContext.setTranslate(closestSnapPoint.offset)
       const transitionDuration = parseFloat(
-        drawerContext().drawerStyles()!.transitionDuration,
+        drawerContext.drawerStyles()!.transitionDuration,
       )
       if (transitionDuration === 0) {
-        drawerContext().setTransitionState(null)
+        drawerContext.setTransitionState(null)
       }
     }
   }
@@ -334,7 +330,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       style={combineStyle(
         {
           transform: transformValue(),
-          'transition-duration': drawerContext().isDragging()
+          'transition-duration': drawerContext.isDragging()
             ? '0ms'
             : undefined,
           height: transitionHeight(),
@@ -349,20 +345,20 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         dragStartPos = null
       }}
       onTransitionEnd={(e) => {
-        if (e.target !== dialogContext().contentRef()) return
-        if (drawerContext().transitionState() === 'closing') {
-          drawerContext().closeDrawer()
+        if (e.target !== dialogContext.contentRef()) return
+        if (drawerContext.transitionState() === 'closing') {
+          drawerContext.closeDrawer()
         }
-        if (drawerContext().transitionState() !== 'resizing') {
-          drawerContext().setTransitionState(null)
+        if (drawerContext.transitionState() !== 'resizing') {
+          drawerContext.setTransitionState(null)
         }
       }}
-      data-side={drawerContext().side()}
-      data-opening={dataIf(drawerContext().transitionState() === 'opening')}
-      data-closing={dataIf(drawerContext().transitionState() === 'closing')}
-      data-snapping={dataIf(drawerContext().transitionState() === 'snapping')}
-      data-transitioning={dataIf(drawerContext().isTransitioning())}
-      data-resizing={dataIf(drawerContext().transitionState() === 'resizing')}
+      data-side={drawerContext.side()}
+      data-opening={dataIf(drawerContext.transitionState() === 'opening')}
+      data-closing={dataIf(drawerContext.transitionState() === 'closing')}
+      data-snapping={dataIf(drawerContext.transitionState() === 'snapping')}
+      data-transitioning={dataIf(drawerContext.isTransitioning())}
+      data-resizing={dataIf(drawerContext.transitionState() === 'resizing')}
       data-corvu-drawer-content=""
       // === Misc ===
       data-corvu-dialog-content={null}

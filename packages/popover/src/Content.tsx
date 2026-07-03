@@ -1,4 +1,4 @@
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import type {
   ContentCorvuProps as DialogContentCorvuProps,
@@ -41,9 +41,7 @@ const PopoverContent = <T extends ValidComponent = 'div'>(
     'style',
   )
 
-  const context = createMemo(() =>
-    useInternalPopoverContext((props as PopoverContentProps).contextId),
-  )
+  const context = useInternalPopoverContext((props as PopoverContentProps).contextId)
 
   return (
     <Dialog.Content<
@@ -56,14 +54,14 @@ const PopoverContent = <T extends ValidComponent = 'div'>(
       style={combineStyle(
         {
           ...getFloatingStyle({
-            strategy: () => context().strategy(),
-            floatingState: () => context().floatingState(),
+            strategy: () => context.strategy(),
+            floatingState: () => context.floatingState(),
           })(),
         },
         (props as PopoverContentProps).style,
       )}
       // === ElementProps ===
-      data-placement={context().floatingState().placement}
+      data-placement={context.floatingState().placement}
       data-corvu-popover-content=""
       // === Misc ===
       data-corvu-dialog-content={null}

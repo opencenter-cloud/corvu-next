@@ -1,6 +1,5 @@
 import {
   type Component,
-  createMemo,
   omit,
 } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
@@ -50,9 +49,7 @@ const DrawerOverlay = <T extends ValidComponent = 'div'>(
     'contextId',
   )
 
-  const drawerContext = createMemo(() =>
-    useInternalDrawerContext((props as DrawerOverlayProps).contextId),
-  )
+  const drawerContext = useInternalDrawerContext((props as DrawerOverlayProps).contextId)
 
   return (
     <Dialog.Overlay<
@@ -62,12 +59,12 @@ const DrawerOverlay = <T extends ValidComponent = 'div'>(
     >
       contextId={(props as DrawerOverlayProps).contextId}
       // === ElementProps ===
-      data-side={drawerContext().side()}
-      data-opening={dataIf(drawerContext().transitionState() === 'opening')}
-      data-closing={dataIf(drawerContext().transitionState() === 'closing')}
-      data-snapping={dataIf(drawerContext().transitionState() === 'snapping')}
-      data-transitioning={dataIf(drawerContext().isTransitioning())}
-      data-resizing={dataIf(drawerContext().transitionState() === 'resizing')}
+      data-side={drawerContext.side()}
+      data-opening={dataIf(drawerContext.transitionState() === 'opening')}
+      data-closing={dataIf(drawerContext.transitionState() === 'closing')}
+      data-snapping={dataIf(drawerContext.transitionState() === 'snapping')}
+      data-transitioning={dataIf(drawerContext.isTransitioning())}
+      data-resizing={dataIf(drawerContext.transitionState() === 'resizing')}
       data-corvu-drawer-overlay=""
       // === Misc ===
       data-corvu-dialog-overlay={null}

@@ -28,6 +28,7 @@ const createRegister = <T>(props: {
 
   const [isRegistered, setIsRegistered] = createSignal(
     defaultedProps.initialRegistered,
+    { ownedWrite: true },
   )
   const registerable = createMemo<T | undefined>(() => {
     if (!isRegistered()) return undefined

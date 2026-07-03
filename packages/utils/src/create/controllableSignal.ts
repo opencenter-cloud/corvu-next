@@ -21,16 +21,19 @@ type ControllableSignal<T> = [Accessor<T>, Setter<T>]
 function createControllableSignal<T>(props: {
   value?: Accessor<T | undefined>
   onChange?: (value: T) => void
+  ownedWrite?: boolean
 }): ControllableSignal<T | undefined>
 function createControllableSignal<T>(props: {
   value?: Accessor<T | undefined>
   initialValue: T
   onChange?: (value: T) => void
+  ownedWrite?: boolean
 }): ControllableSignal<T>
 function createControllableSignal<T>(props: {
   value?: Accessor<T | undefined>
   initialValue?: T
   onChange?: (value: T) => void
+  ownedWrite?: boolean
 }): ControllableSignal<T | undefined> {
   // Solid 2's `createSignal` overload signature excludes Function from the
   // value slot (functions are treated as compute functions). We use `any`
@@ -39,6 +42,7 @@ function createControllableSignal<T>(props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [uncontrolledSignal, setUncontrolledSignal] = createSignal<any>(
     props.initialValue,
+    props.ownedWrite ? { ownedWrite: true } : undefined,
   )
 
   const isControlled = () => props.value?.() !== undefined

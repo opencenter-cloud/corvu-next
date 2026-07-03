@@ -1,6 +1,5 @@
 import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
 import {
-  createMemo,
   omit,
 } from 'solid-js'
 import type { JSX, ValidComponent } from '@solidjs/web'
@@ -45,13 +44,11 @@ const CalendarNav = <T extends ValidComponent = 'button'>(
 ) => {
   const otherProps = omit(props as CalendarNavProps, 'action', 'contextId', 'onClick')
 
-  const context = createMemo(() =>
-    useInternalCalendarContext((props as CalendarNavProps).contextId),
-  )
+  const context = useInternalCalendarContext((props as CalendarNavProps).contextId)
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
     !callEventHandler((props as CalendarNavProps).onClick, e) &&
-      context().navigate((props as CalendarNavProps).action)
+      context.navigate((props as CalendarNavProps).action)
   }
 
   return (

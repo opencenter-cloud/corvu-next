@@ -42,7 +42,7 @@ const createFocusTrap = (props: {
 
   const [focusableElements, setFocusableElements] = createSignal<
     HTMLElement[] | null
-  >(null)
+  >(null, { ownedWrite: true })
   const firstFocusElement = createMemo(() => {
     const _focusableElements = focusableElements()
     if (!_focusableElements) return null

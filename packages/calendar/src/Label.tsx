@@ -1,6 +1,5 @@
 import {
   createEffect,
-  createMemo,
   omit,
 } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
@@ -42,12 +41,10 @@ const CalendarLabel = <T extends ValidComponent = 'h2'>(
   const p = props as CalendarLabelProps
   const otherProps = omit(p, 'index', 'contextId')
 
-  const context = createMemo(() =>
-    useInternalCalendarContext(p.contextId),
-  )
+  const context = useInternalCalendarContext(p.contextId)
 
   createEffect(() => {
-    const _context = context()
+    const _context = context
     _context.registerLabelId(p.index ?? 0)
     return () => _context.unregisterLabelId(p.index ?? 0)
   })
@@ -56,7 +53,7 @@ const CalendarLabel = <T extends ValidComponent = 'h2'>(
     <Dynamic<CalendarLabelElementProps>
       as="h2"
       // === ElementProps ===
-      id={context().labelIds()[p.index ?? 0]?.()}
+      id={context.labelIds()[p.index ?? 0]?.()}
       aria-live="polite"
       data-corvu-calendar-label=""
       {...otherProps}

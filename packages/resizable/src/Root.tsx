@@ -6,7 +6,6 @@ import {
 } from '@corvu-next/utils/dom'
 import {
   createEffect,
-  createMemo,
   createSignal,
   merge,
   type Setter,
@@ -132,6 +131,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     value: () => localProps.sizes,
     initialValue: [],
     onChange: localProps.onSizesChange,
+    ownedWrite: true,
   })
 
   const [ref, setRef] = createSignal<HTMLElement | null>(null)
@@ -142,11 +142,13 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       localProps.orientation === 'horizontal' ? 'width' : 'height',
   })
 
-  const [panels, setPanels] = createSignal<PanelInstance[]>([])
+  const [panels, setPanels] = createSignal<PanelInstance[]>([], {
+    ownedWrite: true,
+  })
 
   const sizesToIds: string[] = []
 
-  const registerPanel = (panelData: PanelData) => {
+  const registerPanel = (panelData: PanelData): PanelInstance => {
     const _panels = panels()
     const panelIndex = _panels.filter(
       (panel) =>
@@ -196,16 +198,9 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newSizes
     })
 
-    const panelSizeMemo = createMemo(() => {
-      const index = sizesToIds.indexOf(panelData.id)
-      return sizes()[index]!
-    })
-
-    createEffect(() => panelData.onResize?.(panelSizeMemo()))
-
     const panel: PanelInstance = {
       data: panelData,
-      size: panelSizeMemo,
+      size: panelSizeMemoFactory(panelData.id),
       resize: (size, strategy) =>
         resize(sizesToIds.indexOf(panelData.id), size, strategy),
       collapse: (strategy) =>
@@ -221,6 +216,14 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newPanels
     })
     return panel
+  }
+
+  /** Factory for panel size accessors — called by the Panel component in its own body */
+  const panelSizeMemoFactory = (id: string) => {
+    return () => {
+      const index = sizesToIds.indexOf(id)
+      return sizes()[index]!
+    }
   }
 
   const unregisterPanel = (id: string) => {
@@ -242,11 +245,12 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     })
   }
 
-  createEffect(() => {
-    if (localProps.onSizesChange !== undefined) {
-      localProps.onSizesChange(sizes())
-    }
-  })
+  createEffect(
+    () => ({ sizes: sizes(), onChange: localProps.onSizesChange }),
+    ({ sizes: currentSizes, onChange }) => {
+      onChange?.(currentSizes)
+    },
+  )
 
   const resize = (
     panelIndex: number,

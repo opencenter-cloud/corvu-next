@@ -105,9 +105,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
 
   const [ref, setRef] = createSignal<HTMLInputElement | null>(null)
 
-  const context = createMemo(() =>
-    useInternalOtpFieldContext(defaultedProps.contextId),
-  )
+  const context = useInternalOtpFieldContext(defaultedProps.contextId)
 
   createEffect(() => {
     createOtpFieldStyleElement()
@@ -125,7 +123,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     if (!form) return undefined
     const onReset = () => {
       afterPaint(() => {
-        context().setValue(element.value)
+        context.setValue(element.value)
       })
     }
     form.addEventListener('reset', onReset)
@@ -138,7 +136,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     const element = ref()
     if (!element) return undefined
 
-    element.value = context().value()
+    element.value = context.value()
     return undefined
   })
 
@@ -155,7 +153,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
 
     const rawValue = event.currentTarget.value
     let finalValue = rawValue
-    const contextValue = context().value()
+    const contextValue = context.value()
     const selectionSize = Math.abs(
       (previousSelection.start ?? 0) - (previousSelection.end ?? 0),
     )
@@ -167,7 +165,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     ) {
       finalValue = finalValue.replace(new RegExp(`[^${regex.source}]`, 'g'), '')
     }
-    finalValue = finalValue.slice(0, context().maxLength())
+    finalValue = finalValue.slice(0, context.maxLength())
 
     const hasInvalidChars = !!regex && !regex.test(finalValue)
     if (
@@ -190,7 +188,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
       onSelectionChange(event.inputType)
     }
 
-    context().setValue(finalValue)
+    context.setValue(finalValue)
   }
 
   const onFocus: JSX.EventHandlerUnion<HTMLInputElement, FocusEvent> = (
@@ -198,10 +196,10 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
   ) => {
     if (callEventHandler(defaultedProps.onFocus, event)) return
     event.currentTarget.setSelectionRange(
-      context().value().length,
-      context().value().length,
+      context.value().length,
+      context.value().length,
     )
-    context().setIsFocused(true)
+    context.setIsFocused(true)
     onSelectionChange()
   }
 
@@ -210,7 +208,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
   ) => {
     if (callEventHandler(defaultedProps.onBlur, event)) return
     shiftKeyDown = false
-    context().setIsFocused(false)
+    context.setIsFocused(false)
     onSelectionChange()
   }
 
@@ -219,14 +217,14 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
   ) => {
     !callEventHandler(defaultedProps.onMouseOver, event) &&
       defaultedProps.disabled !== true &&
-      context().setIsHovered(true)
+      context.setIsHovered(true)
   }
 
   const onMouseLeave: JSX.EventHandlerUnion<HTMLInputElement, MouseEvent> = (
     event,
   ) => {
     !callEventHandler(defaultedProps.onMouseLeave, event) &&
-      context().setIsHovered(false)
+      context.setIsHovered(false)
   }
 
   const onKeyDown: JSX.EventHandlerUnion<HTMLInputElement, KeyboardEvent> = (
@@ -249,7 +247,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     const element = ref()
     if (!element) return
     if (
-      context().isFocused() === false ||
+      context.isFocused() === false ||
       document.activeElement !== element ||
       element.selectionStart === null ||
       element.selectionEnd === null
@@ -261,14 +259,14 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
         originalStart: element.selectionStart,
         originalEnd: element.selectionEnd,
       })
-      context().setIsInserting(false)
+      context.setIsInserting(false)
       return
     }
-    const maxLength = context().maxLength()
+    const maxLength = context.maxLength()
     const inserting =
       element.value.length < maxLength &&
       element.selectionStart === element.value.length
-    context().setIsInserting(inserting)
+    context.setIsInserting(inserting)
 
     if (inserting || element.selectionStart !== element.selectionEnd) {
       syncSelection({
@@ -339,11 +337,11 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     const start = props.start
     const end = props.end
     if (start === null || end === null) {
-      context().setActiveSlots([])
+      context.setActiveSlots([])
       return
     }
     const indexes = Array.from({ length: end - start }, (_, i) => start + i)
-    context().setActiveSlots(indexes)
+    context.setActiveSlots(indexes)
   }
 
   return (
@@ -373,10 +371,10 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
             display: 'flex',
             position: 'absolute',
             inset: 0,
-            width: context().shiftPWManagers()
+            width: context.shiftPWManagers()
               ? 'calc(100% + 40px)'
               : '100%',
-            'clip-path': context().shiftPWManagers()
+            'clip-path': context.shiftPWManagers()
               ? 'inset(0 40px 0 0)'
               : undefined,
             height: '100%',
@@ -391,7 +389,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
             'letter-spacing': '-1em',
             'font-family': 'monospace',
             'font-variant-numeric': 'tabular-nums',
-            'font-size': `${context().rootHeight()}px`,
+            'font-size': `${context.rootHeight()}px`,
             'pointer-events': 'all',
           },
           defaultedProps.style,

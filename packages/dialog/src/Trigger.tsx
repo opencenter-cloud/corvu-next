@@ -1,5 +1,5 @@
 import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { JSX, ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
@@ -51,13 +51,12 @@ const DialogTrigger = <T extends ValidComponent = 'button'>(
     'onClick',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext((props as DialogTriggerProps).contextId),
-  )
+  const context =
+    useInternalDialogContext((props as DialogTriggerProps).contextId)
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
     !callEventHandler((props as DialogTriggerProps).onClick, e) &&
-      context().setOpen((open) => !open)
+      context.setOpen((open) => !open)
   }
 
   return (
@@ -67,14 +66,14 @@ const DialogTrigger = <T extends ValidComponent = 'button'>(
       >
     >
       // === SharedElementProps ===
-      ref={mergeRefs(context().setTriggerRef, (props as DialogTriggerProps).ref)}
+      ref={mergeRefs(context.setTriggerRef, (props as DialogTriggerProps).ref)}
       onClick={onClick}
       // === ElementProps ===
-      aria-controls={context().dialogId()}
-      aria-expanded={context().open() ? 'true' : 'false'}
+      aria-controls={context.dialogId()}
+      aria-expanded={context.open() ? 'true' : 'false'}
       aria-haspopup="dialog"
-      data-closed={dataIf(!context().open())}
-      data-open={dataIf(context().open())}
+      data-closed={dataIf(!context.open())}
+      data-open={dataIf(context.open())}
       data-corvu-dialog-trigger=""
       {...otherProps}
     />

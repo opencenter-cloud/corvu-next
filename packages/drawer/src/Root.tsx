@@ -181,7 +181,9 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
     onChange: defaultedProps.onActiveSnapPointChange,
   })
 
-  const [dialogContext, setDialogContext] = createSignal<DialogContextValue>()
+  const [dialogContext, setDialogContext] = createSignal<
+    DialogContextValue | undefined
+  >(undefined, { ownedWrite: true })
 
   const { transitioning: sizeTransitioning, transitionSize } =
     createTransitionSize({

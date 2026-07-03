@@ -158,10 +158,12 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
     }
   }
 
-  const [triggers, setTriggers] = createSignal<HTMLElement[]>([])
+  const [triggers, setTriggers] = createSignal<HTMLElement[]>([], {
+    ownedWrite: true,
+  })
   const [selectableTriggers, setSelectableTriggers] = createSignal<
     HTMLElement[]
-  >([])
+  >([], { ownedWrite: true })
 
   // Split-phase effect: compute tracks triggers(), apply manages MutationObserver.
   createEffect(
@@ -170,7 +172,13 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
       return currentTriggers
     },
     (currentTriggers: HTMLElement[]) => {
-      const observer = new MutationObserver(updateSelectableTriggers)
+      const observer = new MutationObserver(() => {
+        setSelectableTriggers(
+          triggers()
+            .filter((trigger) => !trigger.hasAttribute('disabled'))
+            .sort(sortByDocumentPosition),
+        )
+      })
       currentTriggers.forEach((trigger) => {
         observer.observe(trigger, {
           attributes: true,
@@ -178,19 +186,15 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
         })
       })
 
-      updateSelectableTriggers()
+      setSelectableTriggers(
+        currentTriggers
+          .filter((trigger) => !trigger.hasAttribute('disabled'))
+          .sort(sortByDocumentPosition),
+      )
 
       return () => observer.disconnect()
     },
   )
-
-  const updateSelectableTriggers = () => {
-    setSelectableTriggers(
-      triggers()
-        .filter((trigger) => !trigger.hasAttribute('disabled'))
-        .sort(sortByDocumentPosition),
-    )
-  }
 
   const { setActive, onKeyDown: onTriggerKeyDown } = createList({
     items: () => [...Array(selectableTriggers().length).keys()],

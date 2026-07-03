@@ -147,16 +147,14 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
   const [endIntersectionHandle, setEndIntersectionHandle] =
     createSignal<Handle | null>(null)
 
-  const context = createMemo(() =>
-    useInternalResizableContext(localProps.contextId),
-  )
+  const context = useInternalResizableContext(localProps.contextId)
 
   const ariaInformation = createMemo(() => {
     const handle = ref()
     if (!handle) {
       return undefined
     }
-    const panels = context().panels()
+    const panels = context.panels()
     const [precidingPanels, followingPanels] = splitPanels({
       panels,
       focusedElement: handle,
@@ -164,16 +162,16 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
     const ariaControls = precidingPanels[precidingPanels.length - 1]?.data.id
     const ariaValueMax = followingPanels.reduce(
       (acc, panel) =>
-        acc - resolveSize(panel.data.minSize, context().rootSize()),
+        acc - resolveSize(panel.data.minSize, context.rootSize()),
       1,
     )
     const ariaValueMin = precidingPanels.reduce(
       (acc, panel) =>
-        acc + resolveSize(panel.data.minSize, context().rootSize()),
+        acc + resolveSize(panel.data.minSize, context.rootSize()),
       0,
     )
     const ariaValueNow = precidingPanels.reduce(
-      (acc, panel) => acc + resolveSize(panel.size(), context().rootSize()),
+      (acc, panel) => acc + resolveSize(panel.size(), context.rootSize()),
       0,
     )
 
@@ -194,8 +192,8 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
 
     const globalHandle: Handle = {
       element,
-      orientation: context().orientation(),
-      handleCursorStyle: context().handleCursorStyle,
+      orientation: context.orientation(),
+      handleCursorStyle: context.handleCursorStyle,
       altKey: localProps.altKey,
       startIntersection: {
         handle: startIntersectionHandle,
@@ -227,29 +225,29 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
           localProps.onHandleDrag(dragEvent)
           if (dragEvent.defaultPrevented) return
         }
-        context().onDrag(element, delta, altKey)
+        context.onDrag(element, delta, altKey)
       },
       onDragEnd: (event) => {
         localProps.onHandleDragEnd?.(event)
-        context().onDragEnd()
+        context.onDragEnd()
       },
     }
 
     globalHandleCallbacks = registerHandle(globalHandle)
     return globalHandle
-  }, (prevHandle) => {
-    if (prevHandle) {
-      unregisterHandle(prevHandle)
+  }, (nextHandle) => {
+    if (!nextHandle) return
+    // Cleanup: unregister the handle when compute returns a new value or on dispose
+    return () => {
+      unregisterHandle(nextHandle)
       globalHandleCallbacks = null
     }
   })
 
-  createEffect(() => {
-    const state = hovered()
-    return state
-  }, (state) => {
-    globalHandleCallbacks?.onHoveredChange(state as HoverState)
-  })
+  const setHoveredAndNotify = (state: HoverState) => {
+    setHovered(state)
+    globalHandleCallbacks?.onHoveredChange(state)
+  }
 
   const onMouseEnter: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (
     e,
@@ -259,13 +257,13 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       localProps.disabled === true
     )
       return
-    setHovered('handle')
+    setHoveredAndNotify('handle')
   }
   const onMouseLeave: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (
     e,
   ) => {
     if (callEventHandler(localProps.onMouseLeave, e)) return
-    setHovered(null)
+    setHoveredAndNotify(null)
   }
   const onKeyDown: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent> = (
     e,
@@ -275,7 +273,7 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
     if (!element) return
     const altKey =
       localProps.altKey === 'only' || (localProps.altKey !== false && e.altKey)
-    context().onKeyDown(element, e, altKey)
+    context.onKeyDown(element, e, altKey)
   }
   const onKeyUp: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent> = (
     e,
@@ -327,7 +325,7 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       style={combineStyle(
         {
           position: 'relative',
-          cursor: context().handleCursorStyle() ? 'inherit' : undefined,
+          cursor: context.handleCursorStyle() ? 'inherit' : undefined,
           'touch-action': 'none',
           'flex-shrink': 0,
         },
@@ -344,25 +342,25 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       // === ElementProps ===
       role="separator"
       aria-controls={ariaInformation()?.ariaControls}
-      aria-orientation={context().orientation()}
+      aria-orientation={context.orientation()}
       aria-valuemax={ariaInformation()?.ariaValueMax}
       aria-valuemin={ariaInformation()?.ariaValueMin}
       aria-valuenow={ariaInformation()?.ariaValueNow}
       data-active={dataIf(active())}
       data-dragging={dataIf(dragging())}
-      data-orientation={context().orientation()}
+      data-orientation={context.orientation()}
       data-corvu-resizable-handle=""
       {...otherProps}
     >
       <Show when={startIntersectionHandle()}>
         <div
           data-corvu-resizable-handle-start-intersection
-          onMouseEnter={() => setHovered('startIntersection')}
+          onMouseEnter={() => setHoveredAndNotify('startIntersection')}
           onMouseLeave={(e) => {
             if (ref()?.contains(e.relatedTarget as HTMLElement) === true) {
-              setHovered('handle')
+              setHoveredAndNotify('handle')
             } else {
-              setHovered(null)
+              setHoveredAndNotify(null)
             }
           }}
           style={{
@@ -371,11 +369,11 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
             top: 0,
             left: 0,
             height:
-              context().orientation() === 'horizontal' ? undefined : '100%',
+              context.orientation() === 'horizontal' ? undefined : '100%',
             width:
-              context().orientation() === 'horizontal' ? '100%' : undefined,
+              context.orientation() === 'horizontal' ? '100%' : undefined,
             transform:
-              context().orientation() === 'horizontal'
+              context.orientation() === 'horizontal'
                 ? 'translate3d(0, -100%, 0)'
                 : 'translate3d(-100%, 0, 0)',
             'z-index': 1,
@@ -386,12 +384,12 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       <Show when={endIntersectionHandle()}>
         <div
           data-corvu-resizable-handle-end-intersection
-          onMouseEnter={() => setHovered('endIntersection')}
+          onMouseEnter={() => setHoveredAndNotify('endIntersection')}
           onMouseLeave={(e) => {
             if (ref()?.contains(e.relatedTarget as HTMLElement) === true) {
-              setHovered('handle')
+              setHoveredAndNotify('handle')
             } else {
-              setHovered(null)
+              setHoveredAndNotify(null)
             }
           }}
           style={{
@@ -400,11 +398,11 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
             bottom: 0,
             right: 0,
             height:
-              context().orientation() === 'horizontal' ? undefined : '100%',
+              context.orientation() === 'horizontal' ? undefined : '100%',
             width:
-              context().orientation() === 'horizontal' ? '100%' : undefined,
+              context.orientation() === 'horizontal' ? '100%' : undefined,
             transform:
-              context().orientation() === 'horizontal'
+              context.orientation() === 'horizontal'
                 ? 'translate3d(0, 100%, 0)'
                 : 'translate3d(100%, 0, 0)',
             'z-index': 1,

@@ -1,5 +1,6 @@
 .astro
 .env
+.pilot
 .turbo
 dist
 node_modules

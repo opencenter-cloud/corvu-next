@@ -99,23 +99,21 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
     value: () => typedProps.triggerId ?? createUniqueId(),
   })
 
-  const context = createMemo(() =>
-    useInternalAccordionContext(typedProps.contextId),
-  )
+  const context = useInternalAccordionContext(typedProps.contextId)
 
   const value = createMemo(() => typedProps.value ?? createUniqueId())
 
-  const expanded = createMemo(() => context().internalValue().includes(value()))
+  const expanded = createMemo(() => context.internalValue().includes(value()))
   const disabled = createMemo(
-    () => (typedProps.disabled ?? context().disabled()) as boolean,
+    () => (typedProps.disabled ?? context.disabled()) as boolean,
   )
   const collapseBehavior = createMemo(
-    () => typedProps.collapseBehavior ?? context().collapseBehavior(),
+    () => typedProps.collapseBehavior ?? context.collapseBehavior(),
   )
   const preventInitialContentAnimation = createMemo(
     () =>
       typedProps.preventInitialContentAnimation ??
-      context().preventInitialContentAnimation(),
+      context.preventInitialContentAnimation(),
   )
 
   const childrenProps: AccordionItemChildrenProps = {
@@ -176,7 +174,7 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
             expanded={expanded()}
             onExpandedChange={(newExpanded) => {
               if (newExpanded === expanded() || disabled()) return
-              context().toggleValue(value())
+              context.toggleValue(value())
             }}
             collapseBehavior={collapseBehavior()}
             preventInitialContentAnimation={preventInitialContentAnimation()}

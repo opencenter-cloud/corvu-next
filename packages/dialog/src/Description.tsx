@@ -1,4 +1,4 @@
-import { createEffect, createMemo, omit } from 'solid-js'
+import { createEffect, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { useInternalDialogContext } from '@src/context'
@@ -36,12 +36,10 @@ const DialogDescription = <T extends ValidComponent = 'p'>(
     'contextId',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext((props as DialogDescriptionProps).contextId),
-  )
+  const context = useInternalDialogContext((props as DialogDescriptionProps).contextId)
 
   createEffect(
-    () => context(),
+    () => context,
     (_context) => {
       _context.registerDescriptionId()
       return () => _context.unregisterDescriptionId()
@@ -52,7 +50,7 @@ const DialogDescription = <T extends ValidComponent = 'p'>(
     <Dynamic<DialogDescriptionElementProps>
       as="p"
       // === ElementProps ===
-      id={context().descriptionId()}
+      id={context.descriptionId()}
       data-corvu-dialog-description=""
       {...otherProps}
     />

@@ -75,7 +75,9 @@ const PopoverRoot: Component<PopoverRootProps> = (props) => {
     props,
   )
 
-  const [dialogContext, setDialogContext] = createSignal<DialogContextValue>()
+  const [dialogContext, setDialogContext] = createSignal<
+    DialogContextValue | undefined
+  >(undefined, { ownedWrite: true })
 
   const [anchorRef, setAnchorRef] = createSignal<HTMLElement | null>(null)
   const [triggerRef, setTriggerRef] = createSignal<HTMLElement | null>(null)

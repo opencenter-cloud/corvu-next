@@ -1,4 +1,4 @@
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import type {
   TriggerCorvuProps as DialogTriggerCorvuProps,
@@ -40,13 +40,11 @@ const PopoverTrigger = <T extends ValidComponent = 'button'>(
     'contextId',
   )
 
-  const dialogContext = createMemo(() =>
-    Dialog.useContext((props as PopoverTriggerProps).contextId),
-  )
+  const dialogContext =
+    Dialog.useContext((props as PopoverTriggerProps).contextId)
 
-  const context = createMemo(() =>
-    useInternalPopoverContext((props as PopoverTriggerProps).contextId),
-  )
+  const context =
+    useInternalPopoverContext((props as PopoverTriggerProps).contextId)
 
   return (
     <Dialog.Trigger<
@@ -56,10 +54,10 @@ const PopoverTrigger = <T extends ValidComponent = 'button'>(
     >
       contextId={(props as PopoverTriggerProps).contextId}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setTriggerRef, (props as PopoverTriggerProps).ref)}
+      ref={mergeRefs(context.setTriggerRef, (props as PopoverTriggerProps).ref)}
       // === ElementProps ===
       data-placement={
-        dialogContext().open() ? context().floatingState().placement : undefined
+        dialogContext.open() ? context.floatingState().placement : undefined
       }
       data-corvu-popover-trigger=""
       // === Misc ===
