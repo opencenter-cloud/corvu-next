@@ -55,8 +55,8 @@
     "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts"
   },
   "dependencies": {
-    "@corvu/dialog": "workspace:~",
-    "@corvu/utils": "workspace:~",
+    "@corvu-next/dialog": "workspace:~",
+    "@corvu-next/utils": "workspace:~",
     "@floating-ui/dom": "^1.7.3"
   },
   "devDependencies": {

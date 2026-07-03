@@ -55,9 +55,9 @@
     "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts"
   },
   "dependencies": {
-    "@corvu/disclosure": "workspace:~",
-    "@corvu/utils": "workspace:~",
-    "solid-list": "workspace:~"
+    "@corvu-next/disclosure": "workspace:~",
+    "@corvu-next/utils": "workspace:~",
+    "@corvu-next/list": "workspace:~"
   },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.39.0",
