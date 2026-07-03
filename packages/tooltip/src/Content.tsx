@@ -1,16 +1,11 @@
-import { combineStyle, type ElementOf, type Ref } from '@corvu/utils/dom'
-import {
-  createMemo,
-  type JSX,
-  Show,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
-import { Dynamic, type DynamicProps } from '@corvu/utils/dynamic'
-import { mergeRefs, some } from '@corvu/utils/reactivity'
-import { dataIf } from '@corvu/utils'
-import Dismissible from 'solid-dismissible'
-import { getFloatingStyle } from '@corvu/utils/floating'
+import { combineStyle, type ElementOf, type Ref } from '@corvu-next/utils/dom'
+import { createMemo, omit, Show } from 'solid-js'
+import type { JSX, ValidComponent } from '@solidjs/web'
+import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
+import { mergeRefs, some } from '@corvu-next/utils/reactivity'
+import { dataIf } from '@corvu-next/utils'
+import Dismissible from '@corvu-next/dismissible'
+import { getFloatingStyle } from '@corvu-next/utils/floating'
 import type { Placement } from '@floating-ui/dom'
 import { useInternalTooltipContext } from '@src/context'
 
@@ -54,19 +49,19 @@ export type TooltipContentProps<T extends ValidComponent = 'div'> =
 const TooltipContent = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, TooltipContentProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as TooltipContentProps, [
+  const otherProps = omit(props as TooltipContentProps,
     'forceMount',
     'contextId',
     'ref',
     'style',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalTooltipContext(localProps.contextId),
+    useInternalTooltipContext((props as TooltipContentProps).contextId),
   )
 
   const show = () =>
-    some(context().open, () => localProps.forceMount, context().contentPresent)
+    some(context().open, () => (props as TooltipContentProps).forceMount, context().contentPresent)
 
   const enableDismissible = createMemo(
     () => context().open() || context().contentPresent(),
@@ -84,21 +79,21 @@ const TooltipContent = <T extends ValidComponent = 'div'>(
       noOutsidePointerEvents={false}
       onEscapeKeyDown={context().onEscapeKeyDown}
     >
-      {(props) => (
+      {(dismissibleProps) => (
         <Show when={show()}>
           <Dynamic<TooltipContentElementProps>
             as="div"
             // === SharedElementProps ===
-            ref={mergeRefs(context().setContentRef, localProps.ref)}
+            ref={mergeRefs(context().setContentRef, (props as TooltipContentProps).ref)}
             style={combineStyle(
               {
                 ...getFloatingStyle({
                   strategy: () => context().strategy(),
                   floatingState: () => context().floatingState(),
                 })(),
-                'pointer-events': props.isLastLayer ? 'auto' : undefined,
+                'pointer-events': dismissibleProps.isLastLayer ? 'auto' : undefined,
               },
-              localProps.style,
+              (props as TooltipContentProps).style,
             )}
             // === ElementProps ===
             id={context().tooltipId()}

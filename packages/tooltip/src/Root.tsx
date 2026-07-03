@@ -1,14 +1,14 @@
-import { callEventHandler, type EventHandlerEvent } from '@corvu/utils/dom'
+import { callEventHandler, type EventHandlerEvent } from '@corvu-next/utils/dom'
 import {
   type Component,
   createMemo,
   createSignal,
   createUniqueId,
-  type JSX,
-  mergeProps,
+  merge,
   type Setter,
   untrack,
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import {
   createInternalTooltipContext,
   createTooltipContext,
@@ -16,14 +16,14 @@ import {
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import type { Placement, Strategy } from '@floating-ui/dom'
-import createControllableSignal from '@corvu/utils/create/controllableSignal'
-import createFloating from '@corvu/utils/create/floating'
-import createOnce from '@corvu/utils/create/once'
-import createPresence from 'solid-presence'
-import createTooltip from '@corvu/utils/create/tooltip'
-import { isFunction } from '@corvu/utils'
+import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
+import createFloating from '@corvu-next/utils/create/floating'
+import createOnce from '@corvu-next/utils/create/once'
+import createPresence from '@corvu-next/presence'
+import createTooltip from '@corvu-next/utils/create/tooltip'
+import { isFunction } from '@corvu-next/utils'
 
 export type TooltipRootProps = {
   /**
@@ -192,7 +192,7 @@ export type TooltipRootChildrenProps = {
 
 /** Context wrapper for the tooltip. Is required for every tooltip you create. */
 const TooltipRoot: Component<TooltipRootProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       initialOpen: false,
       placement: 'bottom' as const,
@@ -401,7 +401,7 @@ const TooltipRoot: Component<TooltipRootProps> = (props) => {
     )
 
     return untrack(() => (
-      <TooltipContext.Provider
+      <TooltipContext
         value={{
           open,
           setOpen,
@@ -424,7 +424,7 @@ const TooltipRoot: Component<TooltipRootProps> = (props) => {
           tooltipId: () => defaultedProps.tooltipId,
         }}
       >
-        <InternalTooltipContext.Provider
+        <InternalTooltipContext
           value={{
             open,
             setOpen,
@@ -456,8 +456,8 @@ const TooltipRoot: Component<TooltipRootProps> = (props) => {
           }}
         >
           {untrack(() => resolveChildren())}
-        </InternalTooltipContext.Provider>
-      </TooltipContext.Provider>
+        </InternalTooltipContext>
+      </TooltipContext>
     ))
   })
 

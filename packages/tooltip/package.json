@@ -1,80 +1,18 @@
 {
-  "name": "@corvu/tooltip",
-  "version": "0.2.2",
-  "private": false,
-  "description": "Unstyled, accessible and customizable UI primitives for SolidJS",
-  "keywords": [
-    "solid",
-    "solidjs",
-    "headless",
-    "accessible",
-    "customizable",
-    "primitives"
-  ],
-  "homepage": "https://corvu.dev",
-  "bugs": {
-    "url": "https://github.com/corvudev/corvu/issues",
-    "email": "code@jasi.dev"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/corvudev/corvu.git"
-  },
+  "name": "@corvu-next/tooltip",
+  "version": "0.1.0",
+  "description": "SolidJS 2 tooltip component with hover/delay logic.",
   "license": "MIT",
-  "author": {
-    "name": "Jasmin Noetzli",
-    "email": "code@jasi.dev",
-    "url": "https://github.com/GiyoMoon"
-  },
-  "sideEffects": false,
+  "author": { "name": "Jasmin Noetzli (upstream), @corvu-next contributors (fork)" },
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "solid": "./dist/index.jsx",
-      "default": "./dist/index.js"
-    }
-  },
+  "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "./dist/index.d.ts"
-      ]
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "cp ../../README.md . && tsup",
-    "clean": "rm -rf .turbo dist node_modules api.json",
-    "dev": "tsup --watch",
-    "lint": "eslint --max-warnings=0 .",
-    "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts"
-  },
-  "dependencies": {
-    "@corvu/utils": "workspace:~",
-    "@floating-ui/dom": "^1.7.3",
-    "solid-dismissible": "workspace:~",
-    "solid-presence": "workspace:~"
-  },
-  "devDependencies": {
-    "@typescript-eslint/parser": "^8.39.0",
-    "esbuild-plugin-solid": "^0.6.0",
-    "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-solid": "^0.14.5",
-    "prettier": "^3.6.2",
-    "solid-js": "^1.9.8",
-    "tsup": "^8.5.0",
-    "typedoc": "^0.27.9",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0"
-  },
-  "peerDependencies": {
-    "solid-js": "^1.8"
-  }
+  "files": ["dist"],
+  "exports": { ".": { "solid": "./dist/index.jsx", "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "typesVersions": { "*": { "*": ["./dist/index.d.ts"] } },
+  "dependencies": { "@corvu-next/utils": "workspace:~", "@corvu-next/presence": "workspace:~", "@corvu-next/dismissible": "workspace:~", "@floating-ui/dom": "^1.7.3" },
+  "peerDependencies": { "solid-js": "2.0.0-beta.15", "@solidjs/web": "2.0.0-beta.15" },
+  "devDependencies": { "@solidjs/web": "2.0.0-beta.15", "esbuild-plugin-solid": "^0.6.0", "solid-js": "2.0.0-beta.15", "tsup": "^8.5.0", "typescript": "^5.9.2" },
+  "scripts": { "build": "tsup", "clean": "rm -rf .turbo dist node_modules", "lint": "tsc --noEmit" }
 }
