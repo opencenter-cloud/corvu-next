@@ -1,17 +1,13 @@
-import {
-  type Component,
-  createMemo,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
+import { type Component, createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
   type DynamicButtonElementProps,
   type DynamicButtonSharedElementProps,
   type DynamicProps,
-} from '@corvu/utils/dynamic'
-import { dataIf } from '@corvu/utils'
-import { mergeRefs } from '@corvu/utils/reactivity'
+} from '@corvu-next/utils/dynamic'
+import { dataIf } from '@corvu-next/utils'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import type { Placement } from '@floating-ui/dom'
 import { useInternalTooltipContext } from '@src/context'
 
@@ -48,13 +44,13 @@ export type TooltipTriggerProps<T extends ValidComponent = 'button'> =
 const TooltipTrigger = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, TooltipTriggerProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as TooltipTriggerProps, [
+  const otherProps = omit(props as TooltipTriggerProps,
     'contextId',
     'ref',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalTooltipContext(localProps.contextId),
+    useInternalTooltipContext((props as TooltipTriggerProps).contextId),
   )
 
   return (
@@ -64,7 +60,7 @@ const TooltipTrigger = <T extends ValidComponent = 'button'>(
       >
     >
       // === SharedElementProps ===
-      ref={mergeRefs(context().setTriggerRef, localProps.ref)}
+      ref={mergeRefs(context().setTriggerRef, (props as TooltipTriggerProps).ref)}
       // === ElementProps ===
       aria-describedby={context().open() ? context().tooltipId() : undefined}
       aria-expanded={context().open() ? 'true' : 'false'}

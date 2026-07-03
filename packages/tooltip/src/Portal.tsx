@@ -1,6 +1,6 @@
-import { type ComponentProps, createMemo, Show, splitProps } from 'solid-js'
-import { Portal } from 'solid-js/web'
-import { some } from '@corvu/utils/reactivity'
+import { createMemo, omit, Show } from 'solid-js'
+import { type ComponentProps, Portal } from '@solidjs/web'
+import { some } from '@corvu-next/utils/reactivity'
 import { useInternalTooltipContext } from '@src/context'
 
 export type TooltipPortalProps = {
@@ -19,17 +19,17 @@ export type TooltipPortalProps = {
 const TooltipPortal = (
   props: TooltipPortalProps & ComponentProps<typeof Portal>,
 ) => {
-  const [localProps, otherProps] = splitProps(props, [
+  const otherProps = omit(props,
     'forceMount',
     'contextId',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalTooltipContext(localProps.contextId),
+    useInternalTooltipContext(props.contextId),
   )
 
   const show = () =>
-    some(context().open, () => localProps.forceMount, context().contentPresent)
+    some(context().open, () => props.forceMount, context().contentPresent)
 
   return (
     <Show when={show()}>

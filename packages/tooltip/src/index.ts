@@ -23,7 +23,7 @@ import {
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import Portal, { type TooltipPortalProps as PortalProps } from '@src/Portal'
 import Root, {
   type TooltipRootChildrenProps as RootChildrenProps,
@@ -35,7 +35,7 @@ import Trigger, {
   type TooltipTriggerProps as TriggerProps,
   type TooltipTriggerSharedElementProps as TriggerSharedElementProps,
 } from '@src/Trigger'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 
 export type {
   RootProps,

@@ -1,7 +1,8 @@
-import { createMemo, splitProps, type ValidComponent } from 'solid-js'
-import { Dynamic, type DynamicProps } from '@corvu/utils/dynamic'
-import type { ElementOf, Ref } from '@corvu/utils/dom'
-import { mergeRefs } from '@corvu/utils/reactivity'
+import { createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
+import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
+import type { ElementOf, Ref } from '@corvu-next/utils/dom'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalTooltipContext } from '@src/context'
 
 export type TooltipAnchorCorvuProps = {
@@ -30,20 +31,20 @@ export type TooltipAnchorProps<T extends ValidComponent = 'div'> =
 const TooltipAnchor = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, TooltipAnchorProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as TooltipAnchorProps, [
+  const otherProps = omit(props as TooltipAnchorProps,
     'contextId',
     'ref',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalTooltipContext(localProps.contextId),
+    useInternalTooltipContext((props as TooltipAnchorProps).contextId),
   )
 
   return (
     <Dynamic<TooltipAnchorElementProps>
       as="div"
       // === SharedElementProps ===
-      ref={mergeRefs(context().setAnchorRef, localProps.ref)}
+      ref={mergeRefs(context().setAnchorRef, (props as TooltipAnchorProps).ref)}
       // === ElementProps ===
       data-corvu-tooltip-anchor=""
       {...otherProps}

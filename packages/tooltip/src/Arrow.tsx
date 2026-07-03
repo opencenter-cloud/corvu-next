@@ -1,16 +1,12 @@
-import {
-  type Component,
-  createMemo,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
-import type { ElementOf, Ref } from '@corvu/utils/dom'
+import { type Component, createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
+import type { ElementOf, Ref } from '@corvu-next/utils/dom'
 import FloatingArrow, {
   type FloatingArrowElementProps,
   type FloatingArrowSharedElementProps,
-} from '@corvu/utils/components/FloatingArrow'
-import type { DynamicProps } from '@corvu/utils/dynamic'
-import { mergeRefs } from '@corvu/utils/reactivity'
+} from '@corvu-next/utils/components/FloatingArrow'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalTooltipContext } from '@src/context'
 
 export type TooltipArrowCorvuProps = {
@@ -43,20 +39,20 @@ export type TooltipArrowProps<T extends ValidComponent = 'div'> =
 const TooltipArrow = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, TooltipArrowProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as TooltipArrowProps, [
+  const otherProps = omit(props as TooltipArrowProps,
     'contextId',
     'ref',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalTooltipContext(localProps.contextId),
+    useInternalTooltipContext((props as TooltipArrowProps).contextId),
   )
 
   return (
     <FloatingArrow<Component<TooltipArrowElementProps>>
       floatingState={context().floatingState()}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setArrowRef, localProps.ref)}
+      ref={mergeRefs(context().setArrowRef, (props as TooltipArrowProps).ref)}
       data-corvu-tooltip-arrow=""
       {...otherProps}
     />

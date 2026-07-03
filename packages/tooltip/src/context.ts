@@ -2,11 +2,11 @@ import { type Accessor, createContext, type Setter, useContext } from 'solid-js'
 import {
   createKeyedContext,
   useKeyedContext,
-} from '@corvu/utils/create/keyedContext'
+} from '@corvu-next/utils/create/keyedContext'
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import type { Placement, Strategy } from '@floating-ui/dom'
 
 export type TooltipContextValue = {
@@ -50,7 +50,7 @@ export type TooltipContextValue = {
   tooltipId: Accessor<string>
 }
 
-const TooltipContext = createContext<TooltipContextValue>()
+const TooltipContext = createContext<TooltipContextValue | null>(null)
 
 export const createTooltipContext = (contextId?: string) => {
   if (contextId === undefined) return TooltipContext
@@ -93,7 +93,7 @@ export type InternalTooltipContextValue = TooltipContextValue & {
   onPointerDown?: (event: PointerEvent) => void
 }
 
-const InternalTooltipContext = createContext<InternalTooltipContextValue>()
+const InternalTooltipContext = createContext<InternalTooltipContextValue | null>(null)
 
 export const createInternalTooltipContext = (contextId?: string) => {
   if (contextId === undefined) return InternalTooltipContext
