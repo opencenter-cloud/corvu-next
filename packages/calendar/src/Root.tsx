@@ -650,14 +650,41 @@ const CalendarRoot = (props: CalendarRootProps) => {
     return children
   }
 
-  const memoizedCalendarRoot = createMemo(() => {
-    const CalendarContext = createCalendarContext(defaultedProps.contextId)
-    const InternalCalendarContext = createInternalCalendarContext(
-      defaultedProps.contextId,
-    )
-
-    return (
-      <CalendarContext
+  const CalendarContext = createCalendarContext(defaultedProps.contextId)
+  const InternalCalendarContext = createInternalCalendarContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <CalendarContext
+      value={{
+        // @ts-expect-error: Union type shenanigans
+        mode: () => defaultedProps.mode,
+        // @ts-expect-error: Union type shenanigans
+        value,
+        // @ts-expect-error: Union type shenanigans
+        setValue,
+        month,
+        setMonth,
+        focusedDay,
+        setFocusedDay,
+        startOfWeek: () => defaultedProps.startOfWeek,
+        required: () => defaultedProps.required,
+        numberOfMonths: () => defaultedProps.numberOfMonths,
+        disableOutsideDays: () => defaultedProps.disableOutsideDays,
+        fixedWeeks: () => defaultedProps.fixedWeeks,
+        textDirection: () => defaultedProps.textDirection,
+        weekdays,
+        months,
+        weeks,
+        navigate,
+        focusedDayRef,
+        min: () => defaultedProps.min,
+        max: () => defaultedProps.max,
+        excludeDisabled: () => defaultedProps.excludeDisabled,
+        labelIds: () => registerMemo()[0],
+      }}
+    >
+      <InternalCalendarContext
         value={{
           // @ts-expect-error: Union type shenanigans
           mode: () => defaultedProps.mode,
@@ -684,53 +711,21 @@ const CalendarRoot = (props: CalendarRootProps) => {
           max: () => defaultedProps.max,
           excludeDisabled: () => defaultedProps.excludeDisabled,
           labelIds: () => registerMemo()[0],
+          registerLabelId: (index: number) => registerMemo()[1](index),
+          unregisterLabelId: (index: number) => registerMemo()[2](index),
+          onDaySelect,
+          isSelected,
+          isDisabled,
+          isFocusing,
+          setIsFocusing,
+          disabled: defaultedProps.disabled,
+          setFocusedDayRef,
         }}
       >
-        <InternalCalendarContext
-          value={{
-            // @ts-expect-error: Union type shenanigans
-            mode: () => defaultedProps.mode,
-            // @ts-expect-error: Union type shenanigans
-            value,
-            // @ts-expect-error: Union type shenanigans
-            setValue,
-            month,
-            setMonth,
-            focusedDay,
-            setFocusedDay,
-            startOfWeek: () => defaultedProps.startOfWeek,
-            required: () => defaultedProps.required,
-            numberOfMonths: () => defaultedProps.numberOfMonths,
-            disableOutsideDays: () => defaultedProps.disableOutsideDays,
-            fixedWeeks: () => defaultedProps.fixedWeeks,
-            textDirection: () => defaultedProps.textDirection,
-            weekdays,
-            months,
-            weeks,
-            navigate,
-            focusedDayRef,
-            min: () => defaultedProps.min,
-            max: () => defaultedProps.max,
-            excludeDisabled: () => defaultedProps.excludeDisabled,
-            labelIds: () => registerMemo()[0],
-            registerLabelId: (index: number) => registerMemo()[1](index),
-            unregisterLabelId: (index: number) => registerMemo()[2](index),
-            onDaySelect,
-            isSelected,
-            isDisabled,
-            isFocusing,
-            setIsFocusing,
-            disabled: defaultedProps.disabled,
-            setFocusedDayRef,
-          }}
-        >
-          {untrack(() => resolveChildren())}
-        </InternalCalendarContext>
-      </CalendarContext>
-    )
-  })
-
-  return memoizedCalendarRoot as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </InternalCalendarContext>
+    </CalendarContext>
+  ) as unknown as JSX.Element
 }
 
 export default CalendarRoot

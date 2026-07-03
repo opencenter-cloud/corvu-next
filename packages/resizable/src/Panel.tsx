@@ -304,54 +304,49 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     return children
   }
 
-  const memoizedResizablePanel = createMemo(() => {
-    const ResizablePanelContext = createResizablePanelContext(
-      localProps.contextId,
-    )
-
-    return (
-      <ResizablePanelContext
-        value={{
-          size: panelSize,
-          minSize: () => localProps.minSize,
-          maxSize: () => localProps.maxSize,
-          collapsible: () => localProps.collapsible,
-          collapsedSize: () => localProps.collapsedSize,
-          collapseThreshold: () => localProps.collapseThreshold,
-          collapsed,
-          resize,
-          collapse,
-          expand,
-          panelId: () => localProps.panelId,
-        }}
+  const ResizablePanelContext = createResizablePanelContext(
+    localProps.contextId,
+  )
+  return (
+    <ResizablePanelContext
+      value={{
+        size: panelSize,
+        minSize: () => localProps.minSize,
+        maxSize: () => localProps.maxSize,
+        collapsible: () => localProps.collapsible,
+        collapsedSize: () => localProps.collapsedSize,
+        collapseThreshold: () => localProps.collapseThreshold,
+        collapsed,
+        resize,
+        collapse,
+        expand,
+        panelId: () => localProps.panelId,
+      }}
+    >
+      <Dynamic<ResizablePanelElementProps>
+        as="div"
+        // === SharedElementProps ===
+        ref={mergeRefs(setRef, localProps.ref)}
+        style={combineStyle(
+          {
+            'flex-basis': panelSize() * 100 + '%',
+          },
+          localProps.style,
+        )}
+        // === ElementProps ===
+        id={localProps.panelId}
+        data-collapsed={dataIf(collapsed())}
+        data-expanded={dataIf(
+          localProps.collapsible === true && !collapsed(),
+        )}
+        data-orientation={context().orientation()}
+        data-corvu-resizable-panel=""
+        {...otherProps}
       >
-        <Dynamic<ResizablePanelElementProps>
-          as="div"
-          // === SharedElementProps ===
-          ref={mergeRefs(setRef, localProps.ref)}
-          style={combineStyle(
-            {
-              'flex-basis': panelSize() * 100 + '%',
-            },
-            localProps.style,
-          )}
-          // === ElementProps ===
-          id={localProps.panelId}
-          data-collapsed={dataIf(collapsed())}
-          data-expanded={dataIf(
-            localProps.collapsible === true && !collapsed(),
-          )}
-          data-orientation={context().orientation()}
-          data-corvu-resizable-panel=""
-          {...otherProps}
-        >
-          {untrack(() => resolveChildren())}
-        </Dynamic>
-      </ResizablePanelContext>
-    )
-  })
-
-  return memoizedResizablePanel as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </Dynamic>
+    </ResizablePanelContext>
+  ) as unknown as JSX.Element
 }
 
 export default ResizablePanel

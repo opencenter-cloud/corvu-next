@@ -247,14 +247,27 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
     return children
   }
 
-  const memoizedAccordionRoot = createMemo(() => {
-    const AccordionContext = createAccordionContext(defaultedProps.contextId)
-    const InternalAccordionContext = createInternalAccordionContext(
-      defaultedProps.contextId,
-    )
-
-    return (
-      <AccordionContext
+  const AccordionContext = createAccordionContext(defaultedProps.contextId)
+  const InternalAccordionContext = createInternalAccordionContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <AccordionContext
+      value={{
+        multiple: () => defaultedProps.multiple,
+        value,
+        setValue,
+        collapsible: () => defaultedProps.collapsible,
+        disabled: () => defaultedProps.disabled,
+        orientation: () => defaultedProps.orientation,
+        loop: () => defaultedProps.loop,
+        textDirection: () => defaultedProps.textDirection,
+        collapseBehavior: () => defaultedProps.collapseBehavior,
+        preventInitialContentAnimation: () =>
+          defaultedProps.preventInitialContentAnimation,
+      }}
+    >
+      <InternalAccordionContext
         value={{
           multiple: () => defaultedProps.multiple,
           value,
@@ -267,39 +280,21 @@ const AccordionRoot: Component<AccordionRootProps> = (props) => {
           collapseBehavior: () => defaultedProps.collapseBehavior,
           preventInitialContentAnimation: () =>
             defaultedProps.preventInitialContentAnimation,
+          internalValue,
+          toggleValue,
+          registerTrigger: (trigger) =>
+            setTriggers((triggers) => [...triggers, trigger]),
+          unregisterTrigger: (trigger) =>
+            setTriggers((triggers) => triggers.filter((t) => t !== trigger)),
+          onTriggerKeyDown,
+          onTriggerFocus: (e) =>
+            setActive(selectableTriggers().indexOf(e.target as HTMLElement)),
         }}
       >
-        <InternalAccordionContext
-          value={{
-            multiple: () => defaultedProps.multiple,
-            value,
-            setValue,
-            collapsible: () => defaultedProps.collapsible,
-            disabled: () => defaultedProps.disabled,
-            orientation: () => defaultedProps.orientation,
-            loop: () => defaultedProps.loop,
-            textDirection: () => defaultedProps.textDirection,
-            collapseBehavior: () => defaultedProps.collapseBehavior,
-            preventInitialContentAnimation: () =>
-              defaultedProps.preventInitialContentAnimation,
-            internalValue,
-            toggleValue,
-            registerTrigger: (trigger) =>
-              setTriggers((triggers) => [...triggers, trigger]),
-            unregisterTrigger: (trigger) =>
-              setTriggers((triggers) => triggers.filter((t) => t !== trigger)),
-            onTriggerKeyDown,
-            onTriggerFocus: (e) =>
-              setActive(selectableTriggers().indexOf(e.target as HTMLElement)),
-          }}
-        >
-          {untrack(() => resolveChildren())}
-        </InternalAccordionContext>
-      </AccordionContext>
-    )
-  })
-
-  return memoizedAccordionRoot as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </InternalAccordionContext>
+    </AccordionContext>
+  ) as unknown as JSX.Element
 }
 
 export default AccordionRoot

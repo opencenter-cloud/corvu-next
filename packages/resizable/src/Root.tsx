@@ -460,69 +460,64 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     return children
   }
 
-  const memoizedResizableRoot = createMemo(() => {
-    const ResizableContext = createResizableContext(localProps.contextId)
-    const InternalResizableContext = createInternalResizableContext(
-      localProps.contextId,
-    )
-
-    return (
-      <ResizableContext
+  const ResizableContext = createResizableContext(localProps.contextId)
+  const InternalResizableContext = createInternalResizableContext(
+    localProps.contextId,
+  )
+  return (
+    <ResizableContext
+      value={{
+        sizes,
+        setSizes,
+        orientation: () => localProps.orientation,
+        keyboardDelta: () => localProps.keyboardDelta,
+        handleCursorStyle: () => localProps.handleCursorStyle,
+        resize,
+        collapse,
+        expand,
+      }}
+    >
+      <InternalResizableContext
         value={{
           sizes,
           setSizes,
           orientation: () => localProps.orientation,
           keyboardDelta: () => localProps.keyboardDelta,
           handleCursorStyle: () => localProps.handleCursorStyle,
+          rootSize,
+          panels,
+          registerPanel,
+          unregisterPanel,
+          onDrag,
+          onDragEnd: () => (initialSizes = null),
+          onKeyDown,
           resize,
           collapse,
           expand,
         }}
       >
-        <InternalResizableContext
-          value={{
-            sizes,
-            setSizes,
-            orientation: () => localProps.orientation,
-            keyboardDelta: () => localProps.keyboardDelta,
-            handleCursorStyle: () => localProps.handleCursorStyle,
-            rootSize,
-            panels,
-            registerPanel,
-            unregisterPanel,
-            onDrag,
-            onDragEnd: () => (initialSizes = null),
-            onKeyDown,
-            resize,
-            collapse,
-            expand,
-          }}
+        <Dynamic<ResizableRootElementProps>
+          as="div"
+          // === SharedElementProps ===
+          ref={mergeRefs(setRef, localProps.ref)}
+          style={combineStyle(
+            {
+              display: 'flex',
+              'flex-direction':
+                localProps.orientation === 'horizontal' ? 'row' : 'column',
+            },
+            localProps.style,
+          )}
+          // === ElementProps ===
+          data-orientation={localProps.orientation}
+          data-corvu-resizable-root=""
+          {...otherProps}
         >
-          <Dynamic<ResizableRootElementProps>
-            as="div"
-            // === SharedElementProps ===
-            ref={mergeRefs(setRef, localProps.ref)}
-            style={combineStyle(
-              {
-                display: 'flex',
-                'flex-direction':
-                  localProps.orientation === 'horizontal' ? 'row' : 'column',
-              },
-              localProps.style,
-            )}
-            // === ElementProps ===
-            data-orientation={localProps.orientation}
-            data-corvu-resizable-root=""
-            {...otherProps}
-          >
-            {untrack(() => resolveChildren())}
-          </Dynamic>
-        </InternalResizableContext>
-      </ResizableContext>
-    )
-  })
-
-  return memoizedResizableRoot as unknown as JSX.Element
+          {untrack(() => resolveChildren())}
+        </Dynamic>
+      </InternalResizableContext>
+    </ResizableContext>
+  ) as unknown as JSX.Element
 }
 
 export default ResizableRoot

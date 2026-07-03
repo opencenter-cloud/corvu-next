@@ -1,6 +1,5 @@
 import {
   type Component,
-  createMemo,
   createSignal,
   createUniqueId,
   merge,
@@ -399,25 +398,62 @@ const DialogRoot: Component<DialogRootProps> = (props) => {
     return children
   }
 
-  const memoizedDialogRoot = createMemo(() => {
-    const DialogContext = createDialogContext(defaultedProps.contextId)
-    const InternalDialogContext = createInternalDialogContext(
-      defaultedProps.contextId,
-    )
-
-    return (
-      <DialogContext
+  const DialogContext = createDialogContext(defaultedProps.contextId)
+  const InternalDialogContext = createInternalDialogContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <DialogContext
+      value={{
+        role: () => defaultedProps.role,
+        open,
+        setOpen,
+        modal: () => defaultedProps.modal,
+        closeOnEscapeKeyDown: () => defaultedProps.closeOnEscapeKeyDown,
+        closeOnOutsideFocus: () => access(defaultedProps.closeOnOutsideFocus),
+        closeOnOutsidePointer: () =>
+          access(defaultedProps.closeOnOutsidePointer),
+        closeOnOutsidePointerStrategy: () =>
+          defaultedProps.closeOnOutsidePointerStrategy,
+        noOutsidePointerEvents: () =>
+          access(defaultedProps.noOutsidePointerEvents),
+        preventScroll: () => access(defaultedProps.preventScroll),
+        hideScrollbar: () => defaultedProps.hideScrollbar,
+        preventScrollbarShift: () =>
+          access(defaultedProps.preventScrollbarShift),
+        preventScrollbarShiftMode: () =>
+          defaultedProps.preventScrollbarShiftMode,
+        restoreScrollPosition: () => defaultedProps.restoreScrollPosition,
+        allowPinchZoom: () => defaultedProps.allowPinchZoom,
+        trapFocus: () => defaultedProps.trapFocus,
+        restoreFocus: () => defaultedProps.restoreFocus,
+        initialFocusEl: () => defaultedProps.initialFocusEl,
+        finalFocusEl: () => defaultedProps.finalFocusEl,
+        contentPresent,
+        contentRef,
+        overlayPresent,
+        overlayRef,
+        dialogId: () => defaultedProps.dialogId,
+        labelId,
+        descriptionId,
+      }}
+    >
+      <InternalDialogContext
         value={{
           role: () => defaultedProps.role,
           open,
           setOpen,
           modal: () => defaultedProps.modal,
           closeOnEscapeKeyDown: () => defaultedProps.closeOnEscapeKeyDown,
-          closeOnOutsideFocus: () => access(defaultedProps.closeOnOutsideFocus),
+          onEscapeKeyDown: defaultedProps.onEscapeKeyDown,
+          closeOnOutsideFocus: () =>
+            access(defaultedProps.closeOnOutsideFocus),
           closeOnOutsidePointer: () =>
             access(defaultedProps.closeOnOutsidePointer),
           closeOnOutsidePointerStrategy: () =>
             defaultedProps.closeOnOutsidePointerStrategy,
+          onOutsideFocus: defaultedProps.onOutsideFocus,
+          onOutsidePointer: defaultedProps.onOutsidePointer,
           noOutsidePointerEvents: () =>
             access(defaultedProps.noOutsidePointerEvents),
           preventScroll: () => access(defaultedProps.preventScroll),
@@ -438,63 +474,21 @@ const DialogRoot: Component<DialogRootProps> = (props) => {
           overlayRef,
           dialogId: () => defaultedProps.dialogId,
           labelId,
+          registerLabelId,
+          unregisterLabelId,
           descriptionId,
+          registerDescriptionId,
+          unregisterDescriptionId,
+          setContentRef,
+          setOverlayRef,
+          triggerRef,
+          setTriggerRef,
         }}
       >
-        <InternalDialogContext
-          value={{
-            role: () => defaultedProps.role,
-            open,
-            setOpen,
-            modal: () => defaultedProps.modal,
-            closeOnEscapeKeyDown: () => defaultedProps.closeOnEscapeKeyDown,
-            onEscapeKeyDown: defaultedProps.onEscapeKeyDown,
-            closeOnOutsideFocus: () =>
-              access(defaultedProps.closeOnOutsideFocus),
-            closeOnOutsidePointer: () =>
-              access(defaultedProps.closeOnOutsidePointer),
-            closeOnOutsidePointerStrategy: () =>
-              defaultedProps.closeOnOutsidePointerStrategy,
-            onOutsideFocus: defaultedProps.onOutsideFocus,
-            onOutsidePointer: defaultedProps.onOutsidePointer,
-            noOutsidePointerEvents: () =>
-              access(defaultedProps.noOutsidePointerEvents),
-            preventScroll: () => access(defaultedProps.preventScroll),
-            hideScrollbar: () => defaultedProps.hideScrollbar,
-            preventScrollbarShift: () =>
-              access(defaultedProps.preventScrollbarShift),
-            preventScrollbarShiftMode: () =>
-              defaultedProps.preventScrollbarShiftMode,
-            restoreScrollPosition: () => defaultedProps.restoreScrollPosition,
-            allowPinchZoom: () => defaultedProps.allowPinchZoom,
-            trapFocus: () => defaultedProps.trapFocus,
-            restoreFocus: () => defaultedProps.restoreFocus,
-            initialFocusEl: () => defaultedProps.initialFocusEl,
-            finalFocusEl: () => defaultedProps.finalFocusEl,
-            contentPresent,
-            contentRef,
-            overlayPresent,
-            overlayRef,
-            dialogId: () => defaultedProps.dialogId,
-            labelId,
-            registerLabelId,
-            unregisterLabelId,
-            descriptionId,
-            registerDescriptionId,
-            unregisterDescriptionId,
-            setContentRef,
-            setOverlayRef,
-            triggerRef,
-            setTriggerRef,
-          }}
-        >
-          {untrack(() => resolveChildren())}
-        </InternalDialogContext>
-      </DialogContext>
-    )
-  })
-
-  return memoizedDialogRoot as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </InternalDialogContext>
+    </DialogContext>
+  ) as unknown as JSX.Element
 }
 
 export default DialogRoot

@@ -347,14 +347,32 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
     return children
   }
 
-  const memoizedDrawerRoot = createMemo(() => {
-    const DrawerContext = createDrawerContext(defaultedProps.contextId)
-    const InternalDrawerContext = createInternalDrawerContext(
-      defaultedProps.contextId,
-    )
-
-    return untrack(() => (
-      <DrawerContext
+  const DrawerContext = createDrawerContext(defaultedProps.contextId)
+  const InternalDrawerContext = createInternalDrawerContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <DrawerContext
+      value={{
+        snapPoints: () => defaultedProps.snapPoints,
+        breakPoints: () => defaultedProps.breakPoints,
+        defaultSnapPoint: () => defaultedProps.defaultSnapPoint,
+        activeSnapPoint,
+        setActiveSnapPoint,
+        side: () => defaultedProps.side,
+        isDragging,
+        isTransitioning: () => transitionState() !== null,
+        transitionState,
+        openPercentage,
+        translate,
+        velocityCacheReset: () => defaultedProps.velocityCacheReset,
+        allowSkippingSnapPoints: () => defaultedProps.allowSkippingSnapPoints,
+        handleScrollableElements: () =>
+          defaultedProps.handleScrollableElements,
+        transitionResize: () => defaultedProps.transitionResize,
+      }}
+    >
+      <InternalDrawerContext
         value={{
           snapPoints: () => defaultedProps.snapPoints,
           breakPoints: () => defaultedProps.breakPoints,
@@ -368,60 +386,37 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
           openPercentage,
           translate,
           velocityCacheReset: () => defaultedProps.velocityCacheReset,
-          allowSkippingSnapPoints: () => defaultedProps.allowSkippingSnapPoints,
+          allowSkippingSnapPoints: () =>
+            defaultedProps.allowSkippingSnapPoints,
           handleScrollableElements: () =>
             defaultedProps.handleScrollableElements,
           transitionResize: () => defaultedProps.transitionResize,
+          dampFunction: defaultedProps.dampFunction,
+          velocityFunction: defaultedProps.velocityFunction,
+          setIsDragging,
+          setTranslate,
+          drawerSize,
+          resolvedActiveSnapPoint,
+          drawerStyles,
+          setTransitionState,
+          transitionSize,
+          closeDrawer,
         }}
       >
-        <InternalDrawerContext
-          value={{
-            snapPoints: () => defaultedProps.snapPoints,
-            breakPoints: () => defaultedProps.breakPoints,
-            defaultSnapPoint: () => defaultedProps.defaultSnapPoint,
-            activeSnapPoint,
-            setActiveSnapPoint,
-            side: () => defaultedProps.side,
-            isDragging,
-            isTransitioning: () => transitionState() !== null,
-            transitionState,
-            openPercentage,
-            translate,
-            velocityCacheReset: () => defaultedProps.velocityCacheReset,
-            allowSkippingSnapPoints: () =>
-              defaultedProps.allowSkippingSnapPoints,
-            handleScrollableElements: () =>
-              defaultedProps.handleScrollableElements,
-            transitionResize: () => defaultedProps.transitionResize,
-            dampFunction: defaultedProps.dampFunction,
-            velocityFunction: defaultedProps.velocityFunction,
-            setIsDragging,
-            setTranslate,
-            drawerSize,
-            resolvedActiveSnapPoint,
-            drawerStyles,
-            setTransitionState,
-            transitionSize,
-            closeDrawer,
-          }}
+        <Dialog
+          open={transitionAwareOpen()}
+          onOpenChange={setOpen}
+          contextId={defaultedProps.contextId}
+          closeOnOutsidePointer={
+            !isDragging() && defaultedProps.closeOnOutsidePointer
+          }
+          {...otherProps}
         >
-          <Dialog
-            open={transitionAwareOpen()}
-            onOpenChange={setOpen}
-            contextId={defaultedProps.contextId}
-            closeOnOutsidePointer={
-              !isDragging() && defaultedProps.closeOnOutsidePointer
-            }
-            {...otherProps}
-          >
-            {(dialogChildrenProps) => resolveChildren(dialogChildrenProps)}
-          </Dialog>
-        </InternalDrawerContext>
-      </DrawerContext>
-    ))
-  })
-
-  return memoizedDrawerRoot as unknown as JSX.Element
+          {(dialogChildrenProps) => resolveChildren(dialogChildrenProps)}
+        </Dialog>
+      </InternalDrawerContext>
+    </DrawerContext>
+  ) as unknown as JSX.Element
 }
 
 export default DrawerRoot
