@@ -4,8 +4,6 @@ import createStyle from '@corvu-next/utils/create/style'
 
 /**
  * Disables pointer events on the `<body>` element.
- *
- * @param props.enabled - Whether pointer events should be disabled. *Default = `true`*
  */
 const createNoPointerEvents = (props: { enabled?: MaybeAccessor<boolean> }) => {
   const defaultedProps = merge(
@@ -22,13 +20,15 @@ const createNoPointerEvents = (props: { enabled?: MaybeAccessor<boolean> }) => {
 
       const { body } = document
 
-      createStyle({
+      const revertStyle = createStyle({
         key: 'no-pointer-events',
         element: body,
         style: {
           pointerEvents: 'none',
         },
       })
+
+      return revertStyle
     },
   )
 }

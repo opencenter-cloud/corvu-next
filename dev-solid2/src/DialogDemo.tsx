@@ -40,8 +40,12 @@ export default function DialogDemo() {
             enabled={open()}
             element={contentRef}
             onDismiss={() => setOpen(false)}
+            dismissOnOutsidePointer={false}
+            noOutsidePointerEvents={false}
           >
-            <div class="dialog-overlay">
+            <div class="dialog-overlay" onPointerUp={(e) => {
+              if (e.target === e.currentTarget) setOpen(false)
+            }}>
               <div
                 ref={setContentRef}
                 class="dialog-content"
@@ -53,7 +57,7 @@ export default function DialogDemo() {
                 <p>Focus is trapped. Body scroll is locked.</p>
                 <input placeholder="Tab cycles through inputs" />
                 <br /><br />
-                <button>Action</button>{' '}
+                <button onClick={() => alert('Action clicked!')}>Action</button>{' '}
                 <button onClick={() => setOpen(false)}>Close</button>
                 <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
                   Dismiss: Escape key, click overlay, or Close button.
