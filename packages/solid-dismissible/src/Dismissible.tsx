@@ -3,12 +3,10 @@ import {
   type Component,
   createContext,
   createEffect,
-  createMemo,
   createSignal,
   createUniqueId,
   merge,
   omit,
-  untrack,
   useContext,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
@@ -49,38 +47,34 @@ const Dismissible: Component<DismissibleProps> = (props) => {
     props,
   )
 
-  const memoizedDismissible = createMemo(() => {
-    const dismissibleContext = useContext(DismissibleContext)
-    if (dismissibleContext !== null) {
-      return <DismissibleLayer {...props} />
-    }
+  const dismissibleContext = useContext(DismissibleContext)
+  if (dismissibleContext !== null) {
+    return (<DismissibleLayer {...props} />) as unknown as JSX.Element
+  }
 
-    const [layers, setLayers] = createSignal<string[]>([
-      defaultedProps.dismissibleId,
-    ])
+  const [layers, setLayers] = createSignal<string[]>([
+    defaultedProps.dismissibleId,
+  ])
 
-    const onLayerShow = (dismissibleId: string) => {
-      setLayers((layers) => [...layers, dismissibleId])
-    }
+  const onLayerShow = (dismissibleId: string) => {
+    setLayers((layers) => [...layers, dismissibleId])
+  }
 
-    const onLayerDismiss = (dismissibleId: string) => {
-      setLayers((layers) => layers.filter((layer) => layer !== dismissibleId))
-    }
+  const onLayerDismiss = (dismissibleId: string) => {
+    setLayers((layers) => layers.filter((layer) => layer !== dismissibleId))
+  }
 
-    return (
-      <DismissibleContext
-        value={{
-          layers,
-          onLayerShow,
-          onLayerDismiss,
-        }}
-      >
-        <DismissibleLayer {...props} />
-      </DismissibleContext>
-    )
-  })
-
-  return memoizedDismissible as unknown as JSX.Element
+  return (
+    <DismissibleContext
+      value={{
+        layers,
+        onLayerShow,
+        onLayerDismiss,
+      }}
+    >
+      <DismissibleLayer {...props} />
+    </DismissibleContext>
+  ) as unknown as JSX.Element
 }
 
 const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>([])
@@ -172,10 +166,8 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     ...otherProps,
   })
 
-  const memoizedChildren = createMemo(() => defaultedProps.children)
-
   const resolveChildren = () => {
-    const children = memoizedChildren()
+    const children = defaultedProps.children
     if (isFunction(children)) {
       return children({
         get isLastLayer() {
@@ -186,7 +178,7 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     return children
   }
 
-  return untrack(() => resolveChildren())
+  return resolveChildren() as unknown as JSX.Element
 }
 
 export { activeDismissibles }

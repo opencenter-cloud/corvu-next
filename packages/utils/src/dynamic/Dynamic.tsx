@@ -15,7 +15,8 @@ const Dynamic = <ElementProps,>(
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   const cached = createMemo<Function | string>(() => props.as ?? 'div')
-  const memoizedDynamic = createMemo(() => {
+
+  return (() => {
     const component = cached()
     switch (typeof component) {
       case 'function':
@@ -23,9 +24,7 @@ const Dynamic = <ElementProps,>(
       case 'string':
         return <SolidDynamic component={component} {...otherProps} />
     }
-  })
-
-  return memoizedDynamic as unknown as JSX.Element
+  }) as unknown as JSX.Element
 }
 
 export default Dynamic

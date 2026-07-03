@@ -16,13 +16,13 @@ export default function DialogDemo() {
 
   createPreventScroll({
     element: contentRef,
-    enabled: open,
+    enabled: () => open(),
     hideScrollbar: true,
   })
 
   createFocusTrap({
     element: contentRef,
-    enabled: open,
+    enabled: () => open(),
   })
 
   return (

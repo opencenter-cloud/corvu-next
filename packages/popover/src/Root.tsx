@@ -1,6 +1,5 @@
 import {
   type Component,
-  createMemo,
   createSignal,
   merge,
   untrack,
@@ -120,41 +119,36 @@ const PopoverRoot: Component<PopoverRootProps> = (props) => {
     return children
   }
 
-  const memoizedPopoverRoot = createMemo(() => {
-    const PopoverContext = createPopoverContext(defaultedProps.contextId)
-    const InternalPopoverContext = createInternalPopoverContext(
-      defaultedProps.contextId,
-    )
-
-    return untrack(() => (
-      <PopoverContext
+  const PopoverContext = createPopoverContext(defaultedProps.contextId)
+  const InternalPopoverContext = createInternalPopoverContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <PopoverContext
+      value={{
+        placement: () => defaultedProps.placement,
+        strategy: () => defaultedProps.strategy,
+        floatingOptions: () => defaultedProps.floatingOptions,
+        floatingState,
+      }}
+    >
+      <InternalPopoverContext
         value={{
           placement: () => defaultedProps.placement,
           strategy: () => defaultedProps.strategy,
           floatingOptions: () => defaultedProps.floatingOptions,
           floatingState,
+          setAnchorRef,
+          setTriggerRef,
+          setArrowRef,
         }}
       >
-        <InternalPopoverContext
-          value={{
-            placement: () => defaultedProps.placement,
-            strategy: () => defaultedProps.strategy,
-            floatingOptions: () => defaultedProps.floatingOptions,
-            floatingState,
-            setAnchorRef,
-            setTriggerRef,
-            setArrowRef,
-          }}
-        >
-          <Dialog contextId={defaultedProps.contextId} {...props}>
-            {(dialogChildrenProps) => resolveChildren(dialogChildrenProps)}
-          </Dialog>
-        </InternalPopoverContext>
-      </PopoverContext>
-    ))
-  })
-
-  return memoizedPopoverRoot as unknown as JSX.Element
+        <Dialog contextId={defaultedProps.contextId} {...props}>
+          {(dialogChildrenProps) => resolveChildren(dialogChildrenProps)}
+        </Dialog>
+      </InternalPopoverContext>
+    </PopoverContext>
+  ) as unknown as JSX.Element
 }
 
 export default PopoverRoot

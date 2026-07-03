@@ -61,7 +61,7 @@ const createPreventScroll = (props: {
   // Effect 1: Stack management
   createEffect(
     (prev: undefined | boolean) => {
-      const enabled = access(defaultedProps.enabled)
+      const enabled = access(props.enabled ?? true)
       return enabled
     },
     (enabled: boolean, prev?: boolean) => {
@@ -80,8 +80,9 @@ const createPreventScroll = (props: {
   // Effect 2: Body style application (scrollbar hide + shift compensation)
   createEffect(
     (prev: undefined | { enabled: boolean; hideScrollbar: boolean }) => {
-      const enabled = access(defaultedProps.enabled)
-      const hideScrollbar = access(defaultedProps.hideScrollbar)
+      // Read directly from the accessors to ensure Solid 2 tracking
+      const enabled = access(props.enabled ?? true)
+      const hideScrollbar = access(props.hideScrollbar ?? true)
       return { enabled, hideScrollbar }
     },
     (
@@ -150,7 +151,7 @@ const createPreventScroll = (props: {
   createEffect(
     (prev: undefined | { active: boolean; enabled: boolean }) => {
       const active = isActive(preventScrollId)
-      const enabled = access(defaultedProps.enabled)
+      const enabled = access(props.enabled ?? true)
       return { active, enabled }
     },
     (

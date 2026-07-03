@@ -143,59 +143,54 @@ const AccordionItem = <T extends ValidComponent = typeof Fragment>(
     return children
   }
 
-  const memoizedAccordionItem = createMemo(() => {
-    const AccordionItemContext = createAccordionItemContext(
-      typedProps.contextId,
-    )
-    const InternalAccordionItemContext = createInternalAccordionItemContext(
-      typedProps.contextId,
-    )
-
-    return (
-      <AccordionItemContext
+  const AccordionItemContext = createAccordionItemContext(
+    typedProps.contextId,
+  )
+  const InternalAccordionItemContext = createInternalAccordionItemContext(
+    typedProps.contextId,
+  )
+  return (
+    <AccordionItemContext
+      value={{
+        value,
+        disabled,
+        triggerId,
+      }}
+    >
+      <InternalAccordionItemContext
         value={{
           value,
           disabled,
           triggerId,
+          registerTriggerId,
+          unregisterTriggerId,
         }}
       >
-        <InternalAccordionItemContext
-          value={{
-            value,
-            disabled,
-            triggerId,
-            registerTriggerId,
-            unregisterTriggerId,
-          }}
+        <Dynamic<AccordionItemElementProps>
+          as={Fragment}
+          // === ElementProps ===
+          data-corvu-accordion-item=""
+          {...otherProps}
         >
-          <Dynamic<AccordionItemElementProps>
-            as={Fragment}
-            // === ElementProps ===
-            data-corvu-accordion-item=""
+          <Disclosure
+            expanded={expanded()}
+            onExpandedChange={(newExpanded) => {
+              if (newExpanded === expanded() || disabled()) return
+              context().toggleValue(value())
+            }}
+            collapseBehavior={collapseBehavior()}
+            preventInitialContentAnimation={preventInitialContentAnimation()}
+            contextId={typedProps.contextId}
             {...otherProps}
           >
-            <Disclosure
-              expanded={expanded()}
-              onExpandedChange={(newExpanded) => {
-                if (newExpanded === expanded() || disabled()) return
-                context().toggleValue(value())
-              }}
-              collapseBehavior={collapseBehavior()}
-              preventInitialContentAnimation={preventInitialContentAnimation()}
-              contextId={typedProps.contextId}
-              {...otherProps}
-            >
-              {(disclosureChildrenProps) =>
-                resolveChildren(disclosureChildrenProps)
-              }
-            </Disclosure>
-          </Dynamic>
-        </InternalAccordionItemContext>
-      </AccordionItemContext>
-    )
-  })
-
-  return memoizedAccordionItem as unknown as JSX.Element
+            {(disclosureChildrenProps) =>
+              resolveChildren(disclosureChildrenProps)
+            }
+          </Disclosure>
+        </Dynamic>
+      </InternalAccordionItemContext>
+    </AccordionItemContext>
+  ) as unknown as JSX.Element
 }
 
 export default AccordionItem

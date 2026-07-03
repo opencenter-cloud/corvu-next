@@ -1,6 +1,5 @@
 import {
   createEffect,
-  createMemo,
   createSignal,
   merge,
   omit,
@@ -156,14 +155,23 @@ const OtpFieldRoot = <T extends ValidComponent = 'div'>(
     return children
   }
 
-  const memoizedOtpFieldRoot = createMemo(() => {
-    const OtpFieldContext = createOtpFieldContext(defaultedProps.contextId)
-    const InternalOtpFieldContext = createInternalOtpFieldContext(
-      defaultedProps.contextId,
-    )
-
-    return (
-      <OtpFieldContext
+  const OtpFieldContext = createOtpFieldContext(defaultedProps.contextId)
+  const InternalOtpFieldContext = createInternalOtpFieldContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <OtpFieldContext
+      value={{
+        value,
+        isFocused,
+        isHovered,
+        isInserting,
+        maxLength: () => defaultedProps.maxLength,
+        activeSlots,
+        shiftPWManagers: () => defaultedProps.shiftPWManagers,
+      }}
+    >
+      <InternalOtpFieldContext
         value={{
           value,
           isFocused,
@@ -172,48 +180,34 @@ const OtpFieldRoot = <T extends ValidComponent = 'div'>(
           maxLength: () => defaultedProps.maxLength,
           activeSlots,
           shiftPWManagers: () => defaultedProps.shiftPWManagers,
+          rootHeight,
+          setValue,
+          setIsFocused,
+          setIsHovered,
+          setIsInserting,
+          setActiveSlots,
         }}
       >
-        <InternalOtpFieldContext
-          value={{
-            value,
-            isFocused,
-            isHovered,
-            isInserting,
-            maxLength: () => defaultedProps.maxLength,
-            activeSlots,
-            shiftPWManagers: () => defaultedProps.shiftPWManagers,
-            rootHeight,
-            setValue,
-            setIsFocused,
-            setIsHovered,
-            setIsInserting,
-            setActiveSlots,
-          }}
+        <Dynamic<OtpFieldRootElementProps>
+          as="div"
+          ref={mergeRefs(setRef, defaultedProps.ref)}
+          style={combineStyle(
+            {
+              position: 'relative',
+              'user-select': 'none',
+              '-webkit-user-select': 'none',
+              'pointer-events': 'none',
+            },
+            defaultedProps.style,
+          )}
+          data-corvu-otp-field-root=""
+          {...localProps}
         >
-          <Dynamic<OtpFieldRootElementProps>
-            as="div"
-            ref={mergeRefs(setRef, defaultedProps.ref)}
-            style={combineStyle(
-              {
-                position: 'relative',
-                'user-select': 'none',
-                '-webkit-user-select': 'none',
-                'pointer-events': 'none',
-              },
-              defaultedProps.style,
-            )}
-            data-corvu-otp-field-root=""
-            {...localProps}
-          >
-            {untrack(() => resolveChildren())}
-          </Dynamic>
-        </InternalOtpFieldContext>
-      </OtpFieldContext>
-    )
-  })
-
-  return memoizedOtpFieldRoot as unknown as JSX.Element
+          {untrack(() => resolveChildren())}
+        </Dynamic>
+      </InternalOtpFieldContext>
+    </OtpFieldContext>
+  ) as unknown as JSX.Element
 }
 
 export default OtpFieldRoot

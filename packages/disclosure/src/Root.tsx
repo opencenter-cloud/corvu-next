@@ -1,7 +1,6 @@
 import {
   type Component,
   createEffect,
-  createMemo,
   createSignal,
   createUniqueId,
   merge,
@@ -210,14 +209,25 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
     return children
   }
 
-  const memoizedDisclosureRoot = createMemo(() => {
-    const DisclosureContext = createDisclosureContext(defaultedProps.contextId)
-    const InternalDisclosureContext = createInternalDisclosureContext(
-      defaultedProps.contextId,
-    )
-
-    return (
-      <DisclosureContext
+  const DisclosureContext = createDisclosureContext(defaultedProps.contextId)
+  const InternalDisclosureContext = createInternalDisclosureContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <DisclosureContext
+      value={{
+        expanded,
+        setExpanded,
+        collapseBehavior: () => defaultedProps.collapseBehavior,
+        preventInitialContentAnimation: () =>
+          defaultedProps.preventInitialContentAnimation,
+        disclosureId: () => defaultedProps.disclosureId,
+        contentPresent,
+        contentRef,
+        contentSize,
+      }}
+    >
+      <InternalDisclosureContext
         value={{
           expanded,
           setExpanded,
@@ -227,30 +237,14 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
           disclosureId: () => defaultedProps.disclosureId,
           contentPresent,
           contentRef,
+          setContentRef,
           contentSize,
         }}
       >
-        <InternalDisclosureContext
-          value={{
-            expanded,
-            setExpanded,
-            collapseBehavior: () => defaultedProps.collapseBehavior,
-            preventInitialContentAnimation: () =>
-              defaultedProps.preventInitialContentAnimation,
-            disclosureId: () => defaultedProps.disclosureId,
-            contentPresent,
-            contentRef,
-            setContentRef,
-            contentSize,
-          }}
-        >
-          {untrack(() => resolveChildren())}
-        </InternalDisclosureContext>
-      </DisclosureContext>
-    )
-  })
-
-  return memoizedDisclosureRoot as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </InternalDisclosureContext>
+    </DisclosureContext>
+  ) as unknown as JSX.Element
 }
 
 export default DisclosureRoot

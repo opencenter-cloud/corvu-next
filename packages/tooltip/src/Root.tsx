@@ -1,7 +1,6 @@
 import { callEventHandler, type EventHandlerEvent } from '@corvu-next/utils/dom'
 import {
   type Component,
-  createMemo,
   createSignal,
   createUniqueId,
   merge,
@@ -394,14 +393,35 @@ const TooltipRoot: Component<TooltipRootProps> = (props) => {
     return children
   }
 
-  const memoizedTooltipRoot = createMemo(() => {
-    const TooltipContext = createTooltipContext(defaultedProps.contextId)
-    const InternalTooltipContext = createInternalTooltipContext(
-      defaultedProps.contextId,
-    )
-
-    return untrack(() => (
-      <TooltipContext
+  const TooltipContext = createTooltipContext(defaultedProps.contextId)
+  const InternalTooltipContext = createInternalTooltipContext(
+    defaultedProps.contextId,
+  )
+  return (
+    <TooltipContext
+      value={{
+        open,
+        setOpen,
+        placement: () => defaultedProps.placement,
+        strategy: () => defaultedProps.strategy,
+        floatingOptions: () => defaultedProps.floatingOptions,
+        floatingState,
+        openDelay: () => defaultedProps.openDelay,
+        closeDelay: () => defaultedProps.closeDelay,
+        skipDelayDuration: () => defaultedProps.skipDelayDuration,
+        hoverableContent: () => defaultedProps.hoverableContent,
+        group: () => defaultedProps.group,
+        openOnFocus: () => defaultedProps.openOnFocus,
+        openOnHover: () => defaultedProps.openOnHover,
+        closeOnEscapeKeyDown: () => defaultedProps.closeOnEscapeKeyDown,
+        closeOnPointerDown: () => defaultedProps.closeOnPointerDown,
+        closeOnScroll: () => defaultedProps.closeOnScroll,
+        contentPresent,
+        contentRef,
+        tooltipId: () => defaultedProps.tooltipId,
+      }}
+    >
+      <InternalTooltipContext
         value={{
           open,
           setOpen,
@@ -422,46 +442,20 @@ const TooltipRoot: Component<TooltipRootProps> = (props) => {
           contentPresent,
           contentRef,
           tooltipId: () => defaultedProps.tooltipId,
+          onFocus: defaultedProps.onFocus,
+          onBlur: defaultedProps.onBlur,
+          onPointerDown: defaultedProps.onPointerDown,
+          onEscapeKeyDown: defaultedProps.onEscapeKeyDown,
+          setAnchorRef,
+          setTriggerRef,
+          setContentRef,
+          setArrowRef,
         }}
       >
-        <InternalTooltipContext
-          value={{
-            open,
-            setOpen,
-            placement: () => defaultedProps.placement,
-            strategy: () => defaultedProps.strategy,
-            floatingOptions: () => defaultedProps.floatingOptions,
-            floatingState,
-            openDelay: () => defaultedProps.openDelay,
-            closeDelay: () => defaultedProps.closeDelay,
-            skipDelayDuration: () => defaultedProps.skipDelayDuration,
-            hoverableContent: () => defaultedProps.hoverableContent,
-            group: () => defaultedProps.group,
-            openOnFocus: () => defaultedProps.openOnFocus,
-            openOnHover: () => defaultedProps.openOnHover,
-            closeOnEscapeKeyDown: () => defaultedProps.closeOnEscapeKeyDown,
-            closeOnPointerDown: () => defaultedProps.closeOnPointerDown,
-            closeOnScroll: () => defaultedProps.closeOnScroll,
-            contentPresent,
-            contentRef,
-            tooltipId: () => defaultedProps.tooltipId,
-            onFocus: defaultedProps.onFocus,
-            onBlur: defaultedProps.onBlur,
-            onPointerDown: defaultedProps.onPointerDown,
-            onEscapeKeyDown: defaultedProps.onEscapeKeyDown,
-            setAnchorRef,
-            setTriggerRef,
-            setContentRef,
-            setArrowRef,
-          }}
-        >
-          {untrack(() => resolveChildren())}
-        </InternalTooltipContext>
-      </TooltipContext>
-    ))
-  })
-
-  return memoizedTooltipRoot as unknown as JSX.Element
+        {untrack(() => resolveChildren())}
+      </InternalTooltipContext>
+    </TooltipContext>
+  ) as unknown as JSX.Element
 }
 
 export default TooltipRoot
