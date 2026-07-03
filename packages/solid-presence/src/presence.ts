@@ -37,9 +37,13 @@ const createPresence = (props: {
     return refStyles()?.animationName ?? 'none'
   }
 
+  // Initial read of `props.show` is a one-shot seed for the signal, not a
+  // reactive dependency. Wrap in `untrack` so Solid 2's strict mode does not
+  // flag it with STRICT_READ_UNTRACKED. Subsequent updates flow through the
+  // createEffect below, which reads `props.show` inside a tracked compute.
   const [presentState, setPresentStateInternal] = createSignal<
     'present' | 'hiding' | 'hidden'
-  >(access(props.show) ? 'present' : 'hidden')
+  >(untrack(() => access(props.show)) ? 'present' : 'hidden')
 
   const setPresentState = (state: 'present' | 'hiding' | 'hidden') => {
     setPresentStateInternal(state)
