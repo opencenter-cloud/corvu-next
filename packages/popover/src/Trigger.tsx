@@ -1,17 +1,13 @@
-import {
-  type Component,
-  createMemo,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
+import { type Component, createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
 import type {
   TriggerCorvuProps as DialogTriggerCorvuProps,
   TriggerElementProps as DialogTriggerElementProps,
   TriggerSharedElementProps as DialogTriggerSharedElementProps,
-} from '@corvu/dialog'
-import Dialog from '@corvu/dialog'
-import type { DynamicProps } from '@corvu/utils/dynamic'
-import { mergeRefs } from '@corvu/utils/reactivity'
+} from '@corvu-next/dialog'
+import Dialog from '@corvu-next/dialog'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import type { Placement } from '@floating-ui/dom'
 import { useInternalPopoverContext } from '@src/context'
 
@@ -39,17 +35,17 @@ export type PopoverTriggerProps<T extends ValidComponent = 'button'> =
 const PopoverTrigger = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, PopoverTriggerProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as PopoverTriggerProps, [
+  const otherProps = omit(props as PopoverTriggerProps,
     'ref',
     'contextId',
-  ])
+  )
 
   const dialogContext = createMemo(() =>
-    Dialog.useContext(localProps.contextId),
+    Dialog.useContext((props as PopoverTriggerProps).contextId),
   )
 
   const context = createMemo(() =>
-    useInternalPopoverContext(localProps.contextId),
+    useInternalPopoverContext((props as PopoverTriggerProps).contextId),
   )
 
   return (
@@ -58,9 +54,9 @@ const PopoverTrigger = <T extends ValidComponent = 'button'>(
         Omit<PopoverTriggerElementProps, keyof DialogTriggerElementProps>
       >
     >
-      contextId={localProps.contextId}
+      contextId={(props as PopoverTriggerProps).contextId}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setTriggerRef, localProps.ref)}
+      ref={mergeRefs(context().setTriggerRef, (props as PopoverTriggerProps).ref)}
       // === ElementProps ===
       data-placement={
         dialogContext().open() ? context().floatingState().placement : undefined

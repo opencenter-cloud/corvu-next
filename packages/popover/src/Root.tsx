@@ -2,11 +2,10 @@ import {
   type Component,
   createMemo,
   createSignal,
-  type JSX,
-  mergeProps,
-  splitProps,
+  merge,
   untrack,
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import {
   createInternalPopoverContext,
   createPopoverContext,
@@ -15,15 +14,15 @@ import Dialog, {
   type ContextValue as DialogContextValue,
   type RootChildrenProps as DialogRootChildrenProps,
   type RootProps as DialogRootProps,
-} from '@corvu/dialog'
+} from '@corvu-next/dialog'
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import type { Placement, Strategy } from '@floating-ui/dom'
-import createFloating from '@corvu/utils/create/floating'
-import createOnce from '@corvu/utils/create/once'
-import { isFunction } from '@corvu/utils'
+import createFloating from '@corvu-next/utils/create/floating'
+import createOnce from '@corvu-next/utils/create/once'
+import { isFunction } from '@corvu-next/utils'
 
 export type PopoverRootProps = {
   /**
@@ -63,7 +62,7 @@ export type PopoverRootChildrenProps = {
 
 /** Context wrapper for the popover. Is required for every popover you create. */
 const PopoverRoot: Component<PopoverRootProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       placement: 'bottom' as const,
       strategy: 'absolute' as const,
@@ -77,14 +76,6 @@ const PopoverRoot: Component<PopoverRootProps> = (props) => {
     props,
   )
 
-  const [localProps, otherProps] = splitProps(defaultedProps, [
-    'placement',
-    'strategy',
-    'floatingOptions',
-    'contextId',
-    'children',
-  ])
-
   const [dialogContext, setDialogContext] = createSignal<DialogContextValue>()
 
   const [anchorRef, setAnchorRef] = createSignal<HTMLElement | null>(null)
@@ -96,70 +87,70 @@ const PopoverRoot: Component<PopoverRootProps> = (props) => {
     floating: () => dialogContext()?.contentRef() ?? null,
     reference: () => anchorRef() ?? triggerRef() ?? null,
     arrow: arrowRef,
-    placement: () => localProps.placement,
-    strategy: () => localProps.strategy,
-    options: () => localProps.floatingOptions,
+    placement: () => defaultedProps.placement,
+    strategy: () => defaultedProps.strategy,
+    options: () => defaultedProps.floatingOptions,
   })
 
   const childrenProps: PopoverRootChildrenProps = {
     get placement() {
-      return localProps.placement
+      return defaultedProps.placement
     },
     get strategy() {
-      return localProps.strategy
+      return defaultedProps.strategy
     },
     get floatingOptions() {
-      return localProps.floatingOptions
+      return defaultedProps.floatingOptions
     },
     get floatingState() {
       return floatingState()
     },
   }
 
-  const memoizedChildren = createOnce(() => localProps.children)
+  const memoizedChildren = createOnce(() => defaultedProps.children)
 
   const resolveChildren = (dialogChildrenProps: DialogRootChildrenProps) => {
-    setDialogContext(Dialog.useContext(localProps.contextId))
+    setDialogContext(Dialog.useContext(defaultedProps.contextId))
 
     const children = memoizedChildren()()
     if (isFunction(children)) {
-      const mergedProps = mergeProps(dialogChildrenProps, childrenProps)
+      const mergedProps = merge(dialogChildrenProps, childrenProps)
       return children(mergedProps)
     }
     return children
   }
 
   const memoizedPopoverRoot = createMemo(() => {
-    const PopoverContext = createPopoverContext(localProps.contextId)
+    const PopoverContext = createPopoverContext(defaultedProps.contextId)
     const InternalPopoverContext = createInternalPopoverContext(
-      localProps.contextId,
+      defaultedProps.contextId,
     )
 
     return untrack(() => (
-      <PopoverContext.Provider
+      <PopoverContext
         value={{
-          placement: () => localProps.placement,
-          strategy: () => localProps.strategy,
-          floatingOptions: () => localProps.floatingOptions,
+          placement: () => defaultedProps.placement,
+          strategy: () => defaultedProps.strategy,
+          floatingOptions: () => defaultedProps.floatingOptions,
           floatingState,
         }}
       >
-        <InternalPopoverContext.Provider
+        <InternalPopoverContext
           value={{
-            placement: () => localProps.placement,
-            strategy: () => localProps.strategy,
-            floatingOptions: () => localProps.floatingOptions,
+            placement: () => defaultedProps.placement,
+            strategy: () => defaultedProps.strategy,
+            floatingOptions: () => defaultedProps.floatingOptions,
             floatingState,
             setAnchorRef,
             setTriggerRef,
             setArrowRef,
           }}
         >
-          <Dialog contextId={localProps.contextId} {...otherProps}>
+          <Dialog contextId={defaultedProps.contextId} {...props}>
             {(dialogChildrenProps) => resolveChildren(dialogChildrenProps)}
           </Dialog>
-        </InternalPopoverContext.Provider>
-      </PopoverContext.Provider>
+        </InternalPopoverContext>
+      </PopoverContext>
     ))
   })
 
