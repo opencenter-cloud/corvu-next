@@ -33,11 +33,11 @@ import {
   Portal,
   type PortalProps,
   useContext as useDialogContext,
-} from '@corvu/dialog'
+} from '@corvu-next/dialog'
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import Label, {
   type PopoverLabelCorvuProps as LabelCorvuProps,
   type PopoverLabelElementProps as LabelElementProps,
@@ -64,7 +64,7 @@ import Trigger, {
   type PopoverTriggerProps as TriggerProps,
   type PopoverTriggerSharedElementProps as TriggerSharedElementProps,
 } from '@src/Trigger'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 
 export type {
   PopoverRootProps as RootProps,

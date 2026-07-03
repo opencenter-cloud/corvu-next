@@ -1,18 +1,14 @@
-import {
-  type Component,
-  createMemo,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
+import { type Component, createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
 import type {
   ContentCorvuProps as DialogContentCorvuProps,
   ContentElementProps as DialogContentElementProps,
   ContentSharedElementProps as DialogContentSharedElementProps,
-} from '@corvu/dialog'
-import { combineStyle } from '@corvu/utils/dom'
-import Dialog from '@corvu/dialog'
-import type { DynamicProps } from '@corvu/utils/dynamic'
-import { getFloatingStyle } from '@corvu/utils/floating'
+} from '@corvu-next/dialog'
+import { combineStyle } from '@corvu-next/utils/dom'
+import Dialog from '@corvu-next/dialog'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
+import { getFloatingStyle } from '@corvu-next/utils/floating'
 import type { Placement } from '@floating-ui/dom'
 import { useInternalPopoverContext } from '@src/context'
 
@@ -26,7 +22,7 @@ export type PopoverContentElementProps = PopoverContentSharedElementProps & {
   'data-corvu-popover-content': ''
 } & DialogContentElementProps
 
-export type PopoverContentProps<T extends ValidComponent = 'button'> =
+export type PopoverContentProps<T extends ValidComponent = 'div'> =
   PopoverContentCorvuProps & Partial<PopoverContentSharedElementProps<T>>
 
 /** Content of the popover. Can be animated.
@@ -39,14 +35,14 @@ export type PopoverContentProps<T extends ValidComponent = 'button'> =
 const PopoverContent = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, PopoverContentProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as PopoverContentProps, [
+  const otherProps = omit(props as PopoverContentProps,
     'forceMount',
     'contextId',
     'style',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalPopoverContext(localProps.contextId),
+    useInternalPopoverContext((props as PopoverContentProps).contextId),
   )
 
   return (
@@ -55,7 +51,7 @@ const PopoverContent = <T extends ValidComponent = 'div'>(
         Omit<PopoverContentElementProps, keyof DialogContentElementProps>
       >
     >
-      contextId={localProps.contextId}
+      contextId={(props as PopoverContentProps).contextId}
       // === SharedElementProps ===
       style={combineStyle(
         {
@@ -64,7 +60,7 @@ const PopoverContent = <T extends ValidComponent = 'div'>(
             floatingState: () => context().floatingState(),
           })(),
         },
-        localProps.style,
+        (props as PopoverContentProps).style,
       )}
       // === ElementProps ===
       data-placement={context().floatingState().placement}

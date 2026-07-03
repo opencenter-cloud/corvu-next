@@ -1,7 +1,8 @@
-import { createMemo, splitProps, type ValidComponent } from 'solid-js'
-import { Dynamic, type DynamicProps } from '@corvu/utils/dynamic'
-import type { ElementOf, Ref } from '@corvu/utils/dom'
-import { mergeRefs } from '@corvu/utils/reactivity'
+import { createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
+import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
+import type { ElementOf, Ref } from '@corvu-next/utils/dom'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalPopoverContext } from '@src/context'
 
 export type PopoverAnchorCorvuProps = {
@@ -30,20 +31,20 @@ export type PopoverAnchorProps<T extends ValidComponent = 'div'> =
 const PopoverAnchor = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, PopoverAnchorProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as PopoverAnchorProps, [
+  const otherProps = omit(props as PopoverAnchorProps,
     'contextId',
     'ref',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalPopoverContext(localProps.contextId),
+    useInternalPopoverContext((props as PopoverAnchorProps).contextId),
   )
 
   return (
     <Dynamic<PopoverAnchorElementProps>
       as="div"
       // === SharedElementProps ===
-      ref={mergeRefs(context().setAnchorRef, localProps.ref)}
+      ref={mergeRefs(context().setAnchorRef, (props as PopoverAnchorProps).ref)}
       // === ElementProps ===
       data-corvu-popover-anchor=""
       {...otherProps}

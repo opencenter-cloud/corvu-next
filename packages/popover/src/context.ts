@@ -2,11 +2,11 @@ import { type Accessor, createContext, type Setter, useContext } from 'solid-js'
 import {
   createKeyedContext,
   useKeyedContext,
-} from '@corvu/utils/create/keyedContext'
+} from '@corvu-next/utils/create/keyedContext'
 import type {
   FloatingOptions,
   FloatingState,
-} from '@corvu/utils/create/floating'
+} from '@corvu-next/utils/create/floating'
 import type { Placement, Strategy } from '@floating-ui/dom'
 
 export type PopoverContextValue = {
@@ -20,7 +20,7 @@ export type PopoverContextValue = {
   floatingState: Accessor<FloatingState>
 }
 
-const PopoverContext = createContext<PopoverContextValue>()
+const PopoverContext = createContext<PopoverContextValue | null>(null)
 
 export const createPopoverContext = (contextId?: string) => {
   if (contextId === undefined) return PopoverContext
@@ -58,7 +58,8 @@ type InternalPopoverContextValue = PopoverContextValue & {
   setArrowRef: Setter<HTMLElement | null>
 }
 
-const InternalPopoverContext = createContext<InternalPopoverContextValue>()
+const InternalPopoverContext =
+  createContext<InternalPopoverContextValue | null>(null)
 
 export const createInternalPopoverContext = (contextId?: string) => {
   if (contextId === undefined) return InternalPopoverContext

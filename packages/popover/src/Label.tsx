@@ -1,10 +1,11 @@
-import type { Component, ValidComponent } from 'solid-js'
+import type { Component } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
 import Dialog, {
   type LabelCorvuProps as DialogLabelCorvuProps,
   type LabelElementProps as DialogLabelElementProps,
   type LabelSharedElementProps as DialogLabelSharedElementProps,
-} from '@corvu/dialog'
-import type { DynamicProps } from '@corvu/utils/dynamic'
+} from '@corvu-next/dialog'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
 
 export type PopoverLabelCorvuProps = DialogLabelCorvuProps
 

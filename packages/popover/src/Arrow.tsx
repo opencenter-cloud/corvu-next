@@ -1,17 +1,13 @@
-import {
-  type Component,
-  createMemo,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
-import type { ElementOf, Ref } from '@corvu/utils/dom'
+import { type Component, createMemo, omit } from 'solid-js'
+import type { ValidComponent } from '@solidjs/web'
+import type { ElementOf, Ref } from '@corvu-next/utils/dom'
 import type {
   FloatingArrowElementProps,
   FloatingArrowSharedElementProps,
-} from '@corvu/utils/components/FloatingArrow'
-import type { DynamicProps } from '@corvu/utils/dynamic'
-import FloatingArrow from '@corvu/utils/components/FloatingArrow'
-import { mergeRefs } from '@corvu/utils/reactivity'
+} from '@corvu-next/utils/components/FloatingArrow'
+import type { DynamicProps } from '@corvu-next/utils/dynamic'
+import FloatingArrow from '@corvu-next/utils/components/FloatingArrow'
+import { mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalPopoverContext } from '@src/context'
 
 export type PopoverArrowCorvuProps = {
@@ -44,20 +40,20 @@ export type PopoverArrowProps<T extends ValidComponent = 'div'> =
 const PopoverArrow = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, PopoverArrowProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as PopoverArrowProps, [
+  const otherProps = omit(props as PopoverArrowProps,
     'contextId',
     'ref',
-  ])
+  )
 
   const context = createMemo(() =>
-    useInternalPopoverContext(localProps.contextId),
+    useInternalPopoverContext((props as PopoverArrowProps).contextId),
   )
 
   return (
     <FloatingArrow<Component<PopoverArrowElementProps>>
       floatingState={context().floatingState()}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setArrowRef, localProps.ref)}
+      ref={mergeRefs(context().setArrowRef, (props as PopoverArrowProps).ref)}
       data-corvu-popover-arrow=""
       {...otherProps}
     />
