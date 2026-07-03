@@ -6,6 +6,8 @@ import {
   createUniqueId,
   merge,
   omit,
+  onCleanup,
+  onSettled,
   untrack,
 } from 'solid-js'
 import type { JSX, ValidComponent } from '@solidjs/web'
@@ -162,39 +164,55 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
 
   const [ref, setRef] = createSignal<HTMLElement | null>(null)
 
-  const context = createMemo(() =>
-    useInternalResizableContext(localProps.contextId),
-  )
+  const context = useInternalResizableContext(localProps.contextId)
 
   const [panelInstance, setPanelInstance] = createSignal<PanelInstance | null>(
     null,
+    { ownedWrite: true },
   )
 
-  createEffect((prev: undefined | { instance: PanelInstance; contextRef: typeof context }) => {
+  // Register the panel after initial render settles. onSettled runs in the
+  // component's ownership context but doesn't allow creating reactive
+  // primitives. registerPanel no longer creates memos/effects internally —
+  // it only writes signals (allowed with ownedWrite) and returns the instance.
+  onSettled(() => {
     const element = ref()
-    if (!element) return undefined
+    if (!element) return
 
-    const _context = context()
-    const instance = untrack(() => {
-      return _context.registerPanel({
-        id: localProps.panelId,
-        element,
-        initialSize: localProps.initialSize,
-        minSize: localProps.minSize,
-        maxSize: localProps.maxSize,
-        collapsible: localProps.collapsible,
-        collapsedSize: localProps.collapsedSize,
-        collapseThreshold: localProps.collapseThreshold,
-        onResize: localProps.onResize,
-      })
+    const instance = context.registerPanel({
+      id: localProps.panelId,
+      element,
+      initialSize: localProps.initialSize ?? null,
+      minSize: localProps.minSize ?? 0,
+      maxSize: localProps.maxSize ?? 1,
+      collapsible: localProps.collapsible ?? false,
+      collapsedSize: localProps.collapsedSize ?? 0,
+      collapseThreshold: localProps.collapseThreshold ?? 0.05,
+      onResize: localProps.onResize,
     })
     setPanelInstance(instance)
-    return { instance, contextRef: context }
-  }, (_prev) => {
-    if (_prev) {
-      _prev.contextRef().unregisterPanel(_prev.instance.data.id)
+  })
+
+  onCleanup(() => {
+    const instance = panelInstance()
+    if (instance) {
+      context.unregisterPanel(instance.data.id)
     }
   })
+
+  // Panel-side onResize effect — runs in the component body (proper ownership)
+  createEffect(
+    () => {
+      const instance = panelInstance()
+      if (!instance) return undefined
+      return { size: instance.size(), onResize: localProps.onResize }
+    },
+    (next: { size: number; onResize?: (size: number) => void } | undefined) => {
+      if (next !== undefined) {
+        next.onResize?.(next.size)
+      }
+    },
+  )
 
   const panelSize = () => {
     const instance = panelInstance()
@@ -214,7 +232,7 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     }
     const collapsed = instance
       ? instance.size() ===
-        resolveSize(localProps.collapsedSize, context().rootSize())
+        resolveSize(localProps.collapsedSize, context.rootSize())
       : false
 
     if (instance && prev !== collapsed) {
@@ -339,7 +357,7 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
         data-expanded={dataIf(
           localProps.collapsible === true && !collapsed(),
         )}
-        data-orientation={context().orientation()}
+        data-orientation={context.orientation()}
         data-corvu-resizable-panel=""
         {...otherProps}
       >

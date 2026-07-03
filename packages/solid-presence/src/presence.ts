@@ -43,7 +43,9 @@ const createPresence = (props: {
   // createEffect below, which reads `props.show` inside a tracked compute.
   const [presentState, setPresentStateInternal] = createSignal<
     'present' | 'hiding' | 'hidden'
-  >(untrack(() => access(props.show)) ? 'present' : 'hidden')
+  >(untrack(() => access(props.show)) ? 'present' : 'hidden', {
+    ownedWrite: true,
+  })
 
   const setPresentState = (state: 'present' | 'hiding' | 'hidden') => {
     setPresentStateInternal(state)
@@ -53,38 +55,35 @@ const createPresence = (props: {
   let animationName = 'none'
 
   // Effect 1: react to `show` prop changes, compute next present state.
-  // compute receives prev (undefined on first run, then the last returned value).
-  // We return { prev, show } — `prev` is the previous `show` value.
   createEffect(
     (prevResult: { prev: boolean; show: boolean } | undefined) => {
       const show = access(props.show)
       const prev = prevResult?.show ?? show
-      return { prev, show }
+      const currentAnimationName = getAnimationName()
+      const display = refStyles()?.display
+      return { prev, show, currentAnimationName, display }
     },
-    ({ prev, show }) => {
+    ({ prev, show, currentAnimationName, display }) => {
       if (prev === show) return
 
-      untrack(() => {
-        const prevAnimationName = animationName
-        const currentAnimationName = getAnimationName()
+      const prevAnimationName = animationName
 
-        if (show) {
-          setPresentState('present')
-        } else if (
-          currentAnimationName === 'none' ||
-          refStyles()?.display === 'none'
-        ) {
-          setPresentState('hidden')
+      if (show) {
+        setPresentState('present')
+      } else if (
+        currentAnimationName === 'none' ||
+        display === 'none'
+      ) {
+        setPresentState('hidden')
+      } else {
+        const isAnimating = prevAnimationName !== currentAnimationName
+
+        if (prev === true && isAnimating) {
+          setPresentState('hiding')
         } else {
-          const isAnimating = prevAnimationName !== currentAnimationName
-
-          if (prev === true && isAnimating) {
-            setPresentState('hiding')
-          } else {
-            setPresentState('hidden')
-          }
+          setPresentState('hidden')
         }
-      })
+      }
     },
   )
 

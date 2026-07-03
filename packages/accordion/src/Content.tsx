@@ -1,4 +1,4 @@
-import { type Component, createMemo } from 'solid-js'
+import { type Component } from 'solid-js'
 import { type ValidComponent } from '@solidjs/web'
 import Disclosure, {
   type ContentCorvuProps as DisclosureContentCorvuProps,
@@ -35,9 +35,7 @@ export type AccordionContentProps<T extends ValidComponent = 'div'> =
 const AccordionContent = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, AccordionContentProps<T>>,
 ) => {
-  const context = createMemo(() =>
-    useInternalAccordionItemContext(props.contextId),
-  )
+  const context = useInternalAccordionItemContext(props.contextId)
 
   return (
     <Disclosure.Content<
@@ -47,7 +45,7 @@ const AccordionContent = <T extends ValidComponent = 'div'>(
     >
       // === ElementProps ===
       role="region"
-      aria-labelledby={context().triggerId()}
+      aria-labelledby={context.triggerId()}
       data-corvu-accordion-content=""
       // === Misc ===
       data-corvu-disclosure-content={null}

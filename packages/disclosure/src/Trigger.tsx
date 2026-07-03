@@ -1,5 +1,5 @@
 import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import { type JSX, type ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
@@ -47,13 +47,11 @@ const DisclosureTrigger = <T extends ValidComponent = 'button'>(
   const typedProps = props as DisclosureTriggerProps
   const otherProps = omit(typedProps, 'contextId', 'onClick')
 
-  const context = createMemo(() =>
-    useInternalDisclosureContext(typedProps.contextId),
-  )
+  const context = useInternalDisclosureContext(typedProps.contextId)
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
     !callEventHandler(typedProps.onClick, e) &&
-      context().setExpanded((expanded) => !expanded)
+      context.setExpanded((expanded) => !expanded)
   }
 
   return (
@@ -65,10 +63,10 @@ const DisclosureTrigger = <T extends ValidComponent = 'button'>(
       // === SharedElementProps ===
       onClick={onClick}
       // === ElementProps ===
-      aria-controls={context().disclosureId()}
-      aria-expanded={context().expanded() ? 'true' : 'false'}
-      data-collapsed={dataIf(!context().expanded())}
-      data-expanded={dataIf(context().expanded())}
+      aria-controls={context.disclosureId()}
+      aria-expanded={context.expanded() ? 'true' : 'false'}
+      data-collapsed={dataIf(!context.expanded())}
+      data-expanded={dataIf(context.expanded())}
       data-corvu-disclosure-trigger=""
       {...otherProps}
     />

@@ -1,4 +1,4 @@
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import type { ElementOf, Ref } from '@corvu-next/utils/dom'
 import type {
@@ -45,15 +45,13 @@ const PopoverArrow = <T extends ValidComponent = 'div'>(
     'ref',
   )
 
-  const context = createMemo(() =>
-    useInternalPopoverContext((props as PopoverArrowProps).contextId),
-  )
+  const context = useInternalPopoverContext((props as PopoverArrowProps).contextId)
 
   return (
     <FloatingArrow<Component<PopoverArrowElementProps>>
-      floatingState={context().floatingState()}
+      floatingState={context.floatingState()}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setArrowRef, (props as PopoverArrowProps).ref)}
+      ref={mergeRefs(context.setArrowRef, (props as PopoverArrowProps).ref)}
       data-corvu-popover-arrow=""
       {...otherProps}
     />

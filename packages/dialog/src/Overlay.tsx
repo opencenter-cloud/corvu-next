@@ -1,5 +1,5 @@
 import { combineStyle, type ElementOf, type Ref } from '@corvu-next/utils/dom'
-import { createMemo, Show } from 'solid-js'
+import { Show } from 'solid-js'
 import type { JSX, ValidComponent } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { mergeRefs, some } from '@corvu-next/utils/reactivity'
@@ -51,19 +51,17 @@ const DialogOverlay = <T extends ValidComponent = 'div'>(
     'style',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext((props as DialogOverlayProps).contextId),
-  )
+  const context = useInternalDialogContext((props as DialogOverlayProps).contextId)
 
   const show = () =>
-    some(context().open, () => (props as DialogOverlayProps).forceMount, context().overlayPresent)
+    some(context.open, () => (props as DialogOverlayProps).forceMount, context.overlayPresent)
 
   return (
     <Show when={show()}>
       <Dynamic<DialogOverlayElementProps>
         as="div"
         // === SharedElementProps ===
-        ref={mergeRefs(context().setOverlayRef, (props as DialogOverlayProps).ref)}
+        ref={mergeRefs(context.setOverlayRef, (props as DialogOverlayProps).ref)}
         style={combineStyle(
           {
             'pointer-events': 'auto',
@@ -72,8 +70,8 @@ const DialogOverlay = <T extends ValidComponent = 'div'>(
         )}
         // === ElementProps ===
         aria-hidden="true"
-        data-closed={dataIf(!context().open())}
-        data-open={dataIf(context().open())}
+        data-closed={dataIf(!context.open())}
+        data-open={dataIf(context.open())}
         data-corvu-dialog-overlay=""
         {...otherProps}
       />

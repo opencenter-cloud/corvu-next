@@ -57,39 +57,37 @@ const DialogContent = <T extends ValidComponent = 'div'>(
     'style',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext(props.contextId),
-  )
+  const context = useInternalDialogContext(props.contextId)
 
   const show = () =>
-    some(context().open, () => (props as DialogContentProps).forceMount, context().contentPresent)
+    some(context.open, () => (props as DialogContentProps).forceMount, context.contentPresent)
 
   const enableDismissible = createMemo(
-    () => context().open() || context().contentPresent(),
+    () => context.open() || context.contentPresent(),
   )
 
   return (
     <Dismissible
-      element={context().contentRef}
+      element={context.contentRef}
       enabled={enableDismissible()}
-      dismissibleId={context().dialogId()}
-      onDismiss={() => context().setOpen(false)}
-      dismissOnEscapeKeyDown={context().closeOnEscapeKeyDown}
-      dismissOnOutsideFocus={context().closeOnOutsideFocus}
-      dismissOnOutsidePointer={context().closeOnOutsidePointer}
-      outsidePointerStrategy={context().closeOnOutsidePointerStrategy}
-      outsidePointerIgnore={() => [context().triggerRef()]}
-      noOutsidePointerEvents={context().noOutsidePointerEvents}
-      onEscapeKeyDown={context().onEscapeKeyDown}
-      onOutsideFocus={context().onOutsideFocus}
-      onOutsidePointer={context().onOutsidePointer}
+      dismissibleId={context.dialogId()}
+      onDismiss={() => context.setOpen(false)}
+      dismissOnEscapeKeyDown={context.closeOnEscapeKeyDown}
+      dismissOnOutsideFocus={context.closeOnOutsideFocus}
+      dismissOnOutsidePointer={context.closeOnOutsidePointer}
+      outsidePointerStrategy={context.closeOnOutsidePointerStrategy}
+      outsidePointerIgnore={() => [context.triggerRef()]}
+      noOutsidePointerEvents={context.noOutsidePointerEvents}
+      onEscapeKeyDown={context.onEscapeKeyDown}
+      onOutsideFocus={context.onOutsideFocus}
+      onOutsidePointer={context.onOutsidePointer}
     >
       {(dismissibleProps) => (
         <Show when={show()}>
           <Dynamic<DialogContentElementProps>
             as="div"
             // === SharedElementProps ===
-            ref={mergeRefs(context().setContentRef, (props as DialogContentProps).ref)}
+            ref={mergeRefs(context.setContentRef, (props as DialogContentProps).ref)}
             style={combineStyle(
               {
                 'pointer-events': dismissibleProps.isLastLayer ? 'auto' : undefined,
@@ -97,14 +95,14 @@ const DialogContent = <T extends ValidComponent = 'div'>(
               (props as DialogContentProps).style,
             )}
             // === ElementProps ===
-            id={context().dialogId()}
-            role={context().role()}
+            id={context.dialogId()}
+            role={context.role()}
             tabIndex="-1"
-            aria-describedby={context().descriptionId()}
-            aria-labelledby={context().labelId()}
-            aria-modal={context().modal() ? 'true' : 'false'}
-            data-closed={dataIf(!context().open())}
-            data-open={dataIf(context().open())}
+            aria-describedby={context.descriptionId()}
+            aria-labelledby={context.labelId()}
+            aria-modal={context.modal() ? 'true' : 'false'}
+            data-closed={dataIf(!context.open())}
+            data-open={dataIf(context.open())}
             data-corvu-dialog-content=""
             {...otherProps}
           />

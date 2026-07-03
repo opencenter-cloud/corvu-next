@@ -12,7 +12,10 @@ import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
 
-const [preventScrollStack, setPreventScrollStack] = createSignal<string[]>([])
+const [preventScrollStack, setPreventScrollStack] = createSignal<string[]>(
+  [],
+  { ownedWrite: true },
+)
 const isActive = (id: string) => {
   const stack = preventScrollStack()
   const index = stack.indexOf(id)
@@ -80,7 +83,6 @@ const createPreventScroll = (props: {
   // Effect 2: Body style application (scrollbar hide + shift compensation)
   createEffect(
     (prev: undefined | { enabled: boolean; hideScrollbar: boolean }) => {
-      // Read directly from the accessors to ensure Solid 2 tracking
       const enabled = access(props.enabled ?? true)
       const hideScrollbar = access(props.hideScrollbar ?? true)
       return { enabled, hideScrollbar }
@@ -89,7 +91,9 @@ const createPreventScroll = (props: {
       next: { enabled: boolean; hideScrollbar: boolean },
       prev?: { enabled: boolean; hideScrollbar: boolean },
     ) => {
-      if (!next.enabled || !next.hideScrollbar) return
+      if (!next.enabled || !next.hideScrollbar) {
+        return
+      }
 
       const { body } = document
 
@@ -133,7 +137,9 @@ const createPreventScroll = (props: {
             }
           },
         })
-        return revertStyle
+        return () => {
+          revertStyle()
+        }
       } else {
         const revertStyle = createStyle({
           key: 'prevent-scroll',

@@ -1,4 +1,4 @@
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import type { ElementOf, Ref } from '@corvu-next/utils/dom'
 import FloatingArrow, {
@@ -44,15 +44,13 @@ const TooltipArrow = <T extends ValidComponent = 'div'>(
     'ref',
   )
 
-  const context = createMemo(() =>
-    useInternalTooltipContext((props as TooltipArrowProps).contextId),
-  )
+  const context = useInternalTooltipContext((props as TooltipArrowProps).contextId)
 
   return (
     <FloatingArrow<Component<TooltipArrowElementProps>>
-      floatingState={context().floatingState()}
+      floatingState={context.floatingState()}
       // === SharedElementProps ===
-      ref={mergeRefs(context().setArrowRef, (props as TooltipArrowProps).ref)}
+      ref={mergeRefs(context.setArrowRef, (props as TooltipArrowProps).ref)}
       data-corvu-tooltip-arrow=""
       {...otherProps}
     />

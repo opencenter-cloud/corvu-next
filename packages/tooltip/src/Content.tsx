@@ -56,51 +56,49 @@ const TooltipContent = <T extends ValidComponent = 'div'>(
     'style',
   )
 
-  const context = createMemo(() =>
-    useInternalTooltipContext((props as TooltipContentProps).contextId),
-  )
+  const context = useInternalTooltipContext((props as TooltipContentProps).contextId)
 
   const show = () =>
-    some(context().open, () => (props as TooltipContentProps).forceMount, context().contentPresent)
+    some(context.open, () => (props as TooltipContentProps).forceMount, context.contentPresent)
 
   const enableDismissible = createMemo(
-    () => context().open() || context().contentPresent(),
+    () => context.open() || context.contentPresent(),
   )
 
   return (
     <Dismissible
-      element={context().contentRef}
+      element={context.contentRef}
       enabled={enableDismissible()}
-      dismissibleId={context().tooltipId()}
-      onDismiss={() => context().setOpen(false)}
-      dismissOnEscapeKeyDown={context().closeOnEscapeKeyDown}
+      dismissibleId={context.tooltipId()}
+      onDismiss={() => context.setOpen(false)}
+      dismissOnEscapeKeyDown={context.closeOnEscapeKeyDown}
       dismissOnOutsideFocus={false}
       dismissOnOutsidePointer={false}
       noOutsidePointerEvents={false}
-      onEscapeKeyDown={context().onEscapeKeyDown}
+      onEscapeKeyDown={context.onEscapeKeyDown}
     >
       {(dismissibleProps) => (
         <Show when={show()}>
           <Dynamic<TooltipContentElementProps>
             as="div"
             // === SharedElementProps ===
-            ref={mergeRefs(context().setContentRef, (props as TooltipContentProps).ref)}
+            ref={mergeRefs(context.setContentRef, (props as TooltipContentProps).ref)}
             style={combineStyle(
               {
                 ...getFloatingStyle({
-                  strategy: () => context().strategy(),
-                  floatingState: () => context().floatingState(),
+                  strategy: () => context.strategy(),
+                  floatingState: () => context.floatingState(),
                 })(),
                 'pointer-events': dismissibleProps.isLastLayer ? 'auto' : undefined,
               },
               (props as TooltipContentProps).style,
             )}
             // === ElementProps ===
-            id={context().tooltipId()}
+            id={context.tooltipId()}
             role="tooltip"
-            data-closed={dataIf(!context().open())}
-            data-open={dataIf(context().open())}
-            data-placement={context().floatingState().placement}
+            data-closed={dataIf(!context.open())}
+            data-open={dataIf(context.open())}
+            data-placement={context.floatingState().placement}
             data-corvu-tooltip-content=""
             {...otherProps}
           />

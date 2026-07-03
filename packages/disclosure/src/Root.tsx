@@ -100,6 +100,7 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
 
   const [contentSize, setContentSize] = createSignal<[number, number] | null>(
     null,
+    { ownedWrite: true },
   )
 
   const { present: contentPresent } = createPresence({
@@ -114,27 +115,29 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
     },
   })
 
-  let initialOpen = defaultedProps.preventInitialContentAnimation && expanded()
+  let initialOpen = untrack(() => defaultedProps.preventInitialContentAnimation && expanded())
 
   // Split-phase effect: compute reads expanded() and contentRef(), apply manipulates DOM.
   createEffect(
-    (prev: undefined | string) => {
+    (prev: undefined | { animationName: string; element: HTMLElement }) => {
       expanded()
       const element = contentRef()
-      // Return the element's current animationName for the apply phase to restore.
-      if (!element) return prev
-      return element.style.animationName
+      if (!element) return undefined
+      return { animationName: element.style.animationName, element }
     },
-    (animationName: string | undefined, prev: undefined | string) => {
-      const element = contentRef()
-      if (!element) return
+    (
+      next: { animationName: string; element: HTMLElement } | undefined,
+      prev: undefined | { animationName: string; element: HTMLElement },
+    ) => {
+      if (!next) return
+      const { element } = next
       if (initialOpen) {
         element.style.animationName = 'none'
         initialOpen = false
         return
       }
       if (prev === undefined) return
-      element.style.animationName = animationName ?? ''
+      element.style.animationName = next.animationName
     },
   )
 
@@ -143,34 +146,38 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
     () => {
       const element = contentRef()
       const _present = contentPresent()
-      return { element, present: _present }
+      const currentSize = untrack(() => contentSize())
+      return { element, present: _present, currentSize }
     },
-    ({ element }: { element: HTMLElement | null; present: boolean }) => {
+    ({
+      element,
+      currentSize,
+    }: {
+      element: HTMLElement | null
+      present: boolean
+      currentSize: [number, number] | null
+    }) => {
       if (!element) {
         setContentSize(null)
         return
       }
 
-      untrack(() => {
-        const origionalAnimationName = element.style.animationName
+      const origionalAnimationName = element.style.animationName
 
-        element.style.animationName = 'none'
+      element.style.animationName = 'none'
 
-        const width = element.offsetWidth
-        const height = element.offsetHeight
+      const width = element.offsetWidth
+      const height = element.offsetHeight
 
-        const currentSize = contentSize()
+      if (
+        currentSize === null ||
+        width !== currentSize[0] ||
+        height !== currentSize[1]
+      ) {
+        setContentSize([element.offsetWidth, element.offsetHeight])
+      }
 
-        if (
-          currentSize === null ||
-          width !== currentSize[0] ||
-          height !== currentSize[1]
-        ) {
-          setContentSize([element.offsetWidth, element.offsetHeight])
-        }
-
-        element.style.animationName = origionalAnimationName
-      })
+      element.style.animationName = origionalAnimationName
     },
   )
 

@@ -1,5 +1,5 @@
 import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { JSX, ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
@@ -41,14 +41,12 @@ const DialogClose = <T extends ValidComponent = 'button'>(
     'onClick',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext((props as DialogCloseProps).contextId),
-  )
+  const context = useInternalDialogContext((props as DialogCloseProps).contextId)
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (
     event,
   ) => {
-    !callEventHandler((props as DialogCloseProps).onClick, event) && context().setOpen(false)
+    !callEventHandler((props as DialogCloseProps).onClick, event) && context.setOpen(false)
   }
 
   return (

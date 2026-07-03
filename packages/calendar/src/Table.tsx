@@ -1,4 +1,4 @@
-import { createMemo, omit } from 'solid-js'
+import { omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { useInternalCalendarContext } from '@src/context'
@@ -41,18 +41,16 @@ const CalendarTable = <T extends ValidComponent = 'table'>(
   const p = props as CalendarTableProps
   const otherProps = omit(p, 'index', 'contextId')
 
-  const context = createMemo(() =>
-    useInternalCalendarContext(p.contextId),
-  )
+  const context = useInternalCalendarContext(p.contextId)
 
   return (
     <Dynamic<CalendarTableElementProps>
       as="table"
       // === ElementProps ===
       role="grid"
-      aria-labelledby={context().labelIds()[p.index ?? 0]?.()}
+      aria-labelledby={context.labelIds()[p.index ?? 0]?.()}
       aria-multiselectable={
-        context().mode() === 'multiple' || context().mode() === 'range'
+        context.mode() === 'multiple' || context.mode() === 'range'
           ? 'true'
           : undefined
       }

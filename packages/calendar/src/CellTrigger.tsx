@@ -1,6 +1,5 @@
 import {
   createEffect,
-  createMemo,
   createSignal,
   omit,
   untrack,
@@ -84,37 +83,35 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
     setIsToday(isSameDay(p.day, new Date()))
   })
 
-  const context = createMemo(() =>
-    useInternalCalendarContext(p.contextId),
-  )
+  const context = useInternalCalendarContext(p.contextId)
 
   createEffect(() => {
-    const focusedDay = context().focusedDay()
+    const focusedDay = context.focusedDay()
     const day = p.day
     const month = p.month
-    if (!untrack(() => context().isFocusing())) return
-    if (context().isDisabled(day, month)) return
+    if (!untrack(() => context.isFocusing())) return
+    if (context.isDisabled(day, month)) return
     if (isSameDay(focusedDay, day)) {
       untrack(() => {
         ref()?.focus()
-        context().setIsFocusing(false)
+        context.setIsFocusing(false)
       })
     }
   })
 
   createEffect(() => {
-    if (context().isDisabled(p.day, p.month)) return
-    if (isSameDay(p.day, context().focusedDay())) {
-      context().setFocusedDayRef(ref())
+    if (context.isDisabled(p.day, p.month)) return
+    if (isSameDay(p.day, context.focusedDay())) {
+      context.setFocusedDayRef(ref())
       return () => {
-        context().setFocusedDayRef(null)
+        context.setFocusedDayRef(null)
       }
     }
   })
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
     !callEventHandler(p.onClick, e) &&
-      context().onDaySelect(p.day)
+      context.onDaySelect(p.day)
   }
 
   const onKeyDown: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent> = (
@@ -124,63 +121,63 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
 
     let focusedDay: Date | null = null
     if (
-      (event.key === 'ArrowLeft' && context().textDirection() === 'ltr') ||
-      (event.key === 'ArrowRight' && context().textDirection() === 'rtl')
+      (event.key === 'ArrowLeft' && context.textDirection() === 'ltr') ||
+      (event.key === 'ArrowRight' && context.textDirection() === 'rtl')
     ) {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         { day: -1 },
-        context().disabled,
+        context.disabled,
       )
     } else if (
-      (event.key === 'ArrowRight' && context().textDirection() === 'ltr') ||
-      (event.key === 'ArrowLeft' && context().textDirection() === 'rtl')
+      (event.key === 'ArrowRight' && context.textDirection() === 'ltr') ||
+      (event.key === 'ArrowLeft' && context.textDirection() === 'rtl')
     ) {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         { day: 1 },
-        context().disabled,
+        context.disabled,
       )
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         { day: -7 },
-        context().disabled,
+        context.disabled,
       )
     } else if (event.key === 'ArrowDown') {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         { day: 7 },
-        context().disabled,
+        context.disabled,
       )
     } else if (
-      (event.key === 'Home' && context().textDirection() === 'ltr') ||
-      (event.key === 'End' && context().textDirection() === 'rtl')
+      (event.key === 'Home' && context.textDirection() === 'ltr') ||
+      (event.key === 'End' && context.textDirection() === 'rtl')
     ) {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         {
-          day: -((p.day.getDay() - context().startOfWeek() + 7) % 7),
+          day: -((p.day.getDay() - context.startOfWeek() + 7) % 7),
         },
-        context().disabled,
+        context.disabled,
         false,
       )
     } else if (
-      (event.key === 'End' && context().textDirection() === 'ltr') ||
-      (event.key === 'Home' && context().textDirection() === 'rtl')
+      (event.key === 'End' && context.textDirection() === 'ltr') ||
+      (event.key === 'Home' && context.textDirection() === 'rtl')
     ) {
       event.preventDefault()
       focusedDay = modifyFocusedDay(
         p.day,
         {
-          day: (context().startOfWeek() + 6 - p.day.getDay() + 7) % 7,
+          day: (context.startOfWeek() + 6 - p.day.getDay() + 7) % 7,
         },
-        context().disabled,
+        context.disabled,
         false,
       )
     } else if (event.key === 'PageUp') {
@@ -189,13 +186,13 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
         focusedDay = modifyFocusedDay(
           p.day,
           { year: -1 },
-          context().disabled,
+          context.disabled,
         )
       } else {
         focusedDay = modifyFocusedDay(
           p.day,
           { month: -1 },
-          context().disabled,
+          context.disabled,
         )
       }
     } else if (event.key === 'PageDown') {
@@ -204,20 +201,20 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
         focusedDay = modifyFocusedDay(
           p.day,
           { year: 1 },
-          context().disabled,
+          context.disabled,
         )
       } else {
         focusedDay = modifyFocusedDay(
           p.day,
           { month: 1 },
-          context().disabled,
+          context.disabled,
         )
       }
     }
 
     if (focusedDay === null) return
-    context().setIsFocusing(true)
-    context().setFocusedDay(focusedDay)
+    context.setIsFocusing(true)
+    context.setFocusedDay(focusedDay)
   }
 
   return (
@@ -229,52 +226,52 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
       onKeyDown={onKeyDown}
       disabled={
         p.disabled === true ||
-        context().isDisabled(p.day, p.month) ||
+        context.isDisabled(p.day, p.month) ||
         undefined
       }
       // === ElementProps ===
       role="gridcell"
-      tabIndex={isSameDay(context().focusedDay(), p.day) ? 0 : -1}
+      tabIndex={isSameDay(context.focusedDay(), p.day) ? 0 : -1}
       aria-selected={
-        context().isSelected(p.day)
+        context.isSelected(p.day)
           ? 'true'
-          : !context().isDisabled(p.day, p.month)
+          : !context.isDisabled(p.day, p.month)
             ? 'false'
             : undefined
       }
       aria-disabled={
-        context().isDisabled(p.day, p.month)
+        context.isDisabled(p.day, p.month)
           ? 'true'
           : undefined
       }
-      data-selected={dataIf(context().isSelected(p.day))}
+      data-selected={dataIf(context.isSelected(p.day))}
       data-disabled={dataIf(
-        context().isDisabled(p.day, p.month),
+        context.isDisabled(p.day, p.month),
       )}
       data-today={dataIf(isToday())}
       data-range-start={dataIf(
-        context().mode() === 'range' &&
+        context.mode() === 'range' &&
           isSameDay(
             p.day,
-            (context().value() as { from: Date | null; to: Date | null }).from,
+            (context.value() as { from: Date | null; to: Date | null }).from,
           ),
       )}
       data-range-end={dataIf(
-        context().mode() === 'range' &&
+        context.mode() === 'range' &&
           isSameDay(
             p.day,
-            (context().value() as { from: Date | null; to: Date | null }).to,
+            (context.value() as { from: Date | null; to: Date | null }).to,
           ),
       )}
       data-in-range={dataIf(
-        context().mode() === 'range' &&
+        context.mode() === 'range' &&
           isSameDayOrAfter(
             p.day,
-            (context().value() as { from: Date | null; to: Date | null }).from,
+            (context.value() as { from: Date | null; to: Date | null }).from,
           ) &&
           isSameDayOrBefore(
             p.day,
-            (context().value() as { from: Date | null; to: Date | null }).to,
+            (context.value() as { from: Date | null; to: Date | null }).to,
           ),
       )}
       data-corvu-calendar-celltrigger=""

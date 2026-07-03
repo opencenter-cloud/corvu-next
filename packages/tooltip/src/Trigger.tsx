@@ -1,4 +1,4 @@
-import { type Component, createMemo, omit } from 'solid-js'
+import { type Component, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
@@ -49,9 +49,7 @@ const TooltipTrigger = <T extends ValidComponent = 'button'>(
     'ref',
   )
 
-  const context = createMemo(() =>
-    useInternalTooltipContext((props as TooltipTriggerProps).contextId),
-  )
+  const context = useInternalTooltipContext((props as TooltipTriggerProps).contextId)
 
   return (
     <DynamicButton<
@@ -60,14 +58,14 @@ const TooltipTrigger = <T extends ValidComponent = 'button'>(
       >
     >
       // === SharedElementProps ===
-      ref={mergeRefs(context().setTriggerRef, (props as TooltipTriggerProps).ref)}
+      ref={mergeRefs(context.setTriggerRef, (props as TooltipTriggerProps).ref)}
       // === ElementProps ===
-      aria-describedby={context().open() ? context().tooltipId() : undefined}
-      aria-expanded={context().open() ? 'true' : 'false'}
-      data-closed={dataIf(!context().open())}
-      data-open={dataIf(context().open())}
+      aria-describedby={context.open() ? context.tooltipId() : undefined}
+      aria-expanded={context.open() ? 'true' : 'false'}
+      data-closed={dataIf(!context.open())}
+      data-open={dataIf(context.open())}
       data-placement={
-        context().open() ? context().floatingState().placement : undefined
+        context.open() ? context.floatingState().placement : undefined
       }
       data-corvu-tooltip-trigger=""
       {...otherProps}

@@ -78,6 +78,9 @@ importers:
       vite:
         specifier: ^6.0.0
         version: 6.4.3(jiti@1.21.7)(yaml@2.9.0)
+      vite-plugin-pilot:
+        specifier: ^1.0.35
+        version: 1.0.35(magic-string@0.30.21)(vite@6.4.3(jiti@1.21.7)(yaml@2.9.0))
       vite-plugin-solid:
         specifier: 3.0.0-next.5
         version: 3.0.0-next.5(@solidjs/web@2.0.0-beta.15(solid-js@2.0.0-beta.15))(solid-js@2.0.0-beta.15)(vite@6.4.3(jiti@1.21.7)(yaml@2.9.0))
@@ -1767,6 +1770,20 @@ packages:
   validate-html-nesting@1.2.4:
     resolution: {integrity: sha512-doQi7e8EJ2OWneSG1aZpJluS6A49aZM0+EICXWKm1i6WvqTLmq0tpUcImc4KTWG50mORO0C4YDBtOCSYvElftw==}
 
+  vite-plugin-pilot@1.0.35:
+    resolution: {integrity: sha512-ft20yhPqCTHu/d+3+VZusPC5ONzaihDM11jx5cn1WjrNgZzqgmj86P+wsRkN+7lTgMmQWIC1dJ08DNCf1DHhXw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@vue/compiler-dom': '>=3.3'
+      magic-string: '>=0.30'
+      vite: '>=5'
+    peerDependenciesMeta:
+      '@vue/compiler-dom':
+        optional: true
+      magic-string:
+        optional: true
+
   vite-plugin-solid@3.0.0-next.5:
     resolution: {integrity: sha512-hcn3mzevQDv6Oyo/Zv5LXdOrlWwKGeGVxNhc9fUq3AcN9aO6KABy52yq5cvnPDo3qaxmvOJVbNS1H4V5rx7AQg==}
     peerDependencies:
@@ -2918,6 +2935,12 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   validate-html-nesting@1.2.4: {}
+
+  vite-plugin-pilot@1.0.35(magic-string@0.30.21)(vite@6.4.3(jiti@1.21.7)(yaml@2.9.0)):
+    dependencies:
+      vite: 6.4.3(jiti@1.21.7)(yaml@2.9.0)
+    optionalDependencies:
+      magic-string: 0.30.21
 
   vite-plugin-solid@3.0.0-next.5(@solidjs/web@2.0.0-beta.15(solid-js@2.0.0-beta.15))(solid-js@2.0.0-beta.15)(vite@6.4.3(jiti@1.21.7)(yaml@2.9.0)):
     dependencies:

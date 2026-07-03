@@ -1,4 +1,4 @@
-import { createMemo, omit, Show } from 'solid-js'
+import { omit, Show } from 'solid-js'
 import { type ComponentProps, Portal } from '@solidjs/web'
 import { some } from '@corvu-next/utils/reactivity'
 import { useInternalDialogContext } from '@src/context'
@@ -24,16 +24,14 @@ const DialogPortal = (
     'contextId',
   )
 
-  const context = createMemo(() =>
-    useInternalDialogContext(props.contextId),
-  )
+  const context = useInternalDialogContext(props.contextId)
 
   const show = () =>
     some(
-      context().open,
+      context.open,
       () => props.forceMount,
-      context().contentPresent,
-      context().overlayPresent,
+      context.contentPresent,
+      context.overlayPresent,
     )
 
   return (

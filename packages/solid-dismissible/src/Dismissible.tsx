@@ -52,9 +52,10 @@ const Dismissible: Component<DismissibleProps> = (props) => {
     return (<DismissibleLayer {...props} />) as unknown as JSX.Element
   }
 
-  const [layers, setLayers] = createSignal<string[]>([
-    defaultedProps.dismissibleId,
-  ])
+  const [layers, setLayers] = createSignal<string[]>(
+    [defaultedProps.dismissibleId],
+    { ownedWrite: true },
+  )
 
   const onLayerShow = (dismissibleId: string) => {
     setLayers((layers) => [...layers, dismissibleId])
@@ -77,7 +78,10 @@ const Dismissible: Component<DismissibleProps> = (props) => {
   ) as unknown as JSX.Element
 }
 
-const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>([])
+const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>(
+  [],
+  { ownedWrite: true },
+)
 
 const DismissibleLayer: Component<DismissibleProps> = (props) => {
   const defaultedProps = merge(

@@ -56,33 +56,31 @@ const DisclosureContent = <T extends ValidComponent = 'div'>(
     'style',
   )
 
-  const context = createMemo(() =>
-    useInternalDisclosureContext(typedProps.contextId),
-  )
+  const context = useInternalDisclosureContext(typedProps.contextId)
 
   const show = () =>
     some(
-      context().expanded,
+      context.expanded,
       () => typedProps.forceMount,
-      context().contentPresent,
+      context.contentPresent,
     )
 
   const contentWidth = createMemo(() => {
-    const contentSize = context().contentSize()
+    const contentSize = context.contentSize()
     return contentSize ? contentSize[0] : undefined
   })
 
   const contentHeight = createMemo(() => {
-    const contentSize = context().contentSize()
+    const contentSize = context.contentSize()
     return contentSize ? contentSize[1] : undefined
   })
 
   return (
-    <Show when={show() || context().collapseBehavior() === 'hide'}>
+    <Show when={show() || context.collapseBehavior() === 'hide'}>
       <Dynamic<DisclosureContentElementProps>
         as="div"
         // === SharedElementProps ===
-        ref={mergeRefs(context().setContentRef, typedProps.ref)}
+        ref={mergeRefs(context.setContentRef, typedProps.ref)}
         style={combineStyle(
           {
             display: !show() ? 'none' : undefined,
@@ -92,9 +90,9 @@ const DisclosureContent = <T extends ValidComponent = 'div'>(
           typedProps.style,
         )}
         // === ElementProps ===
-        id={context().disclosureId()}
-        data-expanded={dataIf(context().expanded())}
-        data-collapsed={dataIf(!context().expanded())}
+        id={context.disclosureId()}
+        data-expanded={dataIf(context.expanded())}
+        data-collapsed={dataIf(!context.expanded())}
         data-corvu-disclosure-content=""
         {...otherProps}
       />
