@@ -4,20 +4,19 @@ import {
   createMemo,
   createSignal,
   createUniqueId,
-  type JSX,
-  mergeProps,
-  on,
+  merge,
   type Setter,
   untrack,
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import {
   createDisclosureContext,
   createInternalDisclosureContext,
 } from '@src/context'
-import createControllableSignal from '@corvu/utils/create/controllableSignal'
-import createOnce from '@corvu/utils/create/once'
-import createPresence from 'solid-presence'
-import { isFunction } from '@corvu/utils'
+import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
+import createOnce from '@corvu-next/utils/create/once'
+import createPresence from '@corvu-next/presence'
+import { isFunction } from '@corvu-next/utils'
 
 export type DisclosureRootProps = {
   /**
@@ -82,7 +81,7 @@ export type DisclosureRootChildrenProps = {
 
 /** Context wrapper for the disclosure. Is required for every disclosure you create. */
 const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
-  const defaultedProps = mergeProps(
+  const defaultedProps = merge(
     {
       initialExpanded: false,
       collapseBehavior: 'remove' as const,
@@ -118,23 +117,36 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
 
   let initialOpen = defaultedProps.preventInitialContentAnimation && expanded()
 
-  createEffect<string | undefined>((animationName) => {
-    expanded()
-    const element = contentRef()
-    if (!element) return
-    if (initialOpen) {
-      const origionalAnimationName = element.style.animationName
-      element.style.animationName = 'none'
-      initialOpen = false
-      return origionalAnimationName
-    }
-    if (animationName === undefined) return
-    element.style.animationName = animationName
-  })
+  // Split-phase effect: compute reads expanded() and contentRef(), apply manipulates DOM.
+  createEffect(
+    (prev: undefined | string) => {
+      expanded()
+      const element = contentRef()
+      // Return the element's current animationName for the apply phase to restore.
+      if (!element) return prev
+      return element.style.animationName
+    },
+    (animationName: string | undefined, prev: undefined | string) => {
+      const element = contentRef()
+      if (!element) return
+      if (initialOpen) {
+        element.style.animationName = 'none'
+        initialOpen = false
+        return
+      }
+      if (prev === undefined) return
+      element.style.animationName = animationName ?? ''
+    },
+  )
 
   // Updates the content size on every expanded change.
   createEffect(
-    on([contentRef, contentPresent], ([element]) => {
+    () => {
+      const element = contentRef()
+      const _present = contentPresent()
+      return { element, present: _present }
+    },
+    ({ element }: { element: HTMLElement | null; present: boolean }) => {
       if (!element) {
         setContentSize(null)
         return
@@ -160,7 +172,7 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
 
         element.style.animationName = origionalAnimationName
       })
-    }),
+    },
   )
 
   const childrenProps: DisclosureRootChildrenProps = {
@@ -205,7 +217,7 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
     )
 
     return (
-      <DisclosureContext.Provider
+      <DisclosureContext
         value={{
           expanded,
           setExpanded,
@@ -218,7 +230,7 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
           contentSize,
         }}
       >
-        <InternalDisclosureContext.Provider
+        <InternalDisclosureContext
           value={{
             expanded,
             setExpanded,
@@ -233,8 +245,8 @@ const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
           }}
         >
           {untrack(() => resolveChildren())}
-        </InternalDisclosureContext.Provider>
-      </DisclosureContext.Provider>
+        </InternalDisclosureContext>
+      </DisclosureContext>
     )
   })
 

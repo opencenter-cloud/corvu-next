@@ -19,7 +19,7 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "verbatimModuleSyntax": true,
     "baseUrl": ".",
     "paths": {

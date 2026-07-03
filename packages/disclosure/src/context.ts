@@ -2,7 +2,7 @@ import { type Accessor, createContext, type Setter, useContext } from 'solid-js'
 import {
   createKeyedContext,
   useKeyedContext,
-} from '@corvu/utils/create/keyedContext'
+} from '@corvu-next/utils/create/keyedContext'
 
 export type DisclosureContextValue = {
   /** Whether the disclosure is expanded. */
@@ -23,7 +23,7 @@ export type DisclosureContextValue = {
   contentSize: Accessor<[number, number] | null>
 }
 
-const DisclosureContext = createContext<DisclosureContextValue>()
+const DisclosureContext = createContext<DisclosureContextValue | null>(null)
 
 export const createDisclosureContext = (contextId?: string) => {
   if (contextId === undefined) return DisclosureContext
@@ -35,10 +35,10 @@ export const createDisclosureContext = (contextId?: string) => {
 }
 
 /** Context which exposes various properties to interact with the disclosure. Optionally provide a contextId to access a keyed context. */
-export const useDisclosureContext = (contextId?: string) => {
+export const useDisclosureContext = (contextId?: string): DisclosureContextValue => {
   if (contextId === undefined) {
     const context = useContext(DisclosureContext)
-    if (!context) {
+    if (context === null) {
       throw new Error(
         '[corvu]: Disclosure context not found. Make sure to wrap Disclosure components in <Disclosure.Root>',
       )
@@ -62,7 +62,7 @@ export type InternalDisclosureContextValue = DisclosureContextValue & {
 }
 
 const InternalDisclosureContext =
-  createContext<InternalDisclosureContextValue>()
+  createContext<InternalDisclosureContextValue | null>(null)
 
 export const createInternalDisclosureContext = (contextId?: string) => {
   if (contextId === undefined) return InternalDisclosureContext
@@ -73,10 +73,10 @@ export const createInternalDisclosureContext = (contextId?: string) => {
   return context
 }
 
-export const useInternalDisclosureContext = (contextId?: string) => {
+export const useInternalDisclosureContext = (contextId?: string): InternalDisclosureContextValue => {
   if (contextId === undefined) {
     const context = useContext(InternalDisclosureContext)
-    if (!context) {
+    if (context === null) {
       throw new Error(
         '[corvu]: Disclosure context not found. Make sure to wrap Disclosure components in <Disclosure.Root>',
       )

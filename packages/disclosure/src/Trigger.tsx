@@ -1,18 +1,13 @@
-import { callEventHandler, type ElementOf } from '@corvu/utils/dom'
-import {
-  type Component,
-  createMemo,
-  type JSX,
-  splitProps,
-  type ValidComponent,
-} from 'solid-js'
+import { callEventHandler, type ElementOf } from '@corvu-next/utils/dom'
+import { type Component, createMemo, omit } from 'solid-js'
+import { type JSX, type ValidComponent } from '@solidjs/web'
 import {
   DynamicButton,
   type DynamicButtonElementProps,
   type DynamicButtonSharedElementProps,
   type DynamicProps,
-} from '@corvu/utils/dynamic'
-import { dataIf } from '@corvu/utils'
+} from '@corvu-next/utils/dynamic'
+import { dataIf } from '@corvu-next/utils'
 import { useInternalDisclosureContext } from '@src/context'
 
 export type DisclosureTriggerCorvuProps = {
@@ -49,17 +44,15 @@ export type DisclosureTriggerProps<T extends ValidComponent = 'button'> =
 const DisclosureTrigger = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, DisclosureTriggerProps<T>>,
 ) => {
-  const [localProps, otherProps] = splitProps(props as DisclosureTriggerProps, [
-    'contextId',
-    'onClick',
-  ])
+  const typedProps = props as DisclosureTriggerProps
+  const otherProps = omit(typedProps, 'contextId', 'onClick')
 
   const context = createMemo(() =>
-    useInternalDisclosureContext(localProps.contextId),
+    useInternalDisclosureContext(typedProps.contextId),
   )
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
-    !callEventHandler(localProps.onClick, e) &&
+    !callEventHandler(typedProps.onClick, e) &&
       context().setExpanded((expanded) => !expanded)
   }
 
