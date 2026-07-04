@@ -78,36 +78,40 @@ const CalendarCellTrigger = <T extends ValidComponent = 'button'>(
 
   const [ref, setRef] = createSignal<HTMLButtonElement | null>(null)
 
-  const [isToday, setIsToday] = createSignal(false)
-  createEffect(() => {
-    setIsToday(isSameDay(p.day, new Date()))
-  })
+  const isToday = () => isSameDay(p.day, new Date())
 
   const context = useInternalCalendarContext(p.contextId)
 
-  createEffect(() => {
-    const focusedDay = context.focusedDay()
-    const day = p.day
-    const month = p.month
-    if (!untrack(() => context.isFocusing())) return
-    if (context.isDisabled(day, month)) return
-    if (isSameDay(focusedDay, day)) {
-      untrack(() => {
-        ref()?.focus()
-        context.setIsFocusing(false)
-      })
-    }
-  })
-
-  createEffect(() => {
-    if (context.isDisabled(p.day, p.month)) return
-    if (isSameDay(p.day, context.focusedDay())) {
-      context.setFocusedDayRef(ref())
-      return () => {
-        context.setFocusedDayRef(null)
+  createEffect(
+    () => context.focusedDay(),
+    (focusedDay) => {
+      const day = p.day
+      const month = p.month
+      if (!untrack(() => context.isFocusing())) return
+      if (context.isDisabled(day, month)) return
+      if (isSameDay(focusedDay, day)) {
+        untrack(() => {
+          ref()?.focus()
+          context.setIsFocusing(false)
+        })
       }
-    }
-  })
+    },
+  )
+
+  createEffect(
+    () => ({
+      isMatch: !context.isDisabled(p.day, p.month) && isSameDay(p.day, context.focusedDay()),
+      currentRef: ref(),
+    }),
+    ({ isMatch, currentRef }) => {
+      if (isMatch) {
+        context.setFocusedDayRef(currentRef)
+        return () => {
+          context.setFocusedDayRef(null)
+        }
+      }
+    },
+  )
 
   const onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent> = (e) => {
     !callEventHandler(p.onClick, e) &&
