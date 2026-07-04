@@ -15,7 +15,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/corvudev/corvu.git"
+    "url": "https://github.com/opencenter-cloud/corvu-next.git",
+    "directory": "packages/utils"
   },
   "type": "module",
   "sideEffects": false,

@@ -45,5 +45,10 @@
     "build": "tsup",
     "clean": "rm -rf .turbo dist node_modules",
     "lint": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opencenter-cloud/corvu-next.git",
+    "directory": "packages/otp-field"
   }
 }
