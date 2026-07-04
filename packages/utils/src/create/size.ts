@@ -5,7 +5,7 @@ const createSize = (props: {
   element: MaybeAccessor<HTMLElement | null>
   dimension: MaybeAccessor<'width' | 'height'>
 }) => {
-  const [size, setSize] = createSignal(0)
+  const [size, setSize] = createSignal(0, { ownedWrite: true })
 
   createEffect(
     () => ({
