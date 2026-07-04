@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/drawer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SolidJS 2 swipeable drawer component.",
   "license": "MIT",
   "author": {
