@@ -1,6 +1,7 @@
 import {
   onCleanup,
   omit,
+  untrack,
 } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
@@ -43,7 +44,7 @@ const CalendarLabel = <T extends ValidComponent = 'h2'>(
 
   const context = useInternalCalendarContext(p.contextId)
 
-  context.registerLabelId(p.index ?? 0)
+  untrack(() => context.registerLabelId(p.index ?? 0))
   onCleanup(() => context.unregisterLabelId(p.index ?? 0))
 
   return (
