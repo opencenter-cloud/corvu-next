@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/dialog",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SolidJS 2 dialog/modal component.",
   "license": "MIT",
   "author": {
@@ -10,7 +10,9 @@
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "solid": "./dist/index.jsx",
@@ -20,7 +22,9 @@
   },
   "typesVersions": {
     "*": {
-      "*": ["./dist/index.d.ts"]
+      "*": [
+        "./dist/index.d.ts"
+      ]
     }
   },
   "dependencies": {

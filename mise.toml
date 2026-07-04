@@ -5,9 +5,6 @@
 #   mise run publish
 #   mise run release -- <patch|minor|major|prepatch|preminor|premajor|prerelease>
 
-[tools]
-node = "22"
-
 [tasks.build]
 description = "Build all packages (topological order via turbo)"
 run = "pnpm turbo build"

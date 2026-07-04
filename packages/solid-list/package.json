@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/list",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SolidJS 2 utilities for creating keyboard-navigable lists.",
   "license": "MIT",
   "author": {
@@ -21,8 +21,16 @@
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "keywords": ["solid", "solidjs", "list", "keyboard", "navigation"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "solid",
+    "solidjs",
+    "list",
+    "keyboard",
+    "navigation"
+  ],
   "exports": {
     ".": {
       "solid": "./dist/index.jsx",
@@ -32,7 +40,9 @@
   },
   "typesVersions": {
     "*": {
-      "*": ["./dist/index.d.ts"]
+      "*": [
+        "./dist/index.d.ts"
+      ]
     }
   },
   "dependencies": {

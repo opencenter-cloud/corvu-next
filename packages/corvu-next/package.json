@@ -1,36 +1,94 @@
 {
   "name": "corvu-next",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unstyled, accessible UI primitives for SolidJS 2 — @corvu-next meta package.",
   "license": "MIT",
-  "author": { "name": "Jasmin Noetzli (upstream), @corvu-next contributors (fork)" },
+  "author": {
+    "name": "Jasmin Noetzli (upstream), @corvu-next contributors (fork)"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
-    "./accordion": { "solid": "./dist/accordion.jsx", "types": "./dist/accordion.d.ts", "default": "./dist/accordion.js" },
-    "./calendar": { "solid": "./dist/calendar.jsx", "types": "./dist/calendar.d.ts", "default": "./dist/calendar.js" },
-    "./dialog": { "solid": "./dist/dialog.jsx", "types": "./dist/dialog.d.ts", "default": "./dist/dialog.js" },
-    "./disclosure": { "solid": "./dist/disclosure.jsx", "types": "./dist/disclosure.d.ts", "default": "./dist/disclosure.js" },
-    "./drawer": { "solid": "./dist/drawer.jsx", "types": "./dist/drawer.d.ts", "default": "./dist/drawer.js" },
-    "./otp-field": { "solid": "./dist/otp-field.jsx", "types": "./dist/otp-field.d.ts", "default": "./dist/otp-field.js" },
-    "./popover": { "solid": "./dist/popover.jsx", "types": "./dist/popover.d.ts", "default": "./dist/popover.js" },
-    "./resizable": { "solid": "./dist/resizable.jsx", "types": "./dist/resizable.d.ts", "default": "./dist/resizable.js" },
-    "./tooltip": { "solid": "./dist/tooltip.jsx", "types": "./dist/tooltip.d.ts", "default": "./dist/tooltip.js" }
+    "./accordion": {
+      "solid": "./dist/accordion.jsx",
+      "types": "./dist/accordion.d.ts",
+      "default": "./dist/accordion.js"
+    },
+    "./calendar": {
+      "solid": "./dist/calendar.jsx",
+      "types": "./dist/calendar.d.ts",
+      "default": "./dist/calendar.js"
+    },
+    "./dialog": {
+      "solid": "./dist/dialog.jsx",
+      "types": "./dist/dialog.d.ts",
+      "default": "./dist/dialog.js"
+    },
+    "./disclosure": {
+      "solid": "./dist/disclosure.jsx",
+      "types": "./dist/disclosure.d.ts",
+      "default": "./dist/disclosure.js"
+    },
+    "./drawer": {
+      "solid": "./dist/drawer.jsx",
+      "types": "./dist/drawer.d.ts",
+      "default": "./dist/drawer.js"
+    },
+    "./otp-field": {
+      "solid": "./dist/otp-field.jsx",
+      "types": "./dist/otp-field.d.ts",
+      "default": "./dist/otp-field.js"
+    },
+    "./popover": {
+      "solid": "./dist/popover.jsx",
+      "types": "./dist/popover.d.ts",
+      "default": "./dist/popover.js"
+    },
+    "./resizable": {
+      "solid": "./dist/resizable.jsx",
+      "types": "./dist/resizable.d.ts",
+      "default": "./dist/resizable.js"
+    },
+    "./tooltip": {
+      "solid": "./dist/tooltip.jsx",
+      "types": "./dist/tooltip.d.ts",
+      "default": "./dist/tooltip.js"
+    }
   },
   "typesVersions": {
     "*": {
-      "accordion": ["./dist/accordion.d.ts"],
-      "calendar": ["./dist/calendar.d.ts"],
-      "dialog": ["./dist/dialog.d.ts"],
-      "disclosure": ["./dist/disclosure.d.ts"],
-      "drawer": ["./dist/drawer.d.ts"],
-      "otp-field": ["./dist/otp-field.d.ts"],
-      "popover": ["./dist/popover.d.ts"],
-      "resizable": ["./dist/resizable.d.ts"],
-      "tooltip": ["./dist/tooltip.d.ts"]
+      "accordion": [
+        "./dist/accordion.d.ts"
+      ],
+      "calendar": [
+        "./dist/calendar.d.ts"
+      ],
+      "dialog": [
+        "./dist/dialog.d.ts"
+      ],
+      "disclosure": [
+        "./dist/disclosure.d.ts"
+      ],
+      "drawer": [
+        "./dist/drawer.d.ts"
+      ],
+      "otp-field": [
+        "./dist/otp-field.d.ts"
+      ],
+      "popover": [
+        "./dist/popover.d.ts"
+      ],
+      "resizable": [
+        "./dist/resizable.d.ts"
+      ],
+      "tooltip": [
+        "./dist/tooltip.d.ts"
+      ]
     }
   },
   "dependencies": {

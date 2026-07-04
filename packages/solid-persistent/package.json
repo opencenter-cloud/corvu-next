@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/persistent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SolidJS 2 utility for keeping elements in DOM while hidden.",
   "license": "MIT",
   "author": {

@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/focus-trap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SolidJS 2 utility for trapping focus inside an element.",
   "license": "MIT",
   "author": {
@@ -21,8 +21,15 @@
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "keywords": ["solid", "solidjs", "focus", "trap"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "solid",
+    "solidjs",
+    "focus",
+    "trap"
+  ],
   "exports": {
     ".": {
       "solid": "./dist/index.jsx",
@@ -32,7 +39,9 @@
   },
   "typesVersions": {
     "*": {
-      "*": ["./dist/index.d.ts"]
+      "*": [
+        "./dist/index.d.ts"
+      ]
     }
   },
   "dependencies": {
