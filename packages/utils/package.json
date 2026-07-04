@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/utils",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Utilities for @corvu-next (Solid 2 fork)",
   "license": "MIT",
   "author": {
@@ -21,8 +21,16 @@
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "keywords": ["solid", "solidjs", "headless", "accessible", "customizable"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "solid",
+    "solidjs",
+    "headless",
+    "accessible",
+    "customizable"
+  ],
   "exports": {
     ".": {
       "solid": "./dist/index.jsx",
@@ -47,13 +55,27 @@
   },
   "typesVersions": {
     "*": {
-      "dom": ["./dist/dom/index.d.ts"],
-      "dynamic": ["./dist/dynamic/index.d.ts"],
-      "floating": ["./dist/floating/index.d.ts"],
-      "reactivity": ["./dist/reactivity/index.d.ts"],
-      "scroll": ["./dist/scroll/index.d.ts"],
-      "components/*": ["./dist/components/*.d.ts"],
-      "create/*": ["./dist/create/*.d.ts"]
+      "dom": [
+        "./dist/dom/index.d.ts"
+      ],
+      "dynamic": [
+        "./dist/dynamic/index.d.ts"
+      ],
+      "floating": [
+        "./dist/floating/index.d.ts"
+      ],
+      "reactivity": [
+        "./dist/reactivity/index.d.ts"
+      ],
+      "scroll": [
+        "./dist/scroll/index.d.ts"
+      ],
+      "components/*": [
+        "./dist/components/*.d.ts"
+      ],
+      "create/*": [
+        "./dist/create/*.d.ts"
+      ]
     }
   },
   "dependencies": {
