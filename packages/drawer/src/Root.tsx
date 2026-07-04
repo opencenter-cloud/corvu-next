@@ -179,6 +179,7 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
     value: () => defaultedProps.activeSnapPoint,
     initialValue: 0,
     onChange: defaultedProps.onActiveSnapPointChange,
+    ownedWrite: true,
   })
 
   const [dialogContext, setDialogContext] = createSignal<
@@ -201,7 +202,7 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
       },
     })
 
-  const [isDragging, setIsDragging] = createSignal(false)
+  const [isDragging, setIsDragging] = createSignal(false, { ownedWrite: true })
 
   // Solid 2 derived signal: createSignal(fn) for derived-but-writable state.
   // Replaces createWritableMemo from @solid-primitives/memo.
@@ -210,6 +211,7 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
       if (sizeTransitioning()) return 'resizing'
       return null
     },
+    { ownedWrite: true },
   )
 
   const drawerStyles = createMemo(() => {
@@ -218,7 +220,7 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
     return getComputedStyle(contentRef)
   })
 
-  const [transitionAwareOpen, setTransitionAwareOpen] = createSignal(false)
+  const [transitionAwareOpen, setTransitionAwareOpen] = createSignal(false, { ownedWrite: true })
 
   createEffect(
     () => open(),

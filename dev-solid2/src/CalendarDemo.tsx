@@ -15,7 +15,9 @@ export default function CalendarDemo() {
               <Calendar.Nav action="prev-month" style="cursor: pointer; padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
                 ←
               </Calendar.Nav>
-              <Calendar.Label />
+              <Calendar.Label>
+                {props.month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </Calendar.Label>
               <Calendar.Nav action="next-month" style="cursor: pointer; padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
                 →
               </Calendar.Nav>
