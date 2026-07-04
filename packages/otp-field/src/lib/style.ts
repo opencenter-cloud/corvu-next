@@ -1,35 +1,33 @@
-import { createEffect } from 'solid-js'
+import { onCleanup } from 'solid-js'
 
 let otpFieldStyleElement: HTMLStyleElement | null = null
 
 let activeCount = 0
 
-/** Creates and manages the global OTP field style element. Must be called inside a tracking scope. */
+/** Creates and manages the global OTP field style element. Must be called inside a component scope. */
 const createOtpFieldStyleElement = () => {
   activeCount += 1
-  if (otpFieldStyleElement) return
-  otpFieldStyleElement = document.createElement('style')
-  document.head.appendChild(otpFieldStyleElement)
+  if (!otpFieldStyleElement) {
+    otpFieldStyleElement = document.createElement('style')
+    document.head.appendChild(otpFieldStyleElement)
 
-  const autofillStyle =
-    'background: transparent !important; color: transparent !important; border-color: transparent !important; opacity: 0 !important; box-shadow: none !important; -webkit-box-shadow: none !important; -webkit-text-fill-color: transparent !important;'
-  const styleString = `
+    const autofillStyle =
+      'background: transparent !important; color: transparent !important; border-color: transparent !important; opacity: 0 !important; box-shadow: none !important; -webkit-box-shadow: none !important; -webkit-text-fill-color: transparent !important;'
+    const styleString = `
     [data-corvu-otp-field-input]::selection { background: transparent !important; color: transparent !important; }';
     [data-corvu-otp-field-input]:autofill { ${autofillStyle} };
     [data-corvu-otp-field-input]:-webkit-autofill { ${autofillStyle} };
     @supports (-webkit-touch-callout: none) { [data-corvu-otp-field-input] { letter-spacing: -.6em !important; font-weight: 100 !important; font-stretch: ultra-condensed; font-optical-sizing: none !important; left: -1px !important; right: 1px !important; } };
     [data-corvu-otp-field-input] + * { pointer-events: all !important; };
   `
-  otpFieldStyleElement.innerHTML = styleString
+    otpFieldStyleElement.innerHTML = styleString
+  }
 
-  // Wrap in a tracking scope so the caller's effect handles cleanup via return
-  createEffect(() => {
-    return () => {
-      activeCount -= 1
-      if (activeCount === 0 && otpFieldStyleElement) {
-        otpFieldStyleElement.remove()
-        otpFieldStyleElement = null
-      }
+  onCleanup(() => {
+    activeCount -= 1
+    if (activeCount === 0 && otpFieldStyleElement) {
+      otpFieldStyleElement.remove()
+      otpFieldStyleElement = null
     }
   })
 }
