@@ -344,9 +344,10 @@ const CalendarRoot = (props: CalendarRootProps) => {
 
   const [focusedDayRef, setFocusedDayRef] = createSignal<HTMLElement | null>(
     null,
+    { ownedWrite: true },
   )
 
-  const [isFocusing, setIsFocusing] = createSignal(false)
+  const [isFocusing, setIsFocusing] = createSignal(false, { ownedWrite: true })
 
   const setMonth: Setter<Date> = (next) => {
     return untrack(() => {
