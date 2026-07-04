@@ -10,6 +10,7 @@ import {
   createMemo,
   createSignal,
   merge,
+  onCleanup,
   omit,
   Show,
 } from 'solid-js'
@@ -107,38 +108,47 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
 
   const context = useInternalOtpFieldContext(defaultedProps.contextId)
 
-  createEffect(() => {
-    createOtpFieldStyleElement()
-    const onSelectionChangeWrapper = () => onSelectionChange()
-    document.addEventListener('selectionchange', onSelectionChangeWrapper)
-    return () => {
-      document.removeEventListener('selectionchange', onSelectionChangeWrapper)
-    }
+  createOtpFieldStyleElement()
+  const onSelectionChangeWrapper = () => onSelectionChange()
+  document.addEventListener('selectionchange', onSelectionChangeWrapper)
+  onCleanup(() => {
+    document.removeEventListener('selectionchange', onSelectionChangeWrapper)
   })
 
-  createEffect(() => {
-    const element = ref()
-    if (!element) return undefined
-    const form = element.form
-    if (!form) return undefined
-    const onReset = () => {
-      afterPaint(() => {
-        context.setValue(element.value)
-      })
-    }
-    form.addEventListener('reset', onReset)
-    return () => {
-      form.removeEventListener('reset', onReset)
-    }
-  })
+  createEffect(
+    () => {
+      const element = ref()
+      if (!element) return undefined
+      const form = element.form
+      if (!form) return undefined
+      return { element, form }
+    },
+    (next) => {
+      if (!next) return
+      const { element, form } = next
+      const onReset = () => {
+        afterPaint(() => {
+          context.setValue(element.value)
+        })
+      }
+      form.addEventListener('reset', onReset)
+      return () => {
+        form.removeEventListener('reset', onReset)
+      }
+    },
+  )
 
-  createEffect(() => {
-    const element = ref()
-    if (!element) return undefined
-
-    element.value = context.value()
-    return undefined
-  })
+  createEffect(
+    () => {
+      const element = ref()
+      if (!element) return undefined
+      return { element, value: context.value() }
+    },
+    (next) => {
+      if (!next) return
+      next.element.value = next.value
+    },
+  )
 
   const patternRegex = createMemo(() =>
     defaultedProps.pattern !== null
