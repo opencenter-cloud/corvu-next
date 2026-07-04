@@ -1,6 +1,6 @@
 {
   "name": "corvu-next",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Unstyled, accessible UI primitives for SolidJS 2 — @corvu-next meta package.",
   "license": "MIT",
   "author": {

@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/transition-size",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "SolidJS 2 utility for animating element size transitions.",
   "license": "MIT",
   "author": {

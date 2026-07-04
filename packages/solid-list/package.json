@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/list",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "SolidJS 2 utilities for creating keyboard-navigable lists.",
   "license": "MIT",
   "author": {
