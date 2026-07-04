@@ -46,22 +46,28 @@ function createTransitionSize(props: {
 
   let startSize: [number, number] | null = null
 
-  createEffect(() => {
-    const element = access(props.element)
-    const enabled = access(props.enabled ?? true)
-    if (!element || !enabled) return
+  createEffect(
+    () => {
+      const element = access(props.element)
+      const enabled = access(props.enabled ?? true)
+      if (!element || !enabled) return undefined
+      return element
+    },
+    (element) => {
+      if (!element) return
 
-    const observer = new ResizeObserver(resizeObserverCallback)
-    observer.observe(element)
+      const observer = new ResizeObserver(resizeObserverCallback)
+      observer.observe(element)
 
-    element.addEventListener('transitionend', reset)
+      element.addEventListener('transitionend', reset)
 
-    return () => {
-      observer.disconnect()
-      element.removeEventListener('transitionend', reset)
-      reset()
-    }
-  })
+      return () => {
+        observer.disconnect()
+        element.removeEventListener('transitionend', reset)
+        reset()
+      }
+    },
+  )
 
   const resizeObserverCallback = ([entry]: ResizeObserverEntry[]) => {
     if (transitioning()) return

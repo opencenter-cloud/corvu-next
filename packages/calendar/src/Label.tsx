@@ -1,5 +1,5 @@
 import {
-  createEffect,
+  onCleanup,
   omit,
 } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
@@ -43,11 +43,8 @@ const CalendarLabel = <T extends ValidComponent = 'h2'>(
 
   const context = useInternalCalendarContext(p.contextId)
 
-  createEffect(() => {
-    const _context = context
-    _context.registerLabelId(p.index ?? 0)
-    return () => _context.unregisterLabelId(p.index ?? 0)
-  })
+  context.registerLabelId(p.index ?? 0)
+  onCleanup(() => context.unregisterLabelId(p.index ?? 0))
 
   return (
     <Dynamic<CalendarLabelElementProps>
