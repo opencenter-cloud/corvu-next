@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/dismissible",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SolidJS 2 utility for creating dismissible, nestable layers.",
   "license": "MIT",
   "author": {
