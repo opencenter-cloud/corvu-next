@@ -1,0 +1,168 @@
+# mise.toml — corvu-next monorepo tasks
+#
+# Usage:
+#   mise run bump -- <patch|minor|major|prepatch|preminor|premajor|prerelease>
+#   mise run publish
+#   mise run release -- <patch|minor|major|prepatch|preminor|premajor|prerelease>
+
+[tools]
+node = "22"
+
+[tasks.build]
+description = "Build all packages (topological order via turbo)"
+run = "pnpm turbo build"
+
+[tasks.clean]
+description = "Clean all dist and turbo cache"
+run = "pnpm turbo clean && rm -rf node_modules/.cache"
+
+[tasks.bump]
+description = "Bump version on all public packages. Pass version type as argument."
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION_TYPE="${1:-patch}"
+VALID_TYPES="patch minor major prepatch preminor premajor prerelease"
+
+if ! echo "$VALID_TYPES" | grep -qw "$VERSION_TYPE"; then
+  echo "Error: Invalid version type '$VERSION_TYPE'"
+  echo "Valid types: $VALID_TYPES"
+  exit 1
+fi
+
+# Get current version from the first package
+CURRENT=$(node -e "console.log(require('./packages/utils/package.json').version)")
+echo "Current version: $CURRENT"
+
+# Calculate new version
+NEW_VERSION=$(node -e "
+  const semver = require('semver') || (() => {
+    const [major, minor, patch] = '$CURRENT'.split('.').map(Number);
+    const type = '$VERSION_TYPE';
+    if (type === 'patch') return [major, minor, patch + 1].join('.');
+    if (type === 'minor') return [major, minor + 1, 0].join('.');
+    if (type === 'major') return [major + 1, 0, 0].join('.');
+    return '$CURRENT';
+  })();
+  if (typeof semver === 'object' && semver.inc) {
+    console.log(semver.inc('$CURRENT', '$VERSION_TYPE'));
+  } else {
+    console.log(semver);
+  }
+")
+
+if [ -z "$NEW_VERSION" ] || [ "$NEW_VERSION" = "null" ]; then
+  echo "Error: Failed to calculate new version"
+  exit 1
+fi
+
+echo "Bumping all packages: $CURRENT → $NEW_VERSION"
+
+# Update all package.json files
+for pkg in packages/*/package.json; do
+  node -e "
+    const fs = require('fs');
+    const pkg = JSON.parse(fs.readFileSync('$pkg', 'utf8'));
+    if (pkg.private) process.exit(0);
+    pkg.version = '$NEW_VERSION';
+    fs.writeFileSync('$pkg', JSON.stringify(pkg, null, 2) + '\\n');
+    console.log('  ✓ ' + pkg.name + ' → $NEW_VERSION');
+  "
+done
+
+echo ""
+echo "Done. All packages bumped to $NEW_VERSION"
+echo "Run 'mise run publish' to publish, or 'git add -A && git commit' to commit first."
+"""
+
+[tasks.publish]
+description = "Build and publish all public packages to npm"
+depends = ["build"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+DRY_RUN=""
+TAG="latest"
+
+# Parse flags
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dry-run) DRY_RUN="--dry-run"; shift ;;
+    --tag) TAG="$2"; shift 2 ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
+
+echo "Publishing all public packages (tag: $TAG)..."
+[ -n "$DRY_RUN" ] && echo "  ⚠️  DRY RUN — no packages will actually be published"
+echo ""
+
+FAILED=()
+PUBLISHED=()
+
+for pkg_dir in packages/*/; do
+  pkg_json="$pkg_dir/package.json"
+  [ ! -f "$pkg_json" ] && continue
+
+  IS_PRIVATE=$(node -e "const p=require('./$pkg_json'); console.log(p.private ? 'true' : 'false')")
+  [ "$IS_PRIVATE" = "true" ] && continue
+
+  NAME=$(node -e "console.log(require('./$pkg_json').name)")
+  VERSION=$(node -e "console.log(require('./$pkg_json').version)")
+
+  # Check if this version is already published
+  PUBLISHED_VERSION=$(npm view "$NAME@$VERSION" version 2>/dev/null || echo "")
+  if [ "$PUBLISHED_VERSION" = "$VERSION" ] && [ -z "$DRY_RUN" ]; then
+    echo "  ⏭  $NAME@$VERSION (already published)"
+    continue
+  fi
+
+  echo "  📦 $NAME@$VERSION"
+  if pnpm publish --access public --tag "$TAG" --no-git-checks $DRY_RUN -C "$pkg_dir" 2>&1 | tail -1; then
+    PUBLISHED+=("$NAME@$VERSION")
+  else
+    FAILED+=("$NAME@$VERSION")
+  fi
+done
+
+echo ""
+echo "Published: ${#PUBLISHED[@]} packages"
+[ ${#FAILED[@]} -gt 0 ] && echo "Failed: ${#FAILED[@]} — ${FAILED[*]}" && exit 1
+echo "✅ All packages published successfully"
+"""
+
+[tasks.release]
+description = "Bump version, commit, tag, build, and publish. Pass version type as argument."
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION_TYPE="${1:-patch}"
+
+echo "=== Release: $VERSION_TYPE ==="
+echo ""
+
+# 1. Bump
+mise run bump -- "$VERSION_TYPE"
+
+# 2. Get the new version
+NEW_VERSION=$(node -e "console.log(require('./packages/utils/package.json').version)")
+
+# 3. Commit and tag
+git add -A
+git commit -m "chore(release): v$NEW_VERSION"
+git tag "v$NEW_VERSION"
+
+echo ""
+echo "Tagged v$NEW_VERSION"
+echo ""
+
+# 4. Build and publish
+mise run publish -- --tag next
+
+echo ""
+echo "=== Released v$NEW_VERSION ==="
+echo "Run 'git push && git push --tags' to push to remote."
+"""
