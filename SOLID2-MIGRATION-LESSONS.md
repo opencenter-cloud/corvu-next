@@ -2,7 +2,7 @@
 
 > **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
 
-Last updated: 2026-07-03 (added lesson #20 from Resizable Handle STRICT_READ_UNTRACKED fix)
+Last updated: 2026-07-04 (added lesson #21 — pnpm lockfile phantom versions)
 
 ---
 
@@ -1044,6 +1044,70 @@ If an effect's only job is `signal → callback`, and the signal setter is alway
 
 ---
 
+## 21. pnpm Lockfile Phantom Versions After `--latest` Rollback
+
+### Symptoms
+
+- Type errors reference APIs that DON'T EXIST in the version declared in `package.json`
+- `ValidComponent` or `JSX` reported as "declared locally but not exported" from `@solidjs/web`
+- `package.json` says `2.0.0-beta.15` but the actual resolved types come from `2.0.0-experimental.0`
+- `pnpm install` reports the correct version but errors persist
+
+### Root Cause
+
+`pnpm update --latest` resolves a newer version (e.g., `@solidjs/web@2.0.0-experimental.0`) and writes it to `pnpm-lock.yaml`. When you later pin the version back in `package.json` (e.g., `"@solidjs/web": "2.0.0-beta.15"`), running `pnpm install`:
+
+1. Checks if the lockfile resolution satisfies the new constraint
+2. May consider it "already satisfied" or partially update
+3. Leaves the `.pnpm` store entry pointing at the old (wrong) version
+
+Result: TypeScript resolves types from the **phantom version** in the store, not the one declared in `package.json`.
+
+### Detection
+
+```bash
+# Check what's actually in the store
+find node_modules/.pnpm -maxdepth 1 -name "@solidjs+web*"
+# Bad:  @solidjs+web@2.0.0-experimental.0_solid-js@2.0.0-beta.15
+# Good: @solidjs+web@2.0.0-beta.15_solid-js@2.0.0-beta.15
+
+# Or use TypeScript's own resolution
+node -e "
+const ts = require('typescript');
+const opts = { moduleResolution: ts.ModuleResolutionKind.Bundler, module: ts.ModuleKind.ESNext };
+const host = ts.createCompilerHost(opts);
+const r = ts.resolveModuleName('@solidjs/web', process.cwd() + '/src/test.ts', opts, host);
+console.log(r.resolvedModule?.resolvedFileName);
+"
+```
+
+### Fix
+
+Delete the lockfile and `node_modules`, then reinstall from scratch:
+
+```bash
+rm -rf node_modules pnpm-lock.yaml && pnpm install
+```
+
+A plain `pnpm install` after editing `package.json` is NOT sufficient when rolling back from `--latest`.
+
+### Why This Matters for Solid 2
+
+`@solidjs/web@2.0.0-experimental.0` restructured its type exports — `ValidComponent`, `JSX`, and `ComponentProps` are imported from `solid-js` rather than declared locally. TypeScript sees them as "declared but not exported" when resolving through the experimental version's types. The beta.15 version exports them directly.
+
+This produced **379 phantom type errors** that looked like a TypeScript 6 incompatibility but were actually a stale lockfile resolution.
+
+### Rule of Thumb
+
+After ANY `pnpm update --latest` that you partially roll back, always:
+```bash
+rm -rf node_modules pnpm-lock.yaml && pnpm install
+```
+
+Never trust `pnpm install` alone to downgrade a previously-resolved version.
+
+---
+
 ## 18. Debugging Strategy
 
 ### Symptoms → Likely Cause
@@ -1066,6 +1130,7 @@ If an effect's only job is `signal → callback`, and the signal setter is alway
 | Cleanup runs immediately | Compute returning a new object reference every time (use primitives or `===` check) |
 | Effect never fires | Compute not reading any tracked signals |
 | Source edit "successful build" but bug persists | Turbo/tsup cache stale — `rm -rf dist .turbo && pnpm run build` (lesson #16) |
+| Hundreds of "not exported" errors after rolling back a dep version | Phantom version in pnpm lockfile — `rm -rf node_modules pnpm-lock.yaml && pnpm install` (lesson #21) |
 
 ### Tooling
 
