@@ -82,18 +82,36 @@ set -euo pipefail
 
 DRY_RUN=""
 TAG="latest"
+FORCE=""
 
 # Parse flags
 while [[ $# -gt 0 ]]; do
   case $1 in
     --dry-run) DRY_RUN="--dry-run"; shift ;;
     --tag) TAG="$2"; shift 2 ;;
+    --force) FORCE="true"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
+# Pre-publish integrity checks (skip with --force for CI with provenance)
+if [ -z "$FORCE" ] && [ -z "$DRY_RUN" ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Error: Working tree is dirty. Commit or stash changes before publishing."
+    echo "  Use --force to bypass (CI with provenance only)."
+    exit 1
+  fi
+
+  if ! git describe --exact-match HEAD >/dev/null 2>&1; then
+    echo "Error: HEAD is not tagged. Tag a release before publishing."
+    echo "  Use 'mise run release' for the full workflow, or --force to bypass."
+    exit 1
+  fi
+fi
+
 echo "Publishing all public packages (tag: $TAG)..."
 [ -n "$DRY_RUN" ] && echo "  ⚠️  DRY RUN — no packages will actually be published"
+[ -n "$FORCE" ] && echo "  ⚠️  FORCE — git integrity checks bypassed"
 echo ""
 
 FAILED=()
@@ -117,7 +135,7 @@ for pkg_dir in packages/*/; do
   fi
 
   echo "  📦 $NAME@$VERSION"
-  if pnpm publish --access public --tag "$TAG" --no-git-checks $DRY_RUN -C "$pkg_dir" 2>&1 | tail -1; then
+  if pnpm publish --access public --tag "$TAG" $DRY_RUN -C "$pkg_dir" 2>&1 | tail -1; then
     PUBLISHED+=("$NAME@$VERSION")
   else
     FAILED+=("$NAME@$VERSION")
@@ -156,8 +174,8 @@ echo ""
 echo "Tagged v$NEW_VERSION"
 echo ""
 
-# 4. Build and publish
-mise run publish -- --tag next
+# 4. Build and publish (--force: tree is clean and tagged by steps above)
+mise run publish -- --tag next --force
 
 echo ""
 echo "=== Released v$NEW_VERSION ==="
