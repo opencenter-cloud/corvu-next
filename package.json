@@ -14,5 +14,10 @@
   "devDependencies": {
     "turbo": "^2.5.5"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "overrides": {
+      "babel-preset-solid": "2.0.0-beta.17"
+    }
+  }
 }

@@ -28,13 +28,13 @@
     }
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.15",
-    "@solidjs/web": "2.0.0-beta.15"
+    "solid-js": "2.0.0-beta.17",
+    "@solidjs/web": "2.0.0-beta.17"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.15",
+    "@solidjs/web": "2.0.0-beta.17",
     "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.15",
+    "solid-js": "2.0.0-beta.17",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },

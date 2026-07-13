@@ -2,7 +2,7 @@
 
 > **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
 
-Last updated: 2026-07-04 (added lesson #21 — pnpm lockfile phantom versions)
+Last updated: 2026-07-12 (added lesson #25 — solid-compat Vite plugin pattern)
 
 ---
 
@@ -405,6 +405,8 @@ createEffect(
 | `onCleanup(() => {})` | Return from apply phase | Inside effects; `onCleanup` still exists for component-level |
 | `solid-js/web` | `@solidjs/web` | Separate package |
 | `batch(() => {})` | Removed | Microtask batching is automatic |
+| `import { createStore } from 'solid-js/store'` | `import { createStore } from 'solid-js'` | Store moved to main package |
+| `setState('key', value)` | `setState(s => { s.key = value })` | Path API removed; draft-only (lesson #22) |
 
 ---
 
@@ -412,13 +414,14 @@ createEffect(
 
 ```typescript
 // Solid 1
-import { Show, For, Portal } from 'solid-js/web'
+import { Portal } from 'solid-js/web'
 import type { JSX, Component } from 'solid-js'
 
 // Solid 2
-import { Show, For } from 'solid-js'
 import { Portal, render } from '@solidjs/web'
 import type { JSX, ComponentProps, ValidComponent } from '@solidjs/web'
+import { Show, For } from 'solid-js'          // unchanged — always in solid-js
+import type { Component } from 'solid-js'     // unchanged — always in solid-js
 ```
 
 Key moves:
@@ -1108,6 +1111,295 @@ Never trust `pnpm install` alone to downgrade a previously-resolved version.
 
 ---
 
+## 22. `createStore` setState Is Draft-Based — No Path API
+
+### Symptoms
+
+- TypeScript error: `Expected 1 arguments, but got 2` on `setState('key', value)` or `setState('nested', fn)`
+- Occurs in any code using `createStore` from Solid 1 that relied on the path-based setter
+
+### Root Cause
+
+Solid 1's `createStore` returned a setter with multiple overloads:
+
+```typescript
+// Solid 1 — path-based setState (multiple forms)
+setState('value', 'new string')
+setState('filtered', { count, items, groups })
+setState('ids', (ids) => ({ ...ids, [id]: { value, keywords } }))
+setState('groups', (groups) => ({ [id]: [], ...groups }))
+setState((state) => ({ ...state, items: [...state.items, id] }))  // also worked
+```
+
+In Solid 2, `StoreSetter<T>` is a single form:
+
+```typescript
+type StoreSetter<T> = (fn: (state: T) => T | void) => void
+```
+
+**Only the draft-callback form exists.** Path-based setters, keyed setters, and `produce`-style updates are replaced by direct mutation of the draft:
+
+```typescript
+// Solid 2 — draft-based setState (only form)
+setState(s => { s.value = 'new string' })
+setState(s => { s.filtered = { count, items, groups } })
+setState(s => { s.ids = { ...s.ids, [id]: { value, keywords } } })
+setState(s => { s.groups = { [id]: [], ...s.groups } })
+setState(s => { s.items = [...s.items, id] })
+```
+
+### Migration Rules
+
+| Solid 1 | Solid 2 |
+|---------|---------|
+| `setState('key', value)` | `setState(s => { s.key = value })` |
+| `setState('key', (prev) => transform(prev))` | `setState(s => { s.key = transform(s.key) })` |
+| `setState((s) => ({ ...s, key: value }))` | `setState(s => { s.key = value })` (mutate in place) |
+| `setState('nested', 'deep', value)` | `setState(s => { s.nested.deep = value })` |
+| `produce(s => { s.key = v })` | Already the correct form — remove `produce` wrapper |
+
+### Mutation vs Return
+
+The draft callback can either:
+1. **Mutate in place** (canonical): `setState(s => { s.list.push(x) })`
+2. **Return a new value** (for awkward shapes): `setState(s => ({ ...s, list: s.list.filter(fn) }))`
+
+Arrays are replaced by index (length adjusted); objects are shallow-diffed at the top level (keys present in the returned value are written, missing keys deleted).
+
+### Impact
+
+This affects every `createStore` usage site. In the cmdk-solid migration alone, 10 setState calls required rewriting. The change is mechanical but must be applied to ALL stores — `pnpm patch` files, workspace packages, and registry source files.
+
+### Where to Look
+
+```bash
+# Find all path-based setState patterns
+grep -rn "setState('" --include="*.ts" --include="*.tsx" packages/
+grep -rn "setState(\"" --include="*.ts" --include="*.tsx" packages/
+```
+
+---
+
+## 23. `babel-preset-solid` Version Mismatch — `solid-js/web` in Compiled Output
+
+### Symptoms
+
+- Built ESM output imports from `'solid-js/web'` (template, insert, spread, createComponent, etc.)
+- `solid-js/web` does NOT exist in Solid 2 — module resolution fails at runtime
+- The source code correctly imports from `'solid-js'` and `'@solidjs/web'` — the problem is in JSX compilation
+
+### Root Cause
+
+`tsup-preset-solid` depends on `esbuild-plugin-solid`, which depends on `babel-preset-solid@^1.6.9`. pnpm resolves this to `babel-preset-solid@1.9.12` — the latest Solid 1 version. This babel preset compiles JSX `<div>` into runtime calls that import from `'solid-js/web'`.
+
+In Solid 2, the correct babel preset (`babel-preset-solid@2.0.0-beta.15`) compiles JSX to import from `'@solidjs/web'`.
+
+### Detection
+
+After building a Solid 2 package:
+
+```bash
+grep "solid-js/web" dist/index.js
+# If any hits → wrong babel preset is being used
+
+grep "@solidjs/web" dist/index.js
+# Should have at least one hit (the JSX runtime import)
+```
+
+### Fix
+
+Add `babel-preset-solid` to pnpm overrides in the **root** `package.json`:
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "babel-preset-solid": "2.0.0-beta.15"
+    }
+  }
+}
+```
+
+This forces ALL transitive resolutions (including `esbuild-plugin-solid`'s dependency) to use the Solid 2 version. The override must be in the **workspace root** `package.json` to apply globally.
+
+### Verification
+
+After adding the override:
+
+```bash
+pnpm install
+find node_modules -path "*esbuild-plugin-solid*/node_modules/babel-preset-solid/package.json" \
+  -exec grep '"version"' {} \;
+# Should show: "version": "2.0.0-beta.15"
+```
+
+Then rebuild the package and confirm `@solidjs/web` in output:
+
+```bash
+cd packages/<package> && rm -rf dist && pnpm build
+grep "from '@solidjs/web'" dist/index.js  # should match
+grep "from 'solid-js/web'" dist/index.js  # should NOT match
+```
+
+### Why This Matters
+
+- `solid-js/web` is not a valid import path in Solid 2 — there is no subpath export for it
+- The compiled JSX runtime helpers (template, insert, spread, effect, memo, createComponent) MUST come from `@solidjs/web`
+- Without the override, a workspace package will build "successfully" (no type errors, no bundler errors) but fail at runtime with `ERR_PACKAGE_PATH_NOT_EXPORTED` or similar resolution errors
+
+### Scope
+
+Affects any Solid 2 workspace package using `tsup-preset-solid` or `esbuild-plugin-solid` for compilation. Does NOT affect packages built with `vite-plugin-solid@3.0.0-next.5` (which bundles its own copy of the correct babel preset).
+
+---
+
+## 24. `merge()` Import Collides with Local Variable Name
+
+### Symptoms
+
+- After mechanically renaming `mergeProps` → `merge` in imports, code that assigned the result to a local variable named `merge` shadows the imported function:
+
+```typescript
+// ❌ Name collision — local `merge` shadows imported `merge`
+import { merge } from "solid-js"
+
+const merge = merge({ showCloseButton: true }, props)  // ReferenceError or infinite recursion
+```
+
+### Root Cause
+
+A widespread Solid 1 pattern in shadcn-solid and similar libraries:
+
+```typescript
+import { mergeProps, splitProps } from "solid-js"
+
+const merge = mergeProps({ showCloseButton: true }, props)
+const [, rest] = splitProps(merge, ["class", "children", "showCloseButton"])
+// Then: merge.class, merge.children, etc.
+```
+
+When `mergeProps` becomes `merge`, the local variable declaration `const merge = merge(...)` is self-referential. Even if it doesn't error at parse time, subsequent `merge.prop` reads now reference the local object — which works — but the next component that does `merge(defaults, props)` without a local assignment will fail if the import was accidentally removed during cleanup.
+
+### Fix
+
+Rename the **local variable** to avoid shadowing. Use a consistent name like `mergedProps`:
+
+```typescript
+import { merge, omit } from "solid-js"
+
+const mergedProps = merge({ showCloseButton: true }, props)
+const rest = omit(mergedProps, "class", "children", "showCloseButton")
+// Access: mergedProps.class, mergedProps.children, props.showCloseButton
+```
+
+### Codemod Strategy
+
+When automating `mergeProps` → `merge`:
+
+1. Rename the import specifier: `mergeProps` → `merge`
+2. Rename all `mergeProps(` call sites → `merge(`
+3. **Detect** `const merge = merge(` pattern (local assignment)
+4. Rename the local binding: `const merge` → `const mergedProps`
+5. Rename all property accesses on the old local: `merge.X` → `mergedProps.X`
+6. Rename the variable when passed to other functions: `splitProps(merge,` → `omit(mergedProps,`
+
+Step 5 requires care: don't rename `merge(` (function call) to `mergedProps(`. Only rename `.property` accesses and identifier references that aren't immediately followed by `(`.
+
+### Scale
+
+In the shadcn-solid registry, 16 files used `mergeProps`, and **all 16** used the `const merge = mergeProps(...)` pattern. This is the dominant idiom in component libraries that use Kobalte's polymorphic props pattern.
+
+---
+
+## 25. Virtual Module Compat Plugin — Better Than Per-File Patches
+
+### Symptoms
+
+- Build errors like `"mergeProps" is not exported by "solid-js"` from third-party deps
+- Errors appear from files NOT covered by your `pnpm patch` (different entry points Vite resolves)
+- Patching `build/lib/index.esm.js` doesn't help because the `exports` field points to `build/lib/index.mjs` or `dist/source/*.jsx`
+- Each fix reveals another unpatched entry point — whack-a-mole
+
+### Root Cause
+
+Third-party packages often ship multiple entry points (`src/`, `build/lib/`, `dist/source/`). The `pnpm patch` mechanism generates a diff against ONE set of files, but Vite/Rollup resolves different files depending on:
+- Export conditions (`"solid"`, `"import"`, `"browser"`)
+- Whether SSR or client build
+- Whether `resolve.conditions` is set
+
+Result: patching `build/lib/index.esm.js` doesn't help when Vite resolves `dist/source/createField.jsx` via the `"solid"` condition. You'd need to patch EVERY output variant — impractical.
+
+### Fix — Vite Plugin with `resolveId` + `load`
+
+Create a Vite plugin that intercepts `solid-js` imports **from node_modules** at the resolution level and returns a virtual module that re-exports all Solid 2 APIs plus aliases for removed names:
+
+```typescript
+import type { Plugin } from "vite"
+
+export default function solidCompat(): Plugin {
+  const VIRTUAL_ID = "\0solid-compat"
+
+  return {
+    name: "solid-compat",
+    enforce: "pre",
+    resolveId(source, importer) {
+      // Only intercept imports from third-party code
+      if (source === "solid-js" && importer?.includes("node_modules")) {
+        return VIRTUAL_ID
+      }
+      if (source === "solid-js/web" && importer?.includes("node_modules")) {
+        return this.resolve("@solidjs/web", importer, { skipSelf: true })
+      }
+      if (source === "solid-js/store" && importer?.includes("node_modules")) {
+        return VIRTUAL_ID  // store APIs merged into solid-js in Solid 2
+      }
+      return null
+    },
+    load(id) {
+      if (id === VIRTUAL_ID) {
+        return `
+export * from "solid-js";
+export { merge as mergeProps } from "solid-js";
+export { omit as splitProps } from "solid-js";
+export { onSettled as onMount } from "solid-js";
+export { createEffect as createComputed } from "solid-js";
+`
+      }
+      return null
+    },
+  }
+}
+```
+
+### Why This Works
+
+- `resolveId` fires BEFORE Rollup validates named exports — it intercepts the entire module specifier
+- The virtual module re-exports everything from `solid-js` (so `createSignal`, `createEffect`, etc. still work) plus adds aliases for the old names
+- Only applies to `node_modules` — your own migrated source code uses the real `solid-js` directly
+- Handles `solid-js/web` → `@solidjs/web` and `solid-js/store` → `solid-js` as module-level redirects
+- Works for both client and SSR builds without separate patches
+
+### When to Use This vs pnpm Patch
+
+| Situation | Approach |
+|-----------|----------|
+| Package has 1–2 files, simple renames | `pnpm patch` is simpler |
+| Package has multiple entry points, or Vite resolves unexpected files | Virtual module plugin |
+| Many deps have the same problem (solid-table, solid-form, solid-store, primitives/deep) | Plugin handles ALL of them with zero per-package config |
+| Package needs structural changes (split-phase effects, Context.Provider removal) | `pnpm patch` for structural, plugin for naming |
+
+### Limitations
+
+- Only handles **renames** and **re-exports**. Cannot fix structural issues like single-function `createEffect` → split-phase, or `<Context.Provider>` → `<Context>`.
+- `createComputed → createEffect` alias is a **behavioral approximation** — `createComputed` in Solid 1 ran synchronously and didn't require a return value. The effect in Solid 2 requires split-phase. This alias works for simple "watch and react" patterns but not for effects that depend on synchronous execution order.
+- If a dep uses `splitProps` and destructures the tuple result (`const [local, rest] = splitProps(...)`), the alias to `omit` will break (different return type). Those deps still need patching.
+
+### Real-World Impact
+
+In the shadcn-solid docs build, this single plugin replaced the need to patch 4+ packages (`@tanstack/solid-table`, `@tanstack/solid-form`, `@tanstack/solid-store`, `@solid-primitives/deep`) across 12+ entry point files. Build went from failing with whack-a-mole errors to passing on first try after the plugin was added.
+
+---
+
 ## 18. Debugging Strategy
 
 ### Symptoms → Likely Cause
@@ -1131,6 +1423,9 @@ Never trust `pnpm install` alone to downgrade a previously-resolved version.
 | Effect never fires | Compute not reading any tracked signals |
 | Source edit "successful build" but bug persists | Turbo/tsup cache stale — `rm -rf dist .turbo && pnpm run build` (lesson #16) |
 | Hundreds of "not exported" errors after rolling back a dep version | Phantom version in pnpm lockfile — `rm -rf node_modules pnpm-lock.yaml && pnpm install` (lesson #21) |
+| TS error "Expected 1 arguments, but got 2" on `setState` | `createStore` path-based API removed — use draft form `setState(s => { s.key = v })` (lesson #22) |
+| Built output imports from `'solid-js/web'` (nonexistent) | Wrong `babel-preset-solid` — add pnpm override to force `2.0.0-beta.15` (lesson #23) |
+| Build error: `"X" is not exported by "solid-js"` from node_modules | Third-party dep uses old API names — use virtual-module compat plugin instead of per-file patch (lesson #25) |
 
 ### Tooling
 
@@ -1146,6 +1441,7 @@ Never trust `pnpm install` alone to downgrade a previously-resolved version.
 For each file being migrated:
 
 - [ ] Replace `mergeProps` → `merge`
+- [ ] Rename local variables `const merge = merge(...)` → `const mergedProps = merge(...)` to avoid shadowing the imported function (lesson #24)
 - [ ] Replace `splitProps` → `omit` (adjust access pattern)
 - [ ] Replace `solid-js/web` imports → `@solidjs/web`
 - [ ] Move JSX types to `@solidjs/web`
@@ -1164,6 +1460,9 @@ For each file being migrated:
 - [ ] Convert one-time register/unregister effects to direct calls + `onCleanup` (lesson #9)
 - [ ] Replace "watch signal → call callback" effects with direct callback calls from event handlers when the signal is only set from handlers (lesson #20)
 - [ ] After edits, verify built output contains your change (`grep -c '<marker>' dist/index.jsx`) — clean `rm -rf dist .turbo` if stale (lesson #16)
+- [ ] Rewrite all `setState('key', value)` to draft form `setState(s => { s.key = value })` — path-based API removed (lesson #22)
+- [ ] Verify built output imports from `'@solidjs/web'` NOT `'solid-js/web'` — add babel-preset-solid override if wrong (lesson #23)
+- [ ] For apps consuming multiple third-party Solid 1 deps: add a virtual-module compat plugin rather than patching each dep individually (lesson #25)
 - [ ] Test: open/close cycles, mount/unmount sequences, rapid state changes
 - [ ] Test: switching between views/tabs that mount/unmount the component
 - [ ] Test: real user interaction paths (drag, hover, focus) — synthetic events may not exercise Solid's event delegation
@@ -1193,6 +1492,12 @@ For each file being migrated:
 | `@corvu-next/presence` | #4 (split-phase), #5 (renames) |
 | `@corvu-next/utils` | #5 (renames), #6 (imports) |
 | All packages | #5 (renames), #6 (imports), #7 (context-as-provider) |
+| `@opencenter-cloud/cmdk-solid` | #1 (ownedWrite), #3 (context default), #4 (split-phase ×7), #5 (renames), #6 (imports), #7 (context-as-provider), #9 (one-time registration), #22 (store draft API), #23 (babel-preset override) |
+| `embla-carousel-solid` (patch) | #1 (ownedWrite), #4 (split-phase ×3), #5 (renames) |
+| `@tanstack/solid-table` (patch) | #4 (split-phase), #5 (renames), #22 (createStore import move) |
+| `@tanstack/solid-form` (patch) | #4 (split-phase ×4), #5 (renames ×7), #6 (imports), #7 (context-as-provider) |
+| shadcn-solid registry (54 files) | #5 (renames ×45+16), #6 (imports ×44), #7 (context-as-provider ×4), #9 (direct registration ×2), #24 (merge naming ×16) |
+| shadcn-solid docs app | #5 (renames), #6 (imports ×19), #22 (store draft), #23 (babel-preset), #25 (solid-compat plugin for 4+ deps) |
 
 ---
 
