@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/utils",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Utilities for @corvu-next (Solid 2 fork)",
   "license": "MIT",
   "author": {

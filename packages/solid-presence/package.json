@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/presence",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SolidJS 2 utility that manages the presence of an element in the DOM while being aware of pending animations.",
   "license": "MIT",
   "author": {
@@ -46,7 +46,7 @@
     }
   },
   "dependencies": {
-    "@corvu-next/utils": "workspace:~"
+    "@corvu-next/utils": "0.1.4"
   },
   "peerDependencies": {
     "solid-js": "2.0.0-beta.17"

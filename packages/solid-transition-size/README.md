@@ -1,54 +1,32 @@
-<div align="center">
-  <a href="https://corvu.dev/docs/utilities/transition-size">
-    <img src="https://corvu.dev/readme/solid-transition-size.png" width=1000 alt="Solid Transition Size" />
-  </a>
-</div>
-<br />
+# @corvu-next/transition-size
 
-SolidJS utility which makes it possible to transition the width and height of elements that don't have a fixed size applied.
+Animated size transition utility for SolidJS 2.0 — smoothly animates height/width changes.
+
+> **Note:** This is the Solid 2.0 fork of [solid-transition-size](https://corvu.dev/docs/utilities/transition-size). It targets `solid-js@2.0.0-beta.17`.
 
 ## Features
 
-- Works with any CSS transition configuration
-- Specify which dimension to observe (width, height, or both)
-- Uses a ResizeObserver to detect changes in the size of the element
+- Animates height and/or width changes
+- Uses CSS transitions for smooth animation
+- Works with dynamic content
+- Headless — doesn't create extra DOM elements
+
+## Installation
+
+```bash
+pnpm add @corvu-next/transition-size
+```
 
 ## Usage
 
-The utility returns two signals: `transitioning` and `transitionSize`. `transitioning` can be used to know when the transition is happening, and `transitionSize` returns the fixed size of the element while transitioning. You **have** to use it to style the element you want to transition.
-
 ```tsx
-import createTransitionSize from 'solid-transition-size';
-```
+import TransitionSize from '@corvu-next/transition-size'
 
-For a very simple example we can take the `<details>` element and transition the height when it is toggled:
-```tsx
-const Details = () => {
-  const [ref, setRef] = createSignal<HTMLElement | null>(null)
-  const { transitionSize } = createTransitionSize({
-    element: ref,
-    dimension: 'height',
-  })
-
-  const height = () => {
-    if (!transitionSize()) return undefined
-    return transitionSize() + 'px'
-  }
-
-  return (
-    <details
-      ref={setRef}
-      class="transition-[height]"
-      style={{
-        height: height(),
-      }}
-    >
-      <summary>Show detail</summary>
-      Detail
-    </details>
-  )
-}
+<TransitionSize>
+  <div>{dynamicContent()}</div>
+</TransitionSize>
 ```
 
 ## Further Reading
-This utility is from the maintainers of [corvu](https://corvu.dev), a collection of unstyled, accessible and customizable UI primitives for SolidJS. It is also documented in the corvu docs under [Transition Size](https://corvu.dev/docs/utilities/transition-size).
+
+This package is part of [corvu-next](https://github.com/opencenter-cloud/corvu-next), a collection of unstyled, accessible and customizable UI primitives for SolidJS 2.0.

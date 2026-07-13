@@ -1,39 +1,37 @@
-<div align="center">
-  <a href="https://corvu.dev/docs/utilities/dismissible">
-    <img src="https://corvu.dev/readme/solid-dismissible.png" width=1000 alt="Solid Dismissible" />
-  </a>
-</div>
-<br />
+# @corvu-next/dismissible
 
-SolidJS utility for creating dismissible, nestable layers. Offers different strategies to dismiss the layer, such as on outside click, escape key press, or outside focus.
+Dismissible layer utility for SolidJS 2.0 — nestable layers with outside click, escape key, and outside focus strategies.
+
+> **Note:** This is the Solid 2.0 fork of [solid-dismissible](https://corvu.dev/docs/utilities/dismissible). It targets `solid-js@2.0.0-beta.17`.
 
 ## Features
 
 - Supports nested layers
-- Dismiss on outside pointer down/up, outside focus or escape key
-- Is headless, doesn\'t create extra DOM elements
+- Dismiss on outside pointer down/up, outside focus, or escape key
+- Headless — doesn't create extra DOM elements
 - Every dismiss strategy can be disabled/customized
 - Events can be cancelled
-- Compatible with corvu primitives as they use this utility
+- Compatible with @corvu-next primitives
+
+## Installation
+
+```bash
+pnpm add @corvu-next/dismissible
+```
 
 ## Usage
 
 ```tsx
-import Dismissible from 'solid-dismissible'
-```
+import Dismissible from '@corvu-next/dismissible'
 
-```tsx
-const DialogContent: Component<{
-  open: boolean
-  setOpen: (open: boolean) => void
-}> = (props) => {
-  const [contentRef, setContentRef] = createSignal<HTMLElement | null>(null)
+const DialogContent = (props) => {
+  const [contentRef, setContentRef] = createSignal(null)
 
   return (
     <Dismissible
       element={contentRef}
-      enabled={open()}
-      onDismiss={() => setOpen(false)}
+      enabled={props.open()}
+      onDismiss={() => props.setOpen(false)}
     >
       <Show when={props.open()}>
         <div ref={setContentRef}>Dialog</div>
@@ -43,16 +41,6 @@ const DialogContent: Component<{
 }
 ```
 
-### Tracking active dismissibles
-The utility exports a `activeDismissibles` signal that can be used to track active dismissibles. It includes an array of all currently active dismissible ids.
-
-```tsx
-import { activeDismissibles } from 'solid-dismissible'
-
-createEffect(() => {
-  console.log('Currently active dismissibles: ', activeDismissibles())
-})
-```
-
 ## Further Reading
-This utility is from the maintainers of [corvu](https://corvu.dev), a collection of unstyled, accessible and customizable UI primitives for SolidJS. It is also documented in the corvu docs under [Dismissible](https://corvu.dev/docs/utilities/dismissible).
+
+This package is part of [corvu-next](https://github.com/opencenter-cloud/corvu-next), a collection of unstyled, accessible and customizable UI primitives for SolidJS 2.0.

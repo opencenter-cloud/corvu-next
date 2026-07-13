@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/dialog",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SolidJS 2 dialog/modal component.",
   "license": "MIT",
   "author": {
@@ -28,11 +28,11 @@
     }
   },
   "dependencies": {
-    "@corvu-next/utils": "workspace:~",
-    "@corvu-next/presence": "workspace:~",
-    "@corvu-next/prevent-scroll": "workspace:~",
-    "@corvu-next/focus-trap": "workspace:~",
-    "@corvu-next/dismissible": "workspace:~"
+    "@corvu-next/utils": "0.1.4",
+    "@corvu-next/presence": "0.1.4",
+    "@corvu-next/prevent-scroll": "0.1.4",
+    "@corvu-next/focus-trap": "0.1.4",
+    "@corvu-next/dismissible": "0.1.4"
   },
   "peerDependencies": {
     "solid-js": "2.0.0-beta.17",

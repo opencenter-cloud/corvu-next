@@ -1,73 +1,31 @@
-<div align="center">
-  <a href="https://corvu.dev/docs/utilities/focus-trap">
-    <img src="https://corvu.dev/readme/solid-focus-trap.png" width=1000 alt="Solid Focus Trap" />
-  </a>
-</div>
-<br />
+# @corvu-next/focus-trap
 
-SolidJS utility that traps focus inside a given DOM element.
+Focus trap utility for SolidJS 2.0 — traps keyboard focus within a container element.
+
+> **Note:** This is the Solid 2.0 fork of [solid-focus-trap](https://corvu.dev/docs/utilities/focus-trap). It targets `solid-js@2.0.0-beta.17`.
 
 ## Features
 
-- Watches for DOM changes inside the focus trap and updates accordingly
-- Properly restores focus when the trap gets disabled
-- Very customizable
+- Traps focus within a container element
+- Restores focus on deactivation
+- Handles edge cases (initial focus, tab wrapping)
+- Headless — doesn't create extra DOM elements
+
+## Installation
+
+```bash
+pnpm add @corvu-next/focus-trap
+```
 
 ## Usage
 
 ```tsx
-import createFocusTrap from 'solid-focus-trap'
-```
+import createFocusTrap from '@corvu-next/focus-trap'
 
-```tsx
-const DialogContent: Component<{
-  open: boolean
-}> = (props) => {
-  const [contentRef, setContentRef] = createSignal<HTMLElement | null>(null)
-
-  createFocusTrap({
-    element: contentRef,
-    enabled: () => props.open, // default = true
-    observeChanges: true, // default
-    restoreFocus: true, // default
-  })
-
-  return (
-    <Show when={props.open()}>
-      <div ref={setContentRef}>Dialog</div>
-    </Show>
-  )
-}
-```
-
-The first focusable element within the focus trap element will be focused initially. When the trap is disabled, the focus will be restored to the element that was focused before the trap was enabled.
-
-### Custom initial focus element
-This example shows how to customize the initial focus element so that the focus moves to a specific element when the trap gets enabled.
-
-```tsx
-const DialogContent: Component<{
-  open: boolean
-}> = (props) => {
-  const [contentRef, setContentRef] = createSignal<HTMLElement | null>(null)
-  const [initialFocusRef, setInitialFocusRef] =
-    createSignal<HTMLElement | null>(null)
-
-  createFocusTrap({
-    element: contentRef,
-    enabled: () => props.open,
-    initialFocusElement: initialFocusRef,
-  })
-
-  return (
-    <Show when={props.open()}>
-      <div ref={setContentRef}>Dialog</div>
-      <button>Close</button>
-      <input ref={setInitialFocusRef} />
-    </Show>
-  )
-}
+const [containerRef, setContainerRef] = createSignal(null)
+createFocusTrap({ element: containerRef, enabled: () => isOpen() })
 ```
 
 ## Further Reading
-This utility is from the maintainers of [corvu](https://corvu.dev), a collection of unstyled, accessible and customizable UI primitives for SolidJS. It is also documented in the corvu docs under [Focus Trap](https://corvu.dev/docs/utilities/focus-trap).
+
+This package is part of [corvu-next](https://github.com/opencenter-cloud/corvu-next), a collection of unstyled, accessible and customizable UI primitives for SolidJS 2.0.

@@ -1,45 +1,31 @@
-<div align="center">
-  <a href="https://corvu.dev/docs/utilities/persistent">
-    <img src="https://corvu.dev/readme/solid-persistent.png" width=1000 alt="Solid Persistent" />
-  </a>
-</div>
-<br />
+# @corvu-next/persistent
 
-SolidJS utility to create persistent components that keep their state and elements cached when removed from the DOM.
+Persistent rendering utility for SolidJS 2.0 — keeps components in the DOM when hidden for faster show/hide transitions.
+
+> **Note:** This is the Solid 2.0 fork of [solid-persistent](https://corvu.dev/docs/utilities/persistent). It targets `solid-js@2.0.0-beta.17`.
 
 ## Features
 
-- Persists both JavaScript state and HTML elements
-- Supports SSR
+- Keeps component subtree in the DOM when hidden
+- Avoids re-mount cost on repeated show/hide
+- Works with any conditional rendering pattern
+
+## Installation
+
+```bash
+pnpm add @corvu-next/persistent
+```
 
 ## Usage
 
-Import the `createPersistent` utility and pass your component to it. Make sure to call the utility inside a component that doesn't unmount. Then use the returned Accessor in your JSX where it can unmount.
-
 ```tsx
-import createPersistent from 'solid-persistent'
-```
+import Persistent from '@corvu-next/persistent'
 
-```tsx
-const PersistedDialogContent = () => {
-  const persistedContent = createPersistent(() => {
-    return <input />
-  })
-
-  return (
-  <Dialog>
-      <Dialog.Trigger>
-        Open
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Content>
-          {persistedContent()}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog>
-  )
-}
+<Persistent when={isOpen()}>
+  <div>This stays in the DOM even when hidden</div>
+</Persistent>
 ```
 
 ## Further Reading
-This utility is from the maintainers of [corvu](https://corvu.dev), a collection of unstyled, accessible and customizable UI primitives for SolidJS. It is also documented in the corvu docs under [Persistent](https://corvu.dev/docs/utilities/persistent).
+
+This package is part of [corvu-next](https://github.com/opencenter-cloud/corvu-next), a collection of unstyled, accessible and customizable UI primitives for SolidJS 2.0.

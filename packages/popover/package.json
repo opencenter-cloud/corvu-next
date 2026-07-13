@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/popover",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SolidJS 2 popover component with floating-ui positioning.",
   "license": "MIT",
   "author": {
@@ -28,8 +28,8 @@
     }
   },
   "dependencies": {
-    "@corvu-next/dialog": "workspace:~",
-    "@corvu-next/utils": "workspace:~",
+    "@corvu-next/dialog": "0.1.4",
+    "@corvu-next/utils": "0.1.4",
     "@floating-ui/dom": "^1.7.3"
   },
   "peerDependencies": {
