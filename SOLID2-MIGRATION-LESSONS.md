@@ -2,7 +2,7 @@
 
 > **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
 
-Last updated: 2026-07-12 (added lesson #25 — solid-compat Vite plugin pattern)
+Last updated: 2026-07-15 (added lesson #2C — babel-preset-solid ref extraction triggers STRICT_READ_UNTRACKED)
 
 ---
 
@@ -274,6 +274,68 @@ let initialOpen = untrack(() => defaultedProps.preventInitialContentAnimation &&
 ```
 
 The fix wraps both the prop access AND the signal read in one `untrack()` call, explicitly declaring this as a one-time initialization read that should not be tracked.
+
+### Variant C: babel-preset-solid Extracts `ref={expr}` into Eager Component-Body Evaluation
+
+#### Symptoms
+
+- `STRICT_READ_UNTRACKED` warning fires once per component instance on mount
+- Warning references a component that passes `ref={mergeRefs(setter, mergedProps.ref)}` in JSX
+- The read appears to be inside JSX (a tracking scope), but the warning still fires
+
+#### Root Cause
+
+`babel-preset-solid` treats `ref` as special. When it encounters `ref={expression}` on a component, it extracts the expression into a variable evaluated **before** the `createComponent` call:
+
+```typescript
+// Source JSX:
+<Polymorphic ref={mergeRefs(setRef, mergedProps.ref)} type={...} />
+
+// babel-preset-solid output:
+var _ref$ = mergeRefs(setRef, mergedProps.ref);  // ← evaluated in component body!
+return _$createComponent(Polymorphic, {
+  ref(r$) { _$applyRef(_ref$, r$); },
+  get type() { return ...; }
+});
+```
+
+The `_ref$` assignment reads `mergedProps.ref` in the component body where `strictRead` is active. Unlike `type` or `disabled` which become getters (deferred reads), `ref` is eagerly resolved because it's a callback, not a reactive value.
+
+#### Fix
+
+Pre-compute the ref callback in the component body and wrap the merged-props read in `untrack()`:
+
+```typescript
+// ✅ Correct: read mergedProps.ref inside untrack(), pass pre-computed callback
+const refCallback = mergeRefs(setRef, untrack(() => mergedProps.ref));
+
+return (
+  <Polymorphic
+    ref={refCallback}  // babel sees a simple identifier, no extraction needed
+    type={isNativeButton() ? mergedProps.type : undefined}
+    ...
+  />
+);
+```
+
+babel-preset-solid sees `ref={refCallback}` (a simple identifier) and passes it directly without extracting into `_ref$`. The `mergedProps.ref` read is wrapped in `untrack()` which sets `strictRead = false` during the read.
+
+#### Why `untrack()` Is Safe Here
+
+- `ref` is a callback or element reference — it does not change dynamically
+- Reading it once during initialization is correct semantics
+- The value is passed to `mergeRefs` which returns a new callback — reactivity is not needed
+
+#### Scale of Impact
+
+This pattern appears in **40+ components** across Kobalte — every component that uses `ref={mergeRefs(setter, mergedProps.ref)}`. ButtonRoot alone accounts for 148 warnings per page (one per button instance). The fix is mechanical: move `mergeRefs(...)` to a `const` with `untrack()` around the `mergedProps.ref` read.
+
+#### Where to Look
+
+```bash
+# Find all components with ref={mergeRefs(..., mergedProps.ref)} pattern
+grep -rn "ref={mergeRefs.*mergedProps.ref" --include="*.tsx" packages/
+```
 
 ---
 
@@ -1416,7 +1478,7 @@ In the shadcn-solid docs build, this single plugin replaced the need to patch 4+
 | "ContextNotFoundError" | `createContext()` missing default value |
 | "Context can only be accessed under a reactive root" | `useContext` called from `queueMicrotask` or async code |
 | `STRICT_READ_UNTRACKED` warning | `createMemo(() => useContext(...))` — remove the memo (lesson #2A) |
-| `STRICT_READ_UNTRACKED` on component mount | `merge()` proxy prop read in component body — wrap in `untrack()` (lesson #2B) |
+| `STRICT_READ_UNTRACKED` on component mount | `merge()` proxy prop read in component body — wrap in `untrack()` (lesson #2B); or `ref={mergeRefs(..., mergedProps.ref)}` extracted eagerly by babel — pre-compute with `untrack()` (lesson #2C) |
 | `STRICT_READ_UNTRACKED` in effect callback | Signal read in apply phase — move to compute and pass via return value (lesson #4), or if effect only watches+forwards, replace with direct call from event handler (lesson #20) |
 | Effect fires but no cleanup | Missing return from apply phase |
 | Cleanup runs immediately | Compute returning a new object reference every time (use primitives or `===` check) |
@@ -1452,6 +1514,7 @@ For each file being migrated:
 - [ ] Replace `<Context.Provider>` with `<Context value={...}>`
 - [ ] Remove `createMemo` wrappers around `useContext` calls — access context directly
 - [ ] Wrap one-time initialization reads from `merge()` proxy in `untrack()` (lesson #2B)
+- [ ] Pre-compute `ref={mergeRefs(setter, mergedProps.ref)}` into a const with `untrack()` around the proxy read (lesson #2C)
 - [ ] Do NOT call state-mutating registration inside `untrack()` in an effect compute — use `onSettled` (lesson #13)
 - [ ] Registration helpers must not create reactive primitives if called from `onSettled`/apply/cleanup — refactor to return plain accessors (lesson #14)
 - [ ] Forward an `ownedWrite` option through wrapper primitives (e.g., `createControllableSignal`) when downstream writes come from owned scopes (lesson #15)
@@ -1492,6 +1555,7 @@ For each file being migrated:
 | `@corvu-next/presence` | #4 (split-phase), #5 (renames) |
 | `@corvu-next/utils` | #5 (renames), #6 (imports) |
 | All packages | #5 (renames), #6 (imports), #7 (context-as-provider) |
+| `@opencenter-cloud/kobalte-core` (ButtonRoot) | #2C (ref extraction via babel-preset-solid) |
 | `@opencenter-cloud/cmdk-solid` | #1 (ownedWrite), #3 (context default), #4 (split-phase ×7), #5 (renames), #6 (imports), #7 (context-as-provider), #9 (one-time registration), #22 (store draft API), #23 (babel-preset override) |
 | `embla-carousel-solid` (patch) | #1 (ownedWrite), #4 (split-phase ×3), #5 (renames) |
 | `@tanstack/solid-table` (patch) | #4 (split-phase), #5 (renames), #22 (createStore import move) |
