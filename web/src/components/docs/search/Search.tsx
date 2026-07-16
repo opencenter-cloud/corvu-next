@@ -14,21 +14,35 @@ export type SearchItemType = {
   pathname: string
 }
 
-type TypeSenseResponse = {
-  grouped_hits: {
-    hits: {
-      document: {
-        'hierarchy.lvl0': string
-        hierarchy_camel: string[]
-        url: string
-      }
-      highlight: {
-        content?: {
-          snippet: string
-        }
-      }
-    }[]
+type PagefindResult = {
+  url: string
+  meta?: { title?: string }
+  excerpt?: string
+  sub_results?: {
+    title: string
+    url: string
+    excerpt: string
   }[]
+}
+
+type PagefindInstance = {
+  search: (query: string) => Promise<{
+    results: { data: () => Promise<PagefindResult> }[]
+  }>
+}
+
+let pagefindInstance: PagefindInstance | null = null
+
+async function getPagefind(): Promise<PagefindInstance | null> {
+  if (pagefindInstance) return pagefindInstance
+  if (!import.meta.env.PROD) return null
+  try {
+    const pf = await import(/* @vite-ignore */ new URL('/pagefind/pagefind.js', window.location.origin).href)
+    pagefindInstance = pf as PagefindInstance
+    return pagefindInstance
+  } catch {
+    return null
+  }
 }
 
 const Search = () => {
@@ -91,50 +105,68 @@ const Search = () => {
   createEffect(
     () => searchValue(),
     (_searchValue) => {
-      if (!_searchValue) { setResult(null); return }
+      if (!_searchValue) {
+        setResult(null)
+        return
+      }
+
       const fetchResults = async () => {
-      const fetchedResults = await fetch(
-        `${import.meta.env.PUBLIC_SEARCH_API_URL}?q=${_searchValue}&per_page=6&query_by=hierarchy.lvl0,hierarchy.lvl1,hierarchy.lvl2,hierarchy.lvl3,content&group_by=url&group_limit=1&prioritize_num_matching_fields=false&x-typesense-api-key=${import.meta.env.PUBLIC_SEARCH_API_KEY}`,
-      )
-      const fetchedResultsJson: TypeSenseResponse = await fetchedResults.json()
-      const result = fetchedResultsJson.grouped_hits
-        .flatMap((grouped_hit) => grouped_hit.hits)
-        .map((hit) => {
-          const hit_hierarchy = Object.values(hit.document.hierarchy_camel[0])
-            .filter(Boolean)
-            .map((hierarchy) => {
-              hierarchy = hierarchy.replace('&lt;', '<')
-              hierarchy = hierarchy.replace('&gt;', '>')
-              return hierarchy
-            })
-          let hierarchy = ''
-          if (hit_hierarchy.length === 1) {
-            hierarchy = hit_hierarchy[0]
-          } else {
-            hierarchy += hit_hierarchy.slice(1).join(' → ')
-          }
-          const url = new URL(hit.document.url)
-          return {
-            group_title: hit.document['hierarchy.lvl0'],
-            hierarchy,
-            content: hit.highlight.content?.snippet,
-            href: hit.document.url,
-            pathname: url.pathname + url.hash,
-          }
-        })
-        .reduce(
-          (groupedResults, item) => ({
-            ...groupedResults,
-            [item.group_title]: [
-              ...(groupedResults[item.group_title] ?? []),
-              item as SearchItemType,
-            ],
-          }),
-          {} as SearchResult,
+        const pf = await getPagefind()
+        if (!pf) {
+          setResult(null)
+          return
+        }
+
+        const search = await pf.search(_searchValue)
+        const dataResults = await Promise.all(
+          search.results.slice(0, 8).map((r) => r.data()),
         )
-      setResult(result)
-    }
-    fetchResults()
+
+        const mapped = dataResults
+          .flatMap((item) => {
+            const groupTitle = item.meta?.title ?? 'Results'
+
+            if (item.sub_results && item.sub_results.length > 0) {
+              return item.sub_results.map((sub) => {
+                const url = new URL(sub.url, window.location.origin)
+                return {
+                  group_title: groupTitle,
+                  hierarchy: sub.title,
+                  content: sub.excerpt,
+                  pathname: url.pathname + url.hash,
+                }
+              })
+            }
+
+            const url = new URL(item.url, window.location.origin)
+            return [
+              {
+                group_title: groupTitle,
+                hierarchy: item.meta?.title ?? '',
+                content: item.excerpt ?? '',
+                pathname: url.pathname + url.hash,
+              },
+            ]
+          })
+          .reduce(
+            (grouped, item) => ({
+              ...grouped,
+              [item.group_title]: [
+                ...(grouped[item.group_title] ?? []),
+                {
+                  hierarchy: item.hierarchy,
+                  content: item.content,
+                  pathname: item.pathname,
+                } as SearchItemType,
+              ],
+            }),
+            {} as SearchResult,
+          )
+
+        setResult(mapped)
+      }
+
+      fetchResults()
     },
   )
 
@@ -227,8 +259,14 @@ const Search = () => {
               </div>
             </div>
             <div class="mt-1 grow space-y-2 overflow-y-auto px-4 pb-3 pt-2 scrollbar-thin">
+              <Show when={!import.meta.env.PROD && searchValue()}>
+                <p class="mt-2 text-center text-sm text-corvu-400">
+                  Search is available in production builds only.
+                </p>
+              </Show>
               <Show
                 when={
+                  import.meta.env.PROD &&
                   searchValue() &&
                   result() &&
                   Object.keys(result()!).length === 0
@@ -241,7 +279,7 @@ const Search = () => {
                 <p class="pb-2 pt-5 text-center text-sm">
                   Believe this query should return results?{' '}
                   <a
-                    href={`https://github.com/corvudev/corvu/issues/new?title=[Docs] Missing+results+for+query+%22${searchValue()}%22`}
+                    href={`https://github.com/opencenter-cloud/corvu-next/issues/new?title=[Docs] Missing+results+for+query+%22${searchValue()}%22`}
                     target="_blank"
                     class="text-corvu-link underline md:hover:text-corvu-link-hover"
                   >

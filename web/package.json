@@ -5,27 +5,28 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "astro build",
+    "build": "astro build && pagefind --site dist",
     "clean": "rm -rf .turbo dist node_modules",
     "dev": "astro dev",
     "preview": "astro preview"
   },
   "dependencies": {
     "@astrojs/mdx": "^7.0.3",
-    "@corvu-next/astrojs-solid-next": "workspace:*",
     "@corvu-next/accordion": "workspace:*",
+    "@corvu-next/astrojs-solid-next": "workspace:*",
     "@corvu-next/calendar": "workspace:*",
     "@corvu-next/dialog": "workspace:*",
     "@corvu-next/disclosure": "workspace:*",
     "@corvu-next/drawer": "workspace:*",
+    "@corvu-next/list": "workspace:*",
     "@corvu-next/otp-field": "workspace:*",
+    "@corvu-next/persistent": "workspace:*",
     "@corvu-next/popover": "workspace:*",
     "@corvu-next/resizable": "workspace:*",
     "@corvu-next/tooltip": "workspace:*",
-    "@corvu-next/list": "workspace:*",
-    "@corvu-next/persistent": "workspace:*",
     "@fontsource-variable/rubik": "^5.2.6",
     "@solid-primitives/storage": "5.0.0-next.0",
+    "@solidjs/web": "2.0.0-beta.19",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/vite": "^4.1.11",
     "astro": "^7.1.0",
@@ -33,8 +34,10 @@
     "sharp": "^0.34.3",
     "shiki": "^3.9.2",
     "solid-js": "2.0.0-beta.19",
-    "@solidjs/web": "2.0.0-beta.19",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "pagefind": "^1.5.2"
   }
 }
