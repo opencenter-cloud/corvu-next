@@ -2,7 +2,7 @@
 
 > **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
 
-Last updated: 2026-07-15 (lesson #2C broader sweep complete — 85 components fixed; STRICT_READ_UNTRACKED reduced from 155 to 0)
+Last updated: 2026-07-16 (lessons #26–28 added from docs site migration session)
 
 ---
 
@@ -482,6 +482,7 @@ createEffect(
 | `batch(() => {})` | Removed | Microtask batching is automatic |
 | `import { createStore } from 'solid-js/store'` | `import { createStore } from 'solid-js'` | Store moved to main package |
 | `setState('key', value)` | `setState(s => { s.key = value })` | Path API removed; draft-only (lesson #22) |
+| `<Index each={...}>{(item) => item()}</Index>` | `<For each={...}>{(item) => item}</For>` | Removed; `For` handles both keyed and indexed (lesson #26) |
 
 ---
 
@@ -1501,6 +1502,9 @@ In the shadcn-solid docs build, this single plugin replaced the need to patch 4+
 | TS error "Expected 1 arguments, but got 2" on `setState` | `createStore` path-based API removed — use draft form `setState(s => { s.key = v })` (lesson #22) |
 | Built output imports from `'solid-js/web'` (nonexistent) | Wrong `babel-preset-solid` — add pnpm override to force `2.0.0-beta.15` (lesson #23) |
 | Build error: `"X" is not exported by "solid-js"` from node_modules | Third-party dep uses old API names — use virtual-module compat plugin instead of per-file patch (lesson #25) |
+| Vite error: `does not provide an export named 'Index'` | `<Index>` removed in Solid 2 — replace with `<For>`, change `item()` → `item` (lesson #26) |
+| TypeError: `Cannot read properties of undefined (reading '$$mousemove')` | Event delegation crash on stale node — use `on:mousemove` instead of `onMouseMove` (lesson #27) |
+| `STRICT_READ_UNTRACKED` on props read during initialization | One-time read from reactive prop proxy in component body — wrap in `untrack()` (lesson #28) |
 
 ### Tooling
 
@@ -1539,6 +1543,9 @@ For each file being migrated:
 - [ ] Rewrite all `setState('key', value)` to draft form `setState(s => { s.key = value })` — path-based API removed (lesson #22)
 - [ ] Verify built output imports from `'@solidjs/web'` NOT `'solid-js/web'` — add babel-preset-solid override if wrong (lesson #23)
 - [ ] For apps consuming multiple third-party Solid 1 deps: add a virtual-module compat plugin rather than patching each dep individually (lesson #25)
+- [ ] Replace all `<Index>` with `<For>` and remove accessor calls (`item()` → `item`) (lesson #26)
+- [ ] Use `on:mousemove` (native) instead of `onMouseMove` (delegated) on items inside dynamic lists that re-render frequently (lesson #27)
+- [ ] Wrap one-time initialization reads from props (arrays, objects) in `untrack()` when the component doesn't need to react to prop changes (lesson #28)
 - [ ] Test: open/close cycles, mount/unmount sequences, rapid state changes
 - [ ] Test: switching between views/tabs that mount/unmount the component
 - [ ] Test: real user interaction paths (drag, hover, focus) — synthetic events may not exercise Solid's event delegation
@@ -1575,6 +1582,159 @@ For each file being migrated:
 | `@tanstack/solid-form` (patch) | #4 (split-phase ×4), #5 (renames ×7), #6 (imports), #7 (context-as-provider) |
 | shadcn-solid registry (54 files) | #5 (renames ×45+16), #6 (imports ×44), #7 (context-as-provider ×4), #9 (direct registration ×2), #24 (merge naming ×16) |
 | shadcn-solid docs app | #5 (renames), #6 (imports ×19), #22 (store draft), #23 (babel-preset), #25 (solid-compat plugin for 4+ deps) |
+| `@corvu-next/web` (docs site) | #26 (Index removal), #27 (event delegation), #28 (props in component body) |
+
+---
+
+## 26. `Index` Component Removed — Use `For` Instead
+
+### Symptoms
+
+- Vite error: `The requested module 'solid-js' does not provide an export named 'Index'`
+- Build failure on any file importing `Index` from `solid-js`
+
+### Root Cause
+
+Solid 1 had two list components:
+- `<For each={...}>` — keyed by reference (callback receives the item directly)
+- `<Index each={...}>` — keyed by index (callback receives an accessor `() => item`)
+
+In Solid 2, `<Index>` was removed. `<For>` handles both use cases.
+
+### Fix
+
+Replace `<Index>` with `<For>` and change accessor calls to direct value access:
+
+```typescript
+// Solid 1 — Index gives accessors
+import { Index } from 'solid-js'
+<Index each={items()}>
+  {(item) => <div>{item()}</div>}    // item is an accessor
+</Index>
+
+// Solid 2 — For gives values directly
+import { For } from 'solid-js'
+<For each={items()}>
+  {(item) => <div>{item}</div>}      // item is the value
+</For>
+```
+
+### Migration Pattern
+
+1. Replace `import { Index }` → `import { For }` (or add `For` if already importing it)
+2. Replace `<Index` → `<For` and `</Index>` → `</For>`
+3. Remove `()` from every callback parameter usage: `item()` → `item`, `day()` → `day`, `week()` → `week`
+
+### Where to Look
+
+```bash
+grep -rn "Index" --include="*.tsx" --include="*.ts" src/ | grep "from 'solid-js'"
+```
+
+### Scale
+
+In the corvu-next docs site, 5 calendar example files used `Index`. The fix is mechanical.
+
+---
+
+## 27. Event Delegation Crash on Stale Nodes — Use `on:event` for Dynamic Lists
+
+### Symptoms
+
+- Uncaught TypeError: `Cannot read properties of undefined (reading '$$mousemove')` (or `$$click`, `$$input`, etc.)
+- Fires when mouse moves over a list item that is being re-rendered
+- Stack trace shows `handleNode` → `walkUpTree` → `eventHandler` in `@solidjs/web`
+
+### Root Cause
+
+Solid 2 uses event delegation — it registers one handler on `document` (or `body`) for common events (`click`, `input`, `mousemove`, etc.) and walks up the DOM from `event.target` looking for `$$eventname` properties on each node. When a reactive list re-renders (e.g., search results changing), DOM nodes are removed while the event is bubbling. The walk-up encounters a node that's already been cleaned up (no `$$mousemove` property) → crash.
+
+This is a timing issue specific to delegated events on dynamically-rendered lists where:
+1. The list re-renders frequently (e.g., on every keystroke)
+2. The event fires on an item being removed (mouse still over it during re-render)
+
+### Fix
+
+Use **native event binding** (`on:eventname`) instead of the delegated form (`onEventName`):
+
+```typescript
+// ❌ Delegated — crashes when item is removed during re-render
+<a onMouseMove={() => setActive(index)}>
+
+// ✅ Native binding — handler is on the element directly, no delegation
+<a on:mousemove={() => setActive(index)}>
+```
+
+Native bindings (`on:`) attach the handler directly to the DOM element. When the element is removed, its handler goes with it — no stale-node walk-up.
+
+### When to Use `on:` vs `on*`
+
+| Situation | Use |
+|-----------|-----|
+| Static elements (buttons, inputs, nav links) | `onClick`, `onInput` — delegation is fine |
+| Items inside `<For>` or `<Show>` that re-render frequently | `on:click`, `on:mousemove` — avoid delegation race |
+| Events that fire continuously (mousemove, scroll, pointermove) | `on:` — also avoids delegation overhead |
+| Events on elements that may be removed during the event | `on:` — prevents stale-node crash |
+
+### Performance Note
+
+`on:` binds per-element, so in a list of 1000 items you get 1000 handlers (vs 1 delegated handler). For small lists (<100 items) or infrequent events, this is negligible. For large lists with `mousemove`, consider debouncing or using delegation on a stable parent container.
+
+---
+
+## 28. `untrack()` Props in Component Body — STRICT_READ_UNTRACKED for One-Time Init
+
+### Symptoms
+
+- `[STRICT_READ_UNTRACKED] Reactive value read directly in <ComponentName> will not update.`
+- Warning fires on component mount
+- The read is from `props.someArray` or `props.someObject` during one-time initialization (building a data structure, iterating, filtering)
+
+### Root Cause
+
+Component props in Solid 2 are reactive proxies (via `merge()` or direct prop access). Reading from them in the component body (which runs in `untrack()` with strict-read mode) triggers the warning — even when the read is intentionally one-time (e.g., building a static lookup table from props that never change after mount).
+
+```typescript
+// ❌ Triggers STRICT_READ_UNTRACKED
+const TableOfContents = (props: { headings: Heading[] }) => {
+  const toc: Heading[] = []
+  props.headings.forEach((h) => {   // reactive proxy read in component body
+    toc.push(h)
+  })
+}
+```
+
+### Fix
+
+Wrap the entire one-time initialization block in `untrack()`:
+
+```typescript
+// ✅ Correct — explicit untrack for one-time initialization
+const TableOfContents = (props: { headings: Heading[] }) => {
+  const toc: Heading[] = []
+  untrack(() => {
+    props.headings.forEach((h) => {
+      toc.push(h)
+    })
+  })
+}
+```
+
+### When to Apply
+
+- Props are static arrays/objects passed from Astro/server (never change client-side)
+- You're building a derived data structure during initialization (maps, trees, lookups)
+- The component doesn't need to react to prop changes (SSR'd content, configuration)
+
+### When NOT to Apply
+
+- Props that genuinely change at runtime — use `createMemo` or read inside JSX instead
+- Props read inside `<For each={props.items}>` — already in a tracking scope
+- Props read inside `createEffect` compute — already tracked
+
+### Relationship to Lesson #2B
+
+This is the same underlying issue as #2B (`merge()` proxy reads) but applies to **direct prop access** (`props.X`) rather than merged-props. The principle is identical: one-time reads from reactive proxies in the component body need `untrack()`.
 
 ---
 
