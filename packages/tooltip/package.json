@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/tooltip",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "SolidJS 2 tooltip component with hover/delay logic.",
   "license": "MIT",
   "author": {

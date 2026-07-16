@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/focus-trap",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "SolidJS 2 utility for trapping focus inside an element.",
   "license": "MIT",
   "author": {

@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/tailwind",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Tailwind CSS plugin for @corvu-next data attributes.",
   "license": "MIT",
   "author": {

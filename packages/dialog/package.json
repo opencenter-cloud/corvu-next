@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/dialog",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "SolidJS 2 dialog/modal component.",
   "license": "MIT",
   "author": {

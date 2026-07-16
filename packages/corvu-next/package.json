@@ -1,6 +1,6 @@
 {
   "name": "corvu-next",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Unstyled, accessible UI primitives for SolidJS 2 \u2014 @corvu-next meta package.",
   "license": "MIT",
   "author": {
@@ -92,15 +92,15 @@
     }
   },
   "dependencies": {
-    "@corvu-next/accordion": "0.1.4",
-    "@corvu-next/calendar": "0.1.4",
-    "@corvu-next/dialog": "0.1.4",
-    "@corvu-next/disclosure": "0.1.4",
-    "@corvu-next/drawer": "0.1.4",
-    "@corvu-next/otp-field": "0.1.4",
-    "@corvu-next/popover": "0.1.4",
-    "@corvu-next/resizable": "0.1.4",
-    "@corvu-next/tooltip": "0.1.4"
+    "@corvu-next/accordion": "0.1.5",
+    "@corvu-next/calendar": "0.1.5",
+    "@corvu-next/dialog": "0.1.5",
+    "@corvu-next/disclosure": "0.1.5",
+    "@corvu-next/drawer": "0.1.5",
+    "@corvu-next/otp-field": "0.1.5",
+    "@corvu-next/popover": "0.1.5",
+    "@corvu-next/resizable": "0.1.5",
+    "@corvu-next/tooltip": "0.1.5"
   },
   "peerDependencies": {
     "solid-js": "2.0.0-beta.19",

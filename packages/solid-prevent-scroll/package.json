@@ -1,6 +1,6 @@
 {
   "name": "@corvu-next/prevent-scroll",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "SolidJS 2 utility that prevents scrolling outside of a given DOM element.",
   "license": "MIT",
   "author": {
