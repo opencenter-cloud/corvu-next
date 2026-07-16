@@ -15,7 +15,7 @@ const SearchItem = (props: {
           'bg-corvu-300': props.isActive,
           'bg-corvu-100': !props.isActive,
         })}
-        onMouseMove={props.onMouseMove}
+        on:mousemove={props.onMouseMove}
         onClick={props.closeSearch}
       >
         <span class="block font-bold">{props.item.hierarchy}</span>
