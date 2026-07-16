@@ -33,20 +33,21 @@
     "@floating-ui/dom": "^1.7.3"
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.17",
-    "@solidjs/web": "2.0.0-beta.17"
+    "solid-js": "2.0.0-beta.19",
+    "@solidjs/web": "2.0.0-beta.19"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.17",
+    "@solidjs/web": "2.0.0-beta.19",
     "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.17",
+    "solid-js": "2.0.0-beta.19",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf .turbo dist node_modules",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts --tsconfig ./tsconfig.json"
   },
   "repository": {
     "type": "git",

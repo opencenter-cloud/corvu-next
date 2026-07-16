@@ -1,0 +1,4 @@
+.astro/
+dist/
+dist/pagefind/
+node_modules/

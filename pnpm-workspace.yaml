@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - dev-solid2
+  - web
 
 onlyBuiltDependencies:
   - esbuild

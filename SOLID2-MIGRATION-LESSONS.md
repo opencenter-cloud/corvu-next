@@ -2,7 +2,7 @@
 
 > **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
 
-Last updated: 2026-07-15 (added lesson #2C — babel-preset-solid ref extraction triggers STRICT_READ_UNTRACKED)
+Last updated: 2026-07-15 (lesson #2C broader sweep complete — 85 components fixed; STRICT_READ_UNTRACKED reduced from 155 to 0)
 
 ---
 
@@ -328,13 +328,26 @@ babel-preset-solid sees `ref={refCallback}` (a simple identifier) and passes it 
 
 #### Scale of Impact
 
-This pattern appears in **40+ components** across Kobalte — every component that uses `ref={mergeRefs(setter, mergedProps.ref)}`. ButtonRoot alone accounts for 148 warnings per page (one per button instance). The fix is mechanical: move `mergeRefs(...)` to a `const` with `untrack()` around the `mergedProps.ref` read.
+This pattern appears in **85 components** across Kobalte (not just 40+ as initially estimated) — every component that passes a reactive proxy property (`mergedProps.ref`, `props.ref`, `p.ref`, `merged.ref`, or `(props as Type).ref`) to `mergeRefs()` inside a `ref={...}` JSX attribute. ButtonRoot alone accounted for 148 warnings per page (one per button instance); the full set produced 155 STRICT_READ_UNTRACKED warnings on the shadcn-solid docs home page.
+
+**Automated fix applied (commit `70a730c8`):** A codemod script (`scripts/fix-ref-strict-read.mjs`) handles all variants:
+- Single-line: `ref={mergeRefs(setter, mergedProps.ref)}`
+- Multi-line callbacks: `ref={mergeRefs((el) => { context.setRef(el); ref = el; }, mergedProps.ref)}`
+- 3+ arguments: `ref={mergeRefs(interactOutsideRef, (el) => { ref = el; }, props.ref as any)}`
+- Type-cast suffixes: `(props as CalendarGridBodyCellTriggerProps).ref as ((el: HTMLDivElement) => void) | undefined)`
+- All reactive source variants: `mergedProps.ref`, `props.ref`, `p.ref`, `merged.ref`, `(props as Type).ref`
+- Single-arg: `ref={mergeRefs(p.ref as any)}` (drawer-content)
+
+The script correctly handles nested parentheses in arrow functions (does NOT treat `>` in `=>` as a bracket closer) and finds the nearest `return` statement preceding the ref usage (searching backwards from the fix position) to insert the `const refCallback` declaration.
+
+**Result:** After applying to all 85 files and rebuilding, the shadcn-solid docs home page shows **zero** STRICT_READ_UNTRACKED warnings (verified via Chrome DevTools Protocol console message listing).
 
 #### Where to Look
 
 ```bash
-# Find all components with ref={mergeRefs(..., mergedProps.ref)} pattern
-grep -rn "ref={mergeRefs.*mergedProps.ref" --include="*.tsx" packages/
+# Find all components with ref={mergeRefs(...)} pattern (before fix)
+grep -rn "ref={mergeRefs" --include="*.tsx" packages/core/src/
+# After the fix, this should return 0 matches
 ```
 
 ---
@@ -1514,7 +1527,7 @@ For each file being migrated:
 - [ ] Replace `<Context.Provider>` with `<Context value={...}>`
 - [ ] Remove `createMemo` wrappers around `useContext` calls — access context directly
 - [ ] Wrap one-time initialization reads from `merge()` proxy in `untrack()` (lesson #2B)
-- [ ] Pre-compute `ref={mergeRefs(setter, mergedProps.ref)}` into a const with `untrack()` around the proxy read (lesson #2C)
+- [ ] Pre-compute `ref={mergeRefs(setter, mergedProps.ref)}` into a const with `untrack()` around the proxy read (lesson #2C) — use `scripts/fix-ref-strict-read.mjs` codemod for bulk application
 - [ ] Do NOT call state-mutating registration inside `untrack()` in an effect compute — use `onSettled` (lesson #13)
 - [ ] Registration helpers must not create reactive primitives if called from `onSettled`/apply/cleanup — refactor to return plain accessors (lesson #14)
 - [ ] Forward an `ownedWrite` option through wrapper primitives (e.g., `createControllableSignal`) when downstream writes come from owned scopes (lesson #15)
@@ -1555,7 +1568,7 @@ For each file being migrated:
 | `@corvu-next/presence` | #4 (split-phase), #5 (renames) |
 | `@corvu-next/utils` | #5 (renames), #6 (imports) |
 | All packages | #5 (renames), #6 (imports), #7 (context-as-provider) |
-| `@opencenter-cloud/kobalte-core` (ButtonRoot) | #2C (ref extraction via babel-preset-solid) |
+| `@opencenter-cloud/kobalte-core` (85 components) | #2C (ref extraction via babel-preset-solid — all 85 ref={mergeRefs} patterns fixed) |
 | `@opencenter-cloud/cmdk-solid` | #1 (ownedWrite), #3 (context default), #4 (split-phase ×7), #5 (renames), #6 (imports), #7 (context-as-provider), #9 (one-time registration), #22 (store draft API), #23 (babel-preset override) |
 | `embla-carousel-solid` (patch) | #1 (ownedWrite), #4 (split-phase ×3), #5 (renames) |
 | `@tanstack/solid-table` (patch) | #4 (split-phase), #5 (renames), #22 (createStore import move) |

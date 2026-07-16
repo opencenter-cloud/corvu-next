@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "typedoc": {
+      "dependsOn": ["^build"],
+      "outputs": ["api.json"]
+    },
     "clean": {
       "cache": false
     },

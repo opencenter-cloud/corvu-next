@@ -26,13 +26,13 @@
     "@corvu-next/tooltip": "workspace:~",
     "@corvu-next/transition-size": "workspace:~",
     "@corvu-next/utils": "workspace:~",
-    "@solidjs/web": "2.0.0-beta.17",
-    "solid-js": "2.0.0-beta.17"
+    "@solidjs/web": "2.0.0-beta.19",
+    "solid-js": "2.0.0-beta.19"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
     "vite": "^6.0.0",
     "vite-plugin-pilot": "^1.0.35",
-    "vite-plugin-solid": "3.0.0-next.7"
+    "vite-plugin-solid": "3.0.0-next.11"
   }
 }

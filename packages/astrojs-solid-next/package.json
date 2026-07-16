@@ -1,0 +1,33 @@
+{
+  "name": "@corvu-next/astrojs-solid-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Use Solid 2 components within Astro (forked from @astrojs/solid-js@7.0.1)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client.js": "./src/client.ts",
+    "./server.js": "./src/server.ts",
+    "./container-renderer": "./src/container-renderer.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "vite-plugin-solid": "^3.0.0-next.11"
+  },
+  "devDependencies": {
+    "astro": "^7.1.0",
+    "solid-js": "2.0.0-beta.19",
+    "@solidjs/web": "2.0.0-beta.19",
+    "vite": "^6.0.0",
+    "typescript": "^5.8.0"
+  },
+  "peerDependencies": {
+    "solid-js": "^2.0.0-beta.19",
+    "@solidjs/web": "^2.0.0-beta.19"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

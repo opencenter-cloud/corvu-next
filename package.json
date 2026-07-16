@@ -12,12 +12,13 @@
     "publish:packages": "pnpm build && pnpm publish -r --access public --filter='@corvu-next/*'"
   },
   "devDependencies": {
-    "turbo": "^2.5.5"
+    "turbo": "^2.5.5",
+    "typedoc": "^0.28.20"
   },
   "license": "MIT",
   "pnpm": {
     "overrides": {
-      "babel-preset-solid": "2.0.0-beta.17"
+      "babel-preset-solid": "2.0.0-beta.19"
     }
   }
 }
