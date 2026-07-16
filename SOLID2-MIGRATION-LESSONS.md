@@ -1,8 +1,8 @@
 # Solid 2.0 Migration Lessons Learned
 
-> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.15`).
+> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.19`).
 
-Last updated: 2026-07-16 (lessons #26–28 added from docs site migration session)
+Last updated: 2026-07-16 (lessons #26–29 added; header updated to reflect beta.19)
 
 ---
 
@@ -1505,6 +1505,7 @@ In the shadcn-solid docs build, this single plugin replaced the need to patch 4+
 | Vite error: `does not provide an export named 'Index'` | `<Index>` removed in Solid 2 — replace with `<For>`, change `item()` → `item` (lesson #26) |
 | TypeError: `Cannot read properties of undefined (reading '$$mousemove')` | Event delegation crash on stale node — use `on:mousemove` instead of `onMouseMove` (lesson #27) |
 | `STRICT_READ_UNTRACKED` on props read during initialization | One-time read from reactive prop proxy in component body — wrap in `untrack()` (lesson #28) |
+| Astro SSR crash: `Suspense is not exported` or `reconcile` import error | Fork `@astrojs/solid-js` with Solid 2 paths: `Loading` instead of `Suspense`, `@solidjs/web` instead of `solid-js/web` (lesson #29) |
 
 ### Tooling
 
@@ -1546,6 +1547,7 @@ For each file being migrated:
 - [ ] Replace all `<Index>` with `<For>` and remove accessor calls (`item()` → `item`) (lesson #26)
 - [ ] Use `on:mousemove` (native) instead of `onMouseMove` (delegated) on items inside dynamic lists that re-render frequently (lesson #27)
 - [ ] Wrap one-time initialization reads from props (arrays, objects) in `untrack()` when the component doesn't need to react to prop changes (lesson #28)
+- [ ] For Astro projects: fork `@astrojs/solid-js` with Solid 2 imports (`Loading`, `@solidjs/web`, draft-based store), add SSR error guards for browser-only components (lesson #29)
 - [ ] Test: open/close cycles, mount/unmount sequences, rapid state changes
 - [ ] Test: switching between views/tabs that mount/unmount the component
 - [ ] Test: real user interaction paths (drag, hover, focus) — synthetic events may not exercise Solid's event delegation
@@ -1583,6 +1585,7 @@ For each file being migrated:
 | shadcn-solid registry (54 files) | #5 (renames ×45+16), #6 (imports ×44), #7 (context-as-provider ×4), #9 (direct registration ×2), #24 (merge naming ×16) |
 | shadcn-solid docs app | #5 (renames), #6 (imports ×19), #22 (store draft), #23 (babel-preset), #25 (solid-compat plugin for 4+ deps) |
 | `@corvu-next/web` (docs site) | #26 (Index removal), #27 (event delegation), #28 (props in component body) |
+| `@corvu-next/astrojs-solid-next` | #29 (Astro SSR integration: Loading, @solidjs/web, draft store, SSR guards) |
 
 ---
 
@@ -1735,6 +1738,96 @@ const TableOfContents = (props: { headings: Heading[] }) => {
 ### Relationship to Lesson #2B
 
 This is the same underlying issue as #2B (`merge()` proxy reads) but applies to **direct prop access** (`props.X`) rather than merged-props. The principle is identical: one-time reads from reactive proxies in the component body need `untrack()`.
+
+---
+
+## 29. Astro Integration — SSR Changes for Solid 2
+
+### Symptoms
+
+- Astro SSR crashes with `Suspense is not exported from solid-js`
+- Hydration fails silently — client component doesn't become interactive
+- SSR of browser-only components crashes the entire page build
+- Store reconciliation (`reconcile`) import errors from `solid-js/store`
+
+### Root Cause
+
+The `@astrojs/solid-js` integration (v7.x) imports from Solid 1 paths and uses APIs removed in Solid 2:
+
+1. **`solid-js/web`** → must become `@solidjs/web`
+2. **`Suspense`** → renamed to `Loading` in `@solidjs/web`
+3. **`createStore` + `reconcile` from `solid-js/store`** → `createStore` moved to `solid-js`; `reconcile` removed (use draft-based mutation)
+4. **`renderToStringAsync`** — still exists in `@solidjs/web` but may throw on browser-only components during SSR
+
+### Fix — Fork the Integration
+
+Fork `@astrojs/solid-js` (6 source files) and patch:
+
+```typescript
+// server.ts — key changes
+import { renderToStringAsync } from '@solidjs/web'  // not solid-js/web
+import { Loading } from '@solidjs/web'              // not Suspense
+
+// Wrap renderToStaticMarkup in try-catch for browser-only components
+async function renderToStaticMarkup(Component, props, slotted, metadata) {
+  try {
+    const html = await renderToStringAsync(() => /* ... */)
+    return { html }
+  } catch {
+    return { html: '' }  // graceful fallback — component hydrates client-side
+  }
+}
+```
+
+```typescript
+// client.ts — key changes
+import { createStore } from 'solid-js'    // not solid-js/store
+import { Loading } from '@solidjs/web'    // not Suspense
+
+// Replace reconcile with draft-based mutation
+setState(s => {
+  Object.assign(s, newProps)  // or iterate and assign each key
+})
+```
+
+### `check()` Function
+
+The integration's `check()` validates whether a component belongs to Solid. In a single-framework project, make it permissive:
+
+```typescript
+function check(Component) {
+  return typeof Component === 'function'  // always true for Solid components
+}
+```
+
+### SSR Guard Pattern
+
+Components using browser APIs (`window`, `document`, `IntersectionObserver`) must guard against SSR:
+
+```typescript
+const Component = () => {
+  // Safe: runs during SSR but short-circuits
+  if (typeof window === 'undefined') return null
+
+  // Browser-only code here
+  window.addEventListener('scroll', handler)
+  onCleanup(() => window.removeEventListener('scroll', handler))
+}
+```
+
+Alternatively, use `client:only` on the Astro island to skip SSR entirely:
+
+```astro
+<Component client:only="solid-js" />
+```
+
+### `VoidComponent` Still Exists
+
+Despite early migration docs suggesting `VoidComponent` was removed, it still exists in `solid-js@2.0.0-beta.19`. No rename needed — keep using it.
+
+### Where This Applies
+
+Any Astro 5+ project using Solid 2 components needs a forked integration until `@astrojs/solid-js` officially supports Solid 2. The fork is minimal (6 files, ~200 lines of changes).
 
 ---
 
