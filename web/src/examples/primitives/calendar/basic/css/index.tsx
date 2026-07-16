@@ -1,6 +1,6 @@
 import { CaretLeft, CaretRight } from '@examples/primitives/calendar/icons'
 import Calendar from '@corvu-next/calendar'
-import { Index } from 'solid-js'
+import { For } from 'solid-js'
 import type { Component } from 'solid-js'
 
 const CalendarExample: VoidComponent = () => {
@@ -26,31 +26,31 @@ const CalendarExample: VoidComponent = () => {
             <Calendar.Table>
               <thead>
                 <tr>
-                  <Index each={props.weekdays}>
+                  <For each={props.weekdays}>
                     {(weekday) => (
-                      <Calendar.HeadCell abbr={formatWeekdayLong(weekday())}>
-                        {formatWeekdayShort(weekday())}
+                      <Calendar.HeadCell abbr={formatWeekdayLong(weekday)}>
+                        {formatWeekdayShort(weekday)}
                       </Calendar.HeadCell>
                     )}
-                  </Index>
+                  </For>
                 </tr>
               </thead>
               <tbody>
-                <Index each={props.weeks}>
+                <For each={props.weeks}>
                   {(week) => (
                     <tr>
-                      <Index each={week()}>
+                      <For each={week}>
                         {(day) => (
                           <Calendar.Cell>
-                            <Calendar.CellTrigger day={day()}>
-                              {day().getDate()}
+                            <Calendar.CellTrigger day={day}>
+                              {day.getDate()}
                             </Calendar.CellTrigger>
                           </Calendar.Cell>
                         )}
-                      </Index>
+                      </For>
                     </tr>
                   )}
-                </Index>
+                </For>
               </tbody>
             </Calendar.Table>
           </div>

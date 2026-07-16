@@ -3,7 +3,7 @@ import {
   CaretLeft,
   CaretRight,
 } from '@examples/primitives/calendar/icons'
-import { createUniqueId, Index, Show } from 'solid-js'
+import { createUniqueId, For, Show } from 'solid-js'
 import Calendar from '@corvu-next/calendar'
 import Popover from '@corvu-next/popover'
 import type { Component } from 'solid-js'
@@ -54,37 +54,37 @@ const CalendarExample: VoidComponent = () => {
                 <Calendar.Table class="mt-3">
                   <thead>
                     <tr>
-                      <Index each={props.weekdays}>
+                      <For each={props.weekdays}>
                         {(weekday) => (
                           <Calendar.HeadCell
-                            abbr={formatWeekdayLong(weekday())}
+                            abbr={formatWeekdayLong(weekday)}
                             class="w-8 flex-1 pb-1 text-xs font-normal opacity-65"
                           >
-                            {formatWeekdayShort(weekday())}
+                            {formatWeekdayShort(weekday)}
                           </Calendar.HeadCell>
                         )}
-                      </Index>
+                      </For>
                     </tr>
                   </thead>
                   <tbody>
-                    <Index each={props.weeks}>
+                    <For each={props.weeks}>
                       {(week) => (
                         <tr>
-                          <Index each={week()}>
+                          <For each={week}>
                             {(day) => (
                               <Calendar.Cell class="p-0">
                                 <Calendar.CellTrigger
-                                  day={day()}
+                                  day={day}
                                   class="inline-flex size-8 items-center justify-center rounded-md text-sm focus-visible:bg-corvu-200/80 disabled:pointer-events-none disabled:opacity-40 data-selected:bg-corvu-300! data-today:bg-corvu-200/50 lg:hover:bg-corvu-200/80"
                                 >
-                                  {day().getDate()}
+                                  {day.getDate()}
                                 </Calendar.CellTrigger>
                               </Calendar.Cell>
                             )}
-                          </Index>
+                          </For>
                         </tr>
                       )}
-                    </Index>
+                    </For>
                   </tbody>
                 </Calendar.Table>
               </div>

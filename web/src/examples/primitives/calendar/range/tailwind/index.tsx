@@ -1,6 +1,6 @@
 import { CaretLeft, CaretRight } from '@examples/primitives/calendar/icons'
 import Calendar from '@corvu-next/calendar'
-import { Index } from 'solid-js'
+import { For } from 'solid-js'
 import type { Component } from 'solid-js'
 
 const CalendarExample: VoidComponent = () => {
@@ -24,7 +24,7 @@ const CalendarExample: VoidComponent = () => {
               <CaretRight size="18" />
             </Calendar.Nav>
             <div class="space-y-4 md:flex md:space-x-4 md:space-y-0">
-              <Index each={props.months}>
+              <For each={props.months}>
                 {(month, index) => (
                   <div>
                     <div class="flex h-7 items-center justify-center">
@@ -36,43 +36,43 @@ const CalendarExample: VoidComponent = () => {
                     <Calendar.Table index={index} class="mt-3">
                       <thead>
                         <tr>
-                          <Index each={props.weekdays}>
+                          <For each={props.weekdays}>
                             {(weekday) => (
                               <Calendar.HeadCell
-                                abbr={formatWeekdayLong(weekday())}
+                                abbr={formatWeekdayLong(weekday)}
                                 class="w-8 flex-1 pb-1 text-xs font-normal opacity-65"
                               >
-                                {formatWeekdayShort(weekday())}
+                                {formatWeekdayShort(weekday)}
                               </Calendar.HeadCell>
                             )}
-                          </Index>
+                          </For>
                         </tr>
                       </thead>
                       <tbody>
-                        <Index each={month().weeks}>
+                        <For each={month().weeks}>
                           {(week) => (
                             <tr>
-                              <Index each={week()}>
+                              <For each={week}>
                                 {(day) => (
                                   <Calendar.Cell class="p-0 has-data-range-end:rounded-r-md has-data-range-start:rounded-l-md has-data-in-range:bg-corvu-200/70 has-[[disabled]]:opacity-40 has-data-in-range:first:rounded-l-md has-data-in-range:last:rounded-r-md">
                                     <Calendar.CellTrigger
-                                      day={day()}
+                                      day={day}
                                       month={month().month}
                                       class="inline-flex size-8 items-center justify-center rounded-md text-sm focus-visible:bg-corvu-200/80 disabled:pointer-events-none data-today:bg-corvu-200/50 data-range-start:bg-corvu-300 data-range-end:bg-corvu-300 lg:hover:not-data-range-start:not-data-range-end:bg-corvu-200/80"
                                     >
-                                      {day().getDate()}
+                                      {day.getDate()}
                                     </Calendar.CellTrigger>
                                   </Calendar.Cell>
                                 )}
-                              </Index>
+                              </For>
                             </tr>
                           )}
-                        </Index>
+                        </For>
                       </tbody>
                     </Calendar.Table>
                   </div>
                 )}
-              </Index>
+              </For>
             </div>
           </div>
         )}
