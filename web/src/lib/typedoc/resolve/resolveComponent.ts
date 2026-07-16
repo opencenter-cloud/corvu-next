@@ -27,10 +27,45 @@ const resolveComponent = (
   name: string,
   component: ComponentTypeSpecification,
 ): ApiReference => {
-  const componentDeclaration = api.children.find(
+  let componentDeclaration = api.children.find(
     (child) =>
       child.name === (component.isDefaultExport === true ? 'default' : name),
   )
+  // typedoc 0.28: some packages (calendar, drawer) export components via
+  // Object.assign(Root, {...}) as the default export. Sub-components live
+  // inside default.type.types[1].declaration.children
+  if (!componentDeclaration) {
+    const defaultExport = api.children.find((child) => child.name === 'default')
+    if (defaultExport?.type?.type === 'intersection') {
+      for (const t of defaultExport.type.types) {
+        if (t.type === 'reflection' && t.declaration?.children) {
+          const found = t.declaration.children.find(
+            (c: any) => c.name === name,
+          )
+          if (found) {
+            // Sub-components have signatures nested at .type.declaration.signatures
+            // Normalize to top-level .signatures for resolveComponentProps
+            if (!found.signatures && found.type?.type === 'reflection' && found.type.declaration?.signatures) {
+              found.signatures = found.type.declaration.signatures
+            }
+            componentDeclaration = found
+            break
+          }
+        }
+      }
+    }
+    // If name === 'Root' and still not found, the default export itself IS Root
+    if (!componentDeclaration && defaultExport?.type?.type === 'intersection') {
+      const rootType = defaultExport.type.types[0]
+      if (
+        rootType?.type === 'reflection' &&
+        rootType.declaration?.signatures &&
+        name === 'Root'
+      ) {
+        componentDeclaration = rootType.declaration as any
+      }
+    }
+  }
   if (!componentDeclaration) {
     throw new Error(`Component declaration not found: ${name}`)
   }
@@ -70,7 +105,23 @@ const resolveComponent = (
 
 const resolveComponentProps = (component: DeclarationVariant) => {
   // Components always have their props inside a separate type
-  let propsType = component.signatures![0].parameters![0].type
+  let propsType: any
+
+  if (component.signatures) {
+    // Function declaration (kind 64) — props in signature parameters
+    propsType = component.signatures![0].parameters![0].type
+  } else if (
+    component.type?.type === 'reference' &&
+    (component.type.name === 'Component' || component.type.name === 'VoidComponent')
+  ) {
+    // Const declaration (kind 32) typed as Component<Props> — props in typeArguments[0]
+    propsType = component.type.typeArguments?.[0]
+    if (!propsType) {
+      throw new Error(`Missing type argument for Component<Props> on ${component.name}`)
+    }
+  } else {
+    throw new Error(`Cannot resolve props for ${component.name}: no signatures and not Component<T>`)
+  }
 
   if (propsType.type === 'intersection') {
     propsType = propsType.types[0]
@@ -109,6 +160,26 @@ const resolveComponentProps = (component: DeclarationVariant) => {
   }
 
   if (!propsDeclaration.type) {
+    // typedoc 0.28: type alias resolved inline — children directly on declaration
+    if (propsDeclaration.children) {
+      const propTypes = getReflectionProps({
+        type: 'reflection',
+        declaration: propsDeclaration,
+      } as ReflectionType)
+
+      if (isDynamicComponent) {
+        const defaultAs = resolveDefaultDynamicAs(component)
+        const asProps: PropType = {
+          name: 'as',
+          type: 'ValidComponent',
+          defaultHtml: `<code>${defaultAs}</code>`,
+          descriptionHtml: 'Component to render the dynamic component as.',
+          isFunction: false,
+        }
+        propTypes.push(asProps)
+      }
+      return propTypes
+    }
     throw new Error(`Missing type for the ${component.name} component`)
   }
 
@@ -290,8 +361,22 @@ const getTypeProps = (type: Type, propTypes: PropType[] = []): PropType[] => {
         break
       }
       const propDeclaration = resolveReferenceType(type)
-      if (typeof propDeclaration === 'string' || !propDeclaration.type) {
+      if (typeof propDeclaration === 'string') {
         throw new Error(`Missing props for ${type.name}`)
+      }
+      // typedoc 0.28: type aliases may have children directly (no .type wrapper)
+      if (!propDeclaration.type) {
+        if (propDeclaration.children) {
+          propTypes.push(
+            ...getReflectionProps({
+              type: 'reflection',
+              declaration: propDeclaration,
+            } as ReflectionType),
+          )
+        } else {
+          throw new Error(`Missing props for ${type.name}`)
+        }
+        break
       }
       propTypes.push(...getTypeProps(propDeclaration.type))
       break

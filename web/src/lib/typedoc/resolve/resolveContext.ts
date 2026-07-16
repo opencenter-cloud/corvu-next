@@ -20,7 +20,28 @@ const resolveContext = (
   name: string,
   context: ContextTypeSpecification,
 ): ApiReference => {
-  const contextDeclaration = api.children.find((child) => child.name === name)
+  let contextDeclaration = api.children.find((child) => child.name === name)
+  // typedoc 0.28: useContext may be inside the default export's sub-components
+  if (!contextDeclaration) {
+    const defaultExport = api.children.find((child) => child.name === 'default')
+    if (defaultExport?.type?.type === 'intersection') {
+      for (const t of (defaultExport.type as any).types) {
+        if (t.type === 'reflection' && t.declaration?.children) {
+          const found = t.declaration.children.find(
+            (c: any) => c.name === name,
+          )
+          if (found) {
+            // Normalize signatures from .type.declaration.signatures
+            if (!found.signatures && found.type?.type === 'reflection' && found.type.declaration?.signatures) {
+              found.signatures = found.type.declaration.signatures
+            }
+            contextDeclaration = found
+            break
+          }
+        }
+      }
+    }
+  }
   if (!contextDeclaration) {
     throw new Error(`Context declaration not found: ${name}`)
   }
@@ -71,6 +92,13 @@ const resolveContextReturns = (context: DeclarationVariant) => {
   }
 
   if (!returnsDeclaration.type) {
+    // typedoc 0.28: type alias resolved inline — children directly on declaration
+    if (returnsDeclaration.children) {
+      return getReflectionProps({
+        type: 'reflection',
+        declaration: returnsDeclaration,
+      } as ReflectionType)
+    }
     throw new Error(`Missing type for the ${context.name} component`)
   }
 
@@ -193,7 +221,19 @@ const getTypeProps = (type: Type, propTypes: PropType[] = []): PropType[] => {
         break
       }
       const propDeclaration = resolveReferenceType(type)
-      if (typeof propDeclaration === 'string' || !propDeclaration.type) {
+      if (typeof propDeclaration === 'string') {
+        throw new Error(`Missing props for ${type.name}`)
+      }
+      if (!propDeclaration.type) {
+        if (propDeclaration.children) {
+          propTypes.push(
+            ...getReflectionProps({
+              type: 'reflection',
+              declaration: propDeclaration,
+            } as ReflectionType),
+          )
+          break
+        }
         throw new Error(`Missing props for ${type.name}`)
       }
       propTypes.push(...getTypeProps(propDeclaration.type))

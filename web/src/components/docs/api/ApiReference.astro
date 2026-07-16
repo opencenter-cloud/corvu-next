@@ -19,8 +19,12 @@ let apiReferences: any[] = []
 try {
   apiReferences = resolveLibrary(library)
 } catch (e) {
-  // Typedoc data not yet generated — skip API reference rendering
-  console.error('[ApiReference] Error resolving library:', (e as Error).message)
+  const err = e as Error
+  console.error(`[ApiReference] Error resolving library: ${err.message}`)
+  if (err.stack) {
+    const lines = err.stack.split('\n').slice(1, 4)
+    lines.forEach(l => console.error('  ' + l.trim()))
+  }
 }
 ---
 

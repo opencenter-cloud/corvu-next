@@ -60,6 +60,13 @@ const resolveChildrenProps = (
 
 const resolveChildrenPropsReturns = (childrenProps: DeclarationVariant) => {
   if (!childrenProps.type) {
+    // typedoc 0.28: type alias resolved inline — children directly on declaration
+    if (childrenProps.children) {
+      return getReflectionProps({
+        type: 'reflection',
+        declaration: childrenProps,
+      } as ReflectionType)
+    }
     throw new Error(`Missing type for the ${childrenProps.name} children props`)
   }
 
@@ -173,7 +180,19 @@ const getTypeProps = (type: Type, propTypes: PropType[] = []): PropType[] => {
         break
       }
       const propDeclaration = resolveReferenceType(type)
-      if (typeof propDeclaration === 'string' || !propDeclaration.type) {
+      if (typeof propDeclaration === 'string') {
+        throw new Error(`Missing props for ${type.name}`)
+      }
+      if (!propDeclaration.type) {
+        if (propDeclaration.children) {
+          propTypes.push(
+            ...getReflectionProps({
+              type: 'reflection',
+              declaration: propDeclaration,
+            } as ReflectionType),
+          )
+          break
+        }
         throw new Error(`Missing props for ${type.name}`)
       }
       propTypes.push(...getTypeProps(propDeclaration.type))
