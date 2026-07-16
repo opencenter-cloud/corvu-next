@@ -8,17 +8,32 @@ const resolveInheritedComponent = (
   name: string,
   inheritedComponent: InheritedComponentTypeSpecification,
 ): ApiReference => {
-  const componentDeclaration = api.children.find((child) => child.name === name)
+  let componentDeclaration = api.children.find((child) => child.name === name)
+  // typedoc 0.28: sub-components may be inside the default export
   if (!componentDeclaration) {
-    throw new Error(`Component declaration not found: ${name}`)
+    const defaultExport = api.children.find((child) => child.name === 'default')
+    if (defaultExport?.type?.type === 'intersection') {
+      for (const t of (defaultExport.type as any).types) {
+        if (t.type === 'reflection' && t.declaration?.children) {
+          const found = t.declaration.children.find(
+            (c: any) => c.name === name,
+          )
+          if (found) {
+            componentDeclaration = found
+            break
+          }
+        }
+      }
+    }
   }
-  const dataTags = getTags('data', componentDeclaration.comment)
-  const cssTags = getTags('css', componentDeclaration.comment)
+  // For inherited components, the declaration is optional — props come from the parent library
+  const dataTags = componentDeclaration ? getTags('data', componentDeclaration.comment) : []
+  const cssTags = componentDeclaration ? getTags('css', componentDeclaration.comment) : []
 
   return {
     name,
     kind: 'inherited-component',
-    descriptionHtml: formatText(componentDeclaration.comment?.summary),
+    descriptionHtml: componentDeclaration ? formatText(componentDeclaration.comment?.summary) : '',
     inherits: inheritedComponent.inherits,
     data: dataTags,
     css: cssTags,

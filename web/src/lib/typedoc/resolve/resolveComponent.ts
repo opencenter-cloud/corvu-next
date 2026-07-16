@@ -67,6 +67,31 @@ const resolveComponent = (
     }
   }
   if (!componentDeclaration) {
+    // Last resort: find the props type alias directly (e.g., RootProps for Drawer)
+    // and resolve props from it without needing the component function declaration
+    const propsTypeName = `${name}Props`
+    const propsDecl = api.children.find((child) => child.name === propsTypeName)
+    if (propsDecl) {
+      const props = getTypeProps(
+        propsDecl.type ?? { type: 'reflection', declaration: propsDecl } as any,
+      ).sort((a, b) => {
+        const indexA = component.sorting.indexOf(a.name)
+        const indexB = component.sorting.indexOf(b.name)
+        if (indexA === -1) return 0  // unknown props go to end
+        if (indexB === -1) return 0
+        return indexA - indexB
+      }).filter((p) => component.sorting.includes(p.name))
+
+      return {
+        name,
+        kind: 'component' as const,
+        descriptionHtml: formatText(propsDecl.comment?.summary),
+        props,
+        inherits: component.inherits ?? null,
+        data: [] as Tag[],
+        css: [] as Tag[],
+      }
+    }
     throw new Error(`Component declaration not found: ${name}`)
   }
   const props = resolveComponentProps(componentDeclaration).sort((a, b) => {
