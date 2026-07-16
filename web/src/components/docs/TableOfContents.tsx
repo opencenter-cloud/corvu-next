@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup } from 'solid-js'
+import { createSignal, For, onCleanup, untrack } from 'solid-js'
 import clsx from 'clsx'
 import type { VoidComponent } from 'solid-js'
 
@@ -25,31 +25,34 @@ const TableOfContents: VoidComponent<{
 
   const [headingsInView, setHeadingsInView] = createSignal<string[]>([])
 
-  props.headings
-    .filter((h) => h.depth !== 1)
-    .forEach((h) => {
-      const heading = { ...h, subheadings: [] }
-      parentHeadings.set(heading.depth, heading)
-      if (heading.depth === 2) {
-        tableOfContents.push(heading)
-      } else {
-        parentHeadings.get(heading.depth - 1).subheadings.push(heading)
-      }
-    })
-
-  if (props.apiHeadings.length > 0) {
-    const apiTitle = tableOfContents.find((h) => h.slug === 'api-reference')
-    if (apiTitle) {
-      apiTitle.subheadings = props.apiHeadings.map((h) => {
-        return {
-          depth: 3,
-          text: h.text,
-          slug: h.slug,
-          subheadings: [],
+  // One-time initialization reads from props — wrap in untrack (lesson #2B)
+  untrack(() => {
+    props.headings
+      .filter((h) => h.depth !== 1)
+      .forEach((h) => {
+        const heading = { ...h, subheadings: [] }
+        parentHeadings.set(heading.depth, heading)
+        if (heading.depth === 2) {
+          tableOfContents.push(heading)
+        } else {
+          parentHeadings.get(heading.depth - 1).subheadings.push(heading)
         }
       })
+
+    if (props.apiHeadings.length > 0) {
+      const apiTitle = tableOfContents.find((h) => h.slug === 'api-reference')
+      if (apiTitle) {
+        apiTitle.subheadings = props.apiHeadings.map((h) => {
+          return {
+            depth: 3,
+            text: h.text,
+            slug: h.slug,
+            subheadings: [],
+          }
+        })
     }
   }
+  }) // end untrack
 
   // One-time IntersectionObserver registration (lesson #9 — no reactive deps)
   if (typeof document !== 'undefined') {

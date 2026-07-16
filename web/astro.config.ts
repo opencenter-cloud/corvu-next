@@ -39,6 +39,9 @@ export default defineConfig({
   },
   site: 'http://localhost:4321',
   trailingSlash: 'always',
+  devToolbar: {
+    enabled: false,
+  },
   vite: {
     plugins: [tailwind()],
   },
