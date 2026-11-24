@@ -2,7 +2,7 @@
 
 Presence animation utility for SolidJS 2.0 — mount/unmount with enter/exit animations.
 
-> **Note:** This is the Solid 2.0 fork of [solid-presence](https://corvu.dev/docs/utilities/presence). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-presence](https://corvu.dev/docs/utilities/presence). It targets `solid-js@^2.0.0`.
 
 ## Features
 

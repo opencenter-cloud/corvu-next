@@ -1,8 +1,8 @@
 # Solid 2.0 Migration Lessons Learned
 
-> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.19`).
+> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages, now built and type-checked against stable `solid-js@2.0.3`).
 
-Last updated: 2026-07-16 (lessons #26–29 added; header updated to reflect beta.19)
+Last updated: 2026-11-24 (every lesson re-checked against `solid-js@2.0.3`, `@solidjs/web@2.0.3` and `@solidjs/compiler@2.0.2`; lesson #30 added)
 
 ---
 
@@ -1757,7 +1757,7 @@ The `@astrojs/solid-js` integration (v7.x) imports from Solid 1 paths and uses A
 1. **`solid-js/web`** → must become `@solidjs/web`
 2. **`Suspense`** → renamed to `Loading` in `@solidjs/web`
 3. **`createStore` + `reconcile` from `solid-js/store`** → `createStore` moved to `solid-js`; `reconcile` removed (use draft-based mutation)
-4. **`renderToStringAsync`** — still exists in `@solidjs/web` but may throw on browser-only components during SSR
+4. **`renderToStringAsync`** — removed in stable 2.0; `await renderToStream(...)` resolves with the fully settled HTML (see lesson #30)
 
 ### Fix — Fork the Integration
 
@@ -1765,13 +1765,13 @@ Fork `@astrojs/solid-js` (6 source files) and patch:
 
 ```typescript
 // server.ts — key changes
-import { renderToStringAsync } from '@solidjs/web'  // not solid-js/web
+import { renderToStream } from '@solidjs/web'       // not solid-js/web
 import { Loading } from '@solidjs/web'              // not Suspense
 
 // Wrap renderToStaticMarkup in try-catch for browser-only components
 async function renderToStaticMarkup(Component, props, slotted, metadata) {
   try {
-    const html = await renderToStringAsync(() => /* ... */)
+    const html = await renderToStream(() => /* ... */)
     return { html }
   } catch {
     return { html: '' }  // graceful fallback — component hydrates client-side
@@ -1823,7 +1823,7 @@ Alternatively, use `client:only` on the Astro island to skip SSR entirely:
 
 ### `VoidComponent` Still Exists
 
-Despite early migration docs suggesting `VoidComponent` was removed, it still exists in `solid-js@2.0.0-beta.19`. No rename needed — keep using it.
+Despite early migration docs suggesting `VoidComponent` was removed, it still exists in `solid-js@2.0.3`. No rename needed — keep using it.
 
 ### Where This Applies
 
@@ -1831,9 +1831,81 @@ Any Astro 5+ project using Solid 2 components needs a forked integration until `
 
 ---
 
+## 30. Beta → Stable 2.0.x — What Actually Breaks
+
+Code that ran on `2.0.0-beta.19` does not automatically compile on stable `2.0.x`. Two changes
+broke this repository; everything else in this document survived unchanged.
+
+### The compiler rejects Solid 1 JSX namespaces
+
+`on:`, `oncapture:`, `attr:`, `bool:`, `use:` and `classList` are **compile errors** on native
+elements now, not silently-accepted leftovers. Beta compiled `on:mousemove={handler}` into a
+native listener; stable stops the build:
+
+```
+`on:mousemove` on <a> uses the `on:` namespace, which was removed in Solid 2.0.
+Use a camelCase handler such as `onClick={handler}` for Solid events, or a `ref`
+callback that calls `addEventListener` for listener options or custom event names.
+```
+
+`onMouseMove` is not always a drop-in replacement: `mousemove` is one of the delegated events,
+so a handler on a node that is replaced while the pointer is over it goes through delegation.
+Where a native listener is what you want, attach it from the `ref` callback:
+
+```tsx
+<a
+  ref={(element) => {
+    element.addEventListener('mousemove', () => props.onMouseMove())
+  }}
+>
+```
+
+### `renderToStringAsync` is gone
+
+`@solidjs/web` stable exports `renderToString` (synchronous) and `renderToStream`. Awaiting the
+stream is the async render: it resolves with the complete HTML once every boundary settles.
+
+```typescript
+// beta.19
+const html = await renderToStringAsync(renderFn, { renderId })
+
+// 2.0.3 — note: the return value is a thenable, not a Promise, so no `.catch()`
+let html: string
+try {
+  html = await renderToStream(renderFn, { renderId, noScripts: !needsHydrate })
+} catch {
+  html = ''
+}
+```
+
+`noScripts` is a declared option on both functions now, so the `as any` cast the beta port
+needed can go.
+
+### The compiler package changed name
+
+`babel-preset-solid` is Solid 1's preset. Solid 2 ships `@solidjs/compiler` (native, the default
+in `@solidjs/vite-plugin`) and `@solidjs/babel-plugin` (the JavaScript fallback for Babel
+pipelines). Both READMEs ask for exact version pins. `vite-plugin-solid` is now
+`@solidjs/vite-plugin` — same options except `hot`, which became `refresh`, and it requires
+Vite 8 or 9 and Node >= 22.12.
+
+If you build libraries with tsup/esbuild, `esbuild-plugin-solid` pulls in the Solid 1 preset.
+Calling `transform()` from `@solidjs/compiler` yourself is a few lines and keeps the prebuilt
+output and the JSX your consumers compile on the same code generator — see `tsup.preset.ts`
+in this repository.
+
+### What did not change
+
+`ownedWrite`, the split-phase `createEffect(compute, apply)` contract, `merge`/`omit`,
+`onSettled`, and effects re-running their apply phase whenever the compute re-runs (they never
+compare the computed value) all behave on 2.0.3 exactly as the lessons above describe for
+beta.19.
+
+---
+
 ## Links
 
-- [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/next/documentation/solid-2.0/MIGRATION.md)
-- [Solid 2.0 Beta Announcement](https://github.com/solidjs/solid/discussions/2596)
+- [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)
+- [Solid 2.0 docs — migrating from Solid 1](https://docs.solidjs.com/migration/from-solid-1)
 - [@corvu-next npm](https://www.npmjs.com/org/corvu-next)
 - [@corvu-next GitHub](https://github.com/opencenter-cloud/corvu-next)

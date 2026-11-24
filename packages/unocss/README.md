@@ -2,7 +2,7 @@
 
 UnoCSS plugin for corvu-next — provides `corvu-open:`, `corvu-closed:`, and other state-based variants.
 
-> **Note:** This is the Solid 2.0 fork of the corvu UnoCSS plugin. It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of the corvu UnoCSS plugin. It styles the corvu-next packages, which target `solid-js@^2.0.0`.
 
 ## Installation
 

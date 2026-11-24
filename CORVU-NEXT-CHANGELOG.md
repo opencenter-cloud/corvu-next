@@ -37,3 +37,23 @@ Ported all packages to Solid 2.0.0-beta.15:
   using default parameter pattern
 
 No behavioral or API changes to the primitives themselves — same options, same return shapes.
+
+## Unreleased — stable Solid 2.0.3
+
+All packages now target the stable Solid 2 release line instead of `2.0.0-beta.19`.
+
+- `solid-js` and `@solidjs/web` peer ranges are `^2.0.0`; the repository develops and builds
+  against `2.0.3`. No prerelease of Solid, its compiler or its Vite plugin is left anywhere in
+  the dependency tree.
+- Published packages reference each other through the workspace, so a release can no longer
+  ship a package that depends on an older version of its own siblings.
+- `dist/index.js` is compiled by `@solidjs/compiler` (Solid 2's own compiler, also used by
+  `@solidjs/vite-plugin`) instead of the Solid 1 Babel preset that `esbuild-plugin-solid`
+  pulled in. Package output is unchanged: `dist/index.js` (compiled), `dist/index.jsx`
+  (JSX preserved, served through the `solid` export condition) and `dist/index.d.ts`.
+- The Astro integration and the example app moved from `vite-plugin-solid` to its successor
+  `@solidjs/vite-plugin` 3.0.1, which requires Vite 8 or 9 and Node 22.12 or newer.
+- Server rendering in the Astro integration uses `renderToStream`, as stable Solid 2 removed
+  `renderToStringAsync`.
+- `@corvu-next/transition-size` no longer throws when the observed element disappears while a
+  size transition is running.
