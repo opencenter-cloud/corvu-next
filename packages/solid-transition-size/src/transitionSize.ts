@@ -39,10 +39,14 @@ function createTransitionSize(props: {
   transitioning: Accessor<boolean>
   transitionSize: Accessor<number | [number, number] | null>
 } {
-  const [transitioning, setTransitioning] = createSignal(false)
+  // `reset()` runs from the effect's cleanup — an owned scope — when the
+  // element goes away mid-transition, so both signals accept owned writes.
+  const [transitioning, setTransitioning] = createSignal(false, {
+    ownedWrite: true,
+  })
   const [transitionSize, setTransitionSize] = createSignal<
     number | [number, number] | null
-  >(null)
+  >(null, { ownedWrite: true })
 
   let startSize: [number, number] | null = null
 
