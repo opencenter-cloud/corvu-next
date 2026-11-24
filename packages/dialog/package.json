@@ -28,20 +28,19 @@
     }
   },
   "dependencies": {
-    "@corvu-next/utils": "0.1.4",
-    "@corvu-next/presence": "0.1.4",
-    "@corvu-next/prevent-scroll": "0.1.4",
-    "@corvu-next/focus-trap": "0.1.4",
-    "@corvu-next/dismissible": "0.1.4"
+    "@corvu-next/dismissible": "workspace:*",
+    "@corvu-next/focus-trap": "workspace:*",
+    "@corvu-next/presence": "workspace:*",
+    "@corvu-next/prevent-scroll": "workspace:*",
+    "@corvu-next/utils": "workspace:*"
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.19",
-    "@solidjs/web": "2.0.0-beta.19"
+    "@solidjs/web": "^2.0.0",
+    "solid-js": "^2.0.0"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.19",
-    "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.19",
+    "@solidjs/web": "2.0.3",
+    "solid-js": "2.0.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },

@@ -12,13 +12,10 @@
     "publish:packages": "pnpm build && pnpm publish -r --access public --filter='@corvu-next/*'"
   },
   "devDependencies": {
+    "@solidjs/compiler": "2.0.2",
+    "tsup": "^8.5.0",
     "turbo": "^2.5.5",
     "typedoc": "^0.28.20"
   },
-  "license": "MIT",
-  "pnpm": {
-    "overrides": {
-      "babel-preset-solid": "2.0.0-beta.19"
-    }
-  }
+  "license": "MIT"
 }

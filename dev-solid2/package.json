@@ -9,30 +9,30 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@corvu-next/accordion": "workspace:~",
-    "@corvu-next/calendar": "workspace:~",
-    "@corvu-next/dialog": "workspace:~",
-    "@corvu-next/disclosure": "workspace:~",
-    "@corvu-next/dismissible": "workspace:~",
-    "@corvu-next/drawer": "workspace:~",
-    "@corvu-next/focus-trap": "workspace:~",
-    "@corvu-next/list": "workspace:~",
-    "@corvu-next/otp-field": "workspace:~",
-    "@corvu-next/persistent": "workspace:~",
-    "@corvu-next/popover": "workspace:~",
-    "@corvu-next/presence": "workspace:~",
-    "@corvu-next/prevent-scroll": "workspace:~",
-    "@corvu-next/resizable": "workspace:~",
-    "@corvu-next/tooltip": "workspace:~",
-    "@corvu-next/transition-size": "workspace:~",
-    "@corvu-next/utils": "workspace:~",
-    "@solidjs/web": "2.0.0-beta.19",
-    "solid-js": "2.0.0-beta.19"
+    "@corvu-next/accordion": "workspace:*",
+    "@corvu-next/calendar": "workspace:*",
+    "@corvu-next/dialog": "workspace:*",
+    "@corvu-next/disclosure": "workspace:*",
+    "@corvu-next/dismissible": "workspace:*",
+    "@corvu-next/drawer": "workspace:*",
+    "@corvu-next/focus-trap": "workspace:*",
+    "@corvu-next/list": "workspace:*",
+    "@corvu-next/otp-field": "workspace:*",
+    "@corvu-next/persistent": "workspace:*",
+    "@corvu-next/popover": "workspace:*",
+    "@corvu-next/presence": "workspace:*",
+    "@corvu-next/prevent-scroll": "workspace:*",
+    "@corvu-next/resizable": "workspace:*",
+    "@corvu-next/tooltip": "workspace:*",
+    "@corvu-next/transition-size": "workspace:*",
+    "@corvu-next/utils": "workspace:*",
+    "@solidjs/web": "2.0.3",
+    "solid-js": "2.0.3"
   },
   "devDependencies": {
+    "@solidjs/vite-plugin": "3.0.1",
     "typescript": "^5.9.2",
-    "vite": "^6.0.0",
-    "vite-plugin-pilot": "^1.0.35",
-    "vite-plugin-solid": "3.0.0-next.11"
+    "vite": "^8.0.0",
+    "vite-plugin-pilot": "^1.0.35"
   }
 }

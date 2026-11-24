@@ -28,18 +28,17 @@
     }
   },
   "dependencies": {
-    "@corvu-next/dialog": "0.1.4",
-    "@corvu-next/utils": "0.1.4",
-    "@corvu-next/transition-size": "0.1.4"
+    "@corvu-next/dialog": "workspace:*",
+    "@corvu-next/transition-size": "workspace:*",
+    "@corvu-next/utils": "workspace:*"
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.19",
-    "@solidjs/web": "2.0.0-beta.19"
+    "@solidjs/web": "^2.0.0",
+    "solid-js": "^2.0.0"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.19",
-    "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.19",
+    "@solidjs/web": "2.0.3",
+    "solid-js": "2.0.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },
