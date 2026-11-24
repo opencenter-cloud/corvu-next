@@ -15,7 +15,12 @@ const SearchItem = (props: {
           'bg-corvu-300': props.isActive,
           'bg-corvu-100': !props.isActive,
         })}
-        on:mousemove={props.onMouseMove}
+        ref={(element) => {
+          // A native listener, not Solid's delegated `onMouseMove`: the result
+          // list re-renders while the pointer is over an item, and delegation
+          // then looks the handler up on a node that is already detached.
+          element.addEventListener('mousemove', () => props.onMouseMove())
+        }}
         onClick={props.closeSearch}
       >
         <span class="block font-bold">{props.item.hierarchy}</span>
