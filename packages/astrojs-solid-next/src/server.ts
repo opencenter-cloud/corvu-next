@@ -2,8 +2,8 @@ import type { NamedSSRLoadedRendererValue } from 'astro';
 import {
 	createComponent,
 	generateHydrationScript,
+	renderToStream,
 	renderToString,
-	renderToStringAsync,
 	ssr,
 } from '@solidjs/web';
 import { NoHydration, Loading } from 'solid-js';
@@ -104,16 +104,22 @@ async function renderToStaticMarkup(
 		}
 	};
 
-	const componentHtml =
-		renderStrategy === 'async'
-			? await renderToStringAsync(renderFn, {
-					renderId,
-					// New setting since Solid 1.8.4 that fixes an errant hydration event appearing in
-					// server only components.
-					// https://github.com/solidjs/solid/issues/1931
-					...({ noScripts: !needsHydrate } as any),
-				}).catch(() => '')
-			: (() => { try { return renderToString(renderFn, { renderId }) } catch { return '' } })();
+	const componentHtml = await (async () => {
+		try {
+			return renderStrategy === 'async'
+				? // Awaiting the stream resolves with the complete HTML once every
+					// boundary settles — the Solid 2 replacement for `renderToStringAsync`.
+					await renderToStream(renderFn, {
+						renderId,
+						// Server-only components must not emit a hydration script.
+						// https://github.com/solidjs/solid/issues/1931
+						noScripts: !needsHydrate,
+					})
+				: renderToString(renderFn, { renderId });
+		} catch {
+			return '';
+		}
+	})();
 
 	return {
 		attrs: {
