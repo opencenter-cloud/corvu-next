@@ -98,4 +98,31 @@ describe('Resizable.Root', () => {
     expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
     expect(mounted.textContent).toBe('0.70.3')
   })
+
+  test('moves a panel to its own initial size when an earlier one mounts', () => {
+    const onSizesChange = vi.fn()
+    const [firstPanel, setFirstPanel] = createSignal(false)
+
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0.7, 0.3]} onSizesChange={onSizesChange}>
+        <Show when={firstPanel()}>
+          <Resizable.Panel>
+            {(props) => <span>{props.size}</span>}
+          </Resizable.Panel>
+        </Show>
+        <Resizable.Panel>{(props) => <span>{props.size}</span>}</Resizable.Panel>
+      </Resizable>
+    ))
+
+    // Alone, the panel is the first of the layout.
+    expect(mounted.textContent).toBe('0.7')
+
+    setFirstPanel(true)
+    flush()
+
+    // The panel that mounted in front of it takes the first entry, and it
+    // follows the layout to the second one.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
+    expect(mounted.textContent).toBe('0.70.3')
+  })
 })

@@ -60,10 +60,18 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
 - `@corvu-next/resizable` renormalises the panels that stay when one unmounts, so the sizes
   keep summing to 1: removing one of two equal panels reports `[1]`, not `[0]`.
 - `@corvu-next/resizable` places a panel by where its element sits in the document rather
-  than by when it registers. The settle callbacks that register the panels mounted in one
-  frame run in reverse, which used to reverse the panel-to-size mapping, hand the first
-  `initialSizes` entry to the last panel, and add an entry to a controlled `sizes` that
-  already described every panel.
+  than by when it registers. Two things went wrong before. A write is staged until the end
+  of the frame that made it, so every panel of one frame read the panel list through the
+  accessor as it was before the frame — empty — took index 0, and added an entry to a
+  controlled `sizes` that already described every panel; the list is now read, and kept
+  sorted by document position, from inside its own setter, which is handed the value
+  staged earlier in the same frame. And registration order is not the layout: nothing
+  guarantees that the panels of one frame register in document order, so the first
+  `initialSizes` entry could land on the last panel. A panel whose size comes from
+  `initialSizes` now follows the sorted list — each registration re-derives those panels'
+  entries from their place in the list as it then stands — so a panel registering in front
+  of others moves them to their own entries. A controlled `sizes`, a panel's own
+  `initialSize` and any size the consumer or a drag has set stay untouched.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and

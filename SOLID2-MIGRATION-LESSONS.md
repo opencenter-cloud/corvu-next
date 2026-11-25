@@ -1903,36 +1903,49 @@ beta.19.
 
 ---
 
-## 31. One Frame, Many Registrations — Settle Order and Staged Writes
+## 31. One Frame, Many Registrations — Staged Writes and Settle Order
 
 ### Symptoms
 
 A parent that keeps a list of children registering themselves from `onSettled` ends up with
-the list reversed, with two children on the same index, or with an extra entry in an array
-the consumer controls.
+two children on the same index, every child holding the first entry of an array the consumer
+indexed by position, or an extra entry in an array the consumer controls.
 
 ### Root Cause
 
-Two things, both specific to Solid 2:
+Two things, and they are separate:
 
-1. **The settle callbacks of one frame do not run in document order.** Siblings mounted
-   together register in reverse. Any index derived from "how many have registered so far" is
-   therefore not the child's place in the layout.
-2. **A write is staged until the next flush**, so an accessor read from a second `onSettled`
-   callback still reports the value from before the first one wrote. Reading `list()` to
-   decide what to append sees an empty list.
+1. **A write is staged until the end of the frame that made it.** The children mounted in
+   one frame all register from settle callbacks of that frame, so an accessor read from any
+   of them reports the value from before the frame — not what the earlier registrants wrote.
+   Reading `list()` to decide what to append sees the list as it was: empty. Every child
+   then computes the same position and takes index 0.
+2. **Registration order is not document order.** Siblings created while their parent renders
+   do settle in document order: an owned `onSettled` is a tracked effect, tracked effects
+   append at the tail of their height on the dirty heap, and the heap drains ascending and
+   is iterated forward. Children created from inside a computation that itself runs while
+   the frame's queue drains do not — measured on `@solidjs/signals` 2.0.3, two siblings
+   under a component that returns a thunk rendering Solid's `Dynamic` (which is what
+   `@corvu-next`'s own `Dynamic` is) settle in reverse of the order they were created in.
+   Nothing in the API promises an order either way, so do not derive one from registration.
+
+So registration order is not a child's place in the layout.
 
 ### Fix
 
 Read the value from inside its own setter — `setList((list) => …)` is handed the value staged
 earlier in the same frame, so the second registrant sees the first. For a functional write
 this also makes a hand-rolled "write in flight" ledger unnecessary: Solid's setter composes
-staged writes already.
+staged writes already. Keep that list sorted by `compareDocumentPosition` inside the same
+setter, so one list is the layout and the order of registration never enters it.
 
-And derive position from the thing that defines it. Where position means "place in the
-layout", that is the DOM: sort the registered children by `compareDocumentPosition`, and look
-up anything the consumer indexed by position (an `initialSizes` array, say) by the element's
-place among its siblings in the document — never by registration order.
+Then let anything the consumer indexed by position (an `initialSizes` array, say) follow that
+list instead of being read once at registration: each registration re-derives the entry of
+every child that still holds the entry it was given, from its place in the list as it then
+stands, so a child registering in front of others moves them to their own entries. A child
+the consumer has since set a value for stops following — compare its current value with the
+entry it was given. This needs no walk of the DOM at registration, and no child that never
+registers can shift the others.
 
 ### Where This Applies
 

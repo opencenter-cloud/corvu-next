@@ -167,27 +167,13 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   const sizesToIds: string[] = []
 
   /**
-   * Where a panel sits in the layout the consumer described — its place
-   * among this root's panel elements in the document. Registration order
-   * does not follow it: the settle callbacks that register the panels
-   * mounted in one frame run in reverse, so the first `initialSizes` entry
-   * would otherwise land on the last panel. Panels of a nested resizable
-   * belong to that root and are not counted here.
+   * The panels whose size is still the entry `initialSizes` gave them, with
+   * that entry's resolved value. They follow the layout: a panel registering
+   * before them moves them to the entry of their new place. A panel the
+   * consumer or a drag has resized since no longer matches and stops
+   * following.
    */
-  const documentIndexOf = (element: HTMLElement) => {
-    const rootElement = ref()
-    if (rootElement === null) return 0
-    let index = 0
-    for (const candidate of rootElement.querySelectorAll(
-      '[data-corvu-resizable-panel]',
-    )) {
-      if (candidate === element) break
-      if (candidate.closest('[data-corvu-resizable-root]') === rootElement) {
-        index++
-      }
-    }
-    return index
-  }
+  const initialSizedPanels = new Map<string, number>()
 
   const registerPanel = (panelData: PanelData): PanelInstance => {
     const panel: PanelInstance = {
@@ -201,9 +187,16 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     }
 
     // The list is read from inside its own setter, so a panel registering in
-    // the same frame as another one sees the panel that one just added.
-    // Through the accessor it would see a list that still looks empty and
-    // take an index another panel already holds.
+    // the same frame as another one sees the panel that one just added. A
+    // write is staged until the end of the frame, so through the accessor
+    // every registrant of one frame would still see the list from before it
+    // — empty — and take index 0.
+    //
+    // The list is kept sorted by document position, so `panelIndex` is the
+    // panel's place in the layout among the panels registered so far. Nothing
+    // guarantees that the panels of one frame register in that order, so a
+    // panel that registers later can land before panels already in the list
+    // and move them along.
     let panelIndex = 0
     let registeredPanels = 0
     setPanels((panels) => {
@@ -217,13 +210,19 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newPanels
     })
 
-    const documentIndex = documentIndexOf(panelData.element)
+    // The consumer indexed `initialSizes` by the layout, which is the order of
+    // the sorted list. A panel that takes its size from there keeps following
+    // it: every later registration re-derives the entry of each such panel
+    // from its place in the list as it now stands.
+    const fromInitialSizes =
+      panelData.initialSize === null &&
+      localProps.initialSizes[panelIndex] !== undefined
 
     let panelSize: number | null = null
     if (panelData.initialSize !== null) {
       panelSize = resolveSize(panelData.initialSize, rootSize())
-    } else if (localProps.initialSizes[documentIndex] !== undefined) {
-      panelSize = resolveSize(localProps.initialSizes[documentIndex]!, rootSize())
+    } else if (fromInitialSizes) {
+      panelSize = resolveSize(localProps.initialSizes[panelIndex]!, rootSize())
     }
 
     panelSize = panelSize ?? 0.5
@@ -236,6 +235,15 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // Adding one here is what turned a two-panel layout into three.
       if (sizes.length > registeredPanels) return sizes
 
+      for (const [id, entry] of initialSizedPanels) {
+        const index = sizesToIds.indexOf(id)
+        // `sizesToIds` already carries this registration, `sizes` does not.
+        if (sizes[index > panelIndex ? index - 1 : index] !== entry) {
+          initialSizedPanels.delete(id)
+        }
+      }
+      if (fromInitialSizes) initialSizedPanels.set(panelData.id, panelSize!)
+
       let newSizes = [...sizes]
       const previousTotalSize = newSizes.reduce(
         (totalSize, size) => totalSize + size,
@@ -247,6 +255,19 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         newSizes = newSizes.map((size) => size - offsetPerPanel)
       }
       newSizes.splice(panelIndex, 0, panelSize!)
+
+      for (const id of initialSizedPanels.keys()) {
+        const index = sizesToIds.indexOf(id)
+        const initialSize = localProps.initialSizes[index]
+        if (initialSize === undefined) {
+          initialSizedPanels.delete(id)
+          continue
+        }
+        const entry = resolveSize(initialSize, rootSize())
+        newSizes[index] = entry
+        initialSizedPanels.set(id, entry)
+      }
+
       return newSizes
     })
 
@@ -262,6 +283,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   }
 
   const unregisterPanel = (id: string) => {
+    initialSizedPanels.delete(id)
     setPanels((panels) => panels.filter((panel) => panel.data.id !== id))
     const panelSizeIndex = sizesToIds.indexOf(id)
     sizesToIds.splice(panelSizeIndex, 1)
