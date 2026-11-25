@@ -348,12 +348,14 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         }
       }
 
+      const constraints = panelsInLayout.map((panel) =>
+        panelSizeConstraints(panel, rootSize()),
+      )
+
       // No panel joins on top of the root. When the layout has less room than
       // the size it asked for — the panels there pinned to maximums that left
       // it short, or entries of the consumer's that do not all fit — it takes
-      // the room that is left instead, and is a size nobody was given. Its
-      // own minimum is a bound and still wins: the rounding below raises it
-      // back to it, over the total.
+      // the room that is left instead, and is a size nobody was given.
       const roomLeftOver =
         1 -
         newSizes.reduce(
@@ -366,10 +368,28 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         initialSizedPanels.delete(panelData.id)
       }
 
-      return fixSizesToPrecision(
-        newSizes,
-        panelsInLayout.map((panel) => panelSizeConstraints(panel, rootSize())),
+      const fixedSizes = fixSizesToPrecision(newSizes, constraints)
+      const fixedTotalSize = fixedSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
       )
+      if (fixedTotalSize - 1 <= fixedSizes.length * 10 ** -PRECISION) {
+        return fixedSizes
+      }
+
+      // Bounds raised a panel over the room there is for it — the one that
+      // joined is smaller than its own minimum, or an entry of the consumer's
+      // is. The bound holds, and the panels there give the shortfall within
+      // their own bounds: the layout goes through the write step, with the
+      // panel that joined asking for the size its bounds left it at. Only
+      // when they are pinned too does the layout come out over the root.
+      initialSizedPanels.delete(panelData.id)
+      return fixLayoutToPrecision({
+        sizes: fixedSizes,
+        constraints,
+        requestedPanel: panelIndex,
+        requestedSize: fixedSizes[panelIndex]!,
+      })
     })
 
     return panel

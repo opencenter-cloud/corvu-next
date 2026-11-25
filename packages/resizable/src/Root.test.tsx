@@ -197,7 +197,10 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // Two of the three panels are mounted, on the first two entries.
+    // Two of the three panels are mounted, on the first two entries: three
+    // tenths of the root are the third entry, waiting for the panel that
+    // carries it, so this layout is the one the consumer described and not a
+    // layout any bound keeps from filling the root.
     expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.4])
 
     // Set away from those entries, and back onto exactly them: the numbers
@@ -352,6 +355,9 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
+    // Thirds are not sizes of six places: each entry is stored as 0.333333,
+    // so the layout the consumer described sums to 0.999999, and no write has
+    // shared anything out yet.
     expect(onSizesChange).toHaveBeenLastCalledWith([
       0.333333, 0.333333, 0.333333,
     ])
@@ -472,6 +478,9 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
+    // No layout holds these bounds and fills the root: every size is kept to
+    // six places and may not pass a maximum of a third, so each is at most
+    // floor(1/3) = 0.333333 and three of them sum to at most 0.999999.
     // A third is given exactly, and the two panels that take the rest are
     // pinned to maximums of a third, which round down. The remainder would
     // have to go up, and neither derived panel can take it without passing
@@ -649,6 +658,9 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
+    // Half the root, because nothing has been shared out yet: a panel with no
+    // entry mounts at the default and the first write that shares the layout
+    // out fills it, as the next one does.
     expect(onSizesChange).toHaveBeenLastCalledWith([0.5])
     expect(mounted.textContent).toBe('0.5')
 
@@ -687,6 +699,9 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
+    // Thirds are not sizes of six places: each entry is stored as 0.333333,
+    // so the layout the consumer described sums to 0.999999, and no write has
+    // shared anything out yet.
     expect(onSizesChange).toHaveBeenLastCalledWith([
       0.333333, 0.333333, 0.333333,
     ])
@@ -788,6 +803,8 @@ describe('Resizable.Root', () => {
     setThirdPanel(true)
     flush()
 
+    // No layout holds these bounds and fills the root: the minimums sum to
+    // 0.4 + 0.4 + 0.4 = 1.2 > 1.
     // Three panels that may not be smaller than two fifths do not fit in one
     // root. The panels there cannot give the panel that joined the size it
     // asked for, so it is derived and takes what is left — nothing — raised
@@ -853,6 +870,8 @@ describe('Resizable.Root', () => {
     setThirdPanel(false)
     flush()
 
+    // No layout of the two that stay fills the root: their maximums sum to
+    // 0.3 + 0.3 = 0.6 < 1.
     // Neither panel that stays may grow, so there is nowhere for the size the
     // one that left gave up to go. Bounds win: the layout is left short of
     // the root, and the next write with room in it fills it again.
@@ -975,6 +994,8 @@ describe('Resizable.Root', () => {
 
     setThirdPanel(false)
     flush()
+    // Short of the root with no layout that is not: the maximums of the two
+    // that stay sum to 0.3 + 0.3 = 0.6 < 1.
     expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.3])
 
     setThirdPanel(true)
@@ -991,7 +1012,7 @@ describe('Resizable.Root', () => {
     )
   })
 
-  test('a panel rejoining with a minimum past the room left keeps its minimum', () => {
+  test('a panel rejoining with a minimum past the room left is given it', () => {
     const onSizesChange = vi.fn()
     const [thirdPanel, setThirdPanel] = createSignal(true)
 
@@ -1007,17 +1028,77 @@ describe('Resizable.Root', () => {
 
     setThirdPanel(false)
     flush()
+    // Short of the root, and nothing within those maximums is not: they sum
+    // to 0.3 + 0.3 = 0.6 < 1.
     expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.3])
 
     setThirdPanel(true)
     flush()
 
-    // Only four tenths are left, and the panel joining may not be smaller than
-    // six. A bound of the consumer's wins over the total, as everywhere else:
-    // it takes its minimum and the layout is reported over-full.
+    // Only four tenths are left, and the panel joining may not be smaller
+    // than six. Its minimum holds, and the panels there give the shortfall:
+    // neither has a minimum of its own, so both can come down to two tenths.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.2, 0.2, 0.6])
+    expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel mounting with a minimum past its entry is given it', () => {
+    const onSizesChange = vi.fn()
+
+    mount(() => (
+      <Resizable initialSizes={[0.3, 0.3, 0.4]} onSizesChange={onSizesChange}>
+        <Resizable.Panel maxSize={0.3} />
+        <Resizable.Panel maxSize={0.3} />
+        <Resizable.Panel minSize={0.6} />
+      </Resizable>
+    ))
+
+    // The same holds while the first frame is still mounting: the entry of
+    // four tenths is below the panel's own minimum, so it is given its
+    // minimum and the panels there give the shortfall within their maximums.
+    // The panel that mounts last asks for its own entry and keeps it, so the
+    // one between them gives what is left of the shortfall.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.3, 0.1, 0.6])
+    expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
+    expect(sizes[0]).toBeLessThanOrEqual(0.3)
+    expect(sizes[1]).toBeLessThanOrEqual(0.3)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a rejoining minimum beside panels pinned at theirs leaves the layout over-full', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(true)
+
+    mount(() => (
+      <Resizable initialSizes={[0.3, 0.3, 0.4]} onSizesChange={onSizesChange}>
+        <Resizable.Panel minSize={0.3} maxSize={0.3} />
+        <Resizable.Panel minSize={0.3} maxSize={0.3} />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel minSize={0.6} />
+        </Show>
+      </Resizable>
+    ))
+
+    setThirdPanel(false)
+    flush()
+    setThirdPanel(true)
+    flush()
+
+    // Here the two panels are pinned at minimums of their own, so there is no
+    // shortfall for them to give. No layout holds every bound: the minimums
+    // are 0.3 + 0.3 + 0.6 = 1.2 > 1, so the bounds the consumer gave cannot
+    // all hold and they win over the total.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
     expect(sizes).toEqual([0.3, 0.3, 0.6])
-    expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1.2,
       6,
@@ -1100,6 +1181,56 @@ describe('Resizable.Root', () => {
     // share what the one that left gave up.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
     expect(sizes).toEqual([0.7, 0.3])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel joining after a key starts from the layout the key left', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(false)
+
+    const mounted = mount(() => (
+      <Resizable
+        initialSizes={[0.4, 0.3, 0.3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel />
+        <Resizable.Handle />
+        <Resizable.Panel />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    // The entries describe three panels and two have mounted, so the last
+    // three tenths are waiting for the third: the layout the consumer
+    // described, not one a bound keeps from filling the root.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.4, 0.3])
+
+    const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    )
+    flush()
+
+    // The key moved the handle by the root's `keyboardDelta`, and its write
+    // filled the layout: the two panels no longer follow their entries.
+    const afterKey = onSizesChange.mock.lastCall![0] as number[]
+    expect(afterKey).toEqual([0.65, 0.35])
+    expect(afterKey.reduce((totalSize, size) => totalSize + size, 0)).toBe(1)
+
+    setThirdPanel(true)
+    flush()
+
+    // So the panel that joins now joins a full layout: the two give it an
+    // equal share of the entry it asks for, and they keep what the key left
+    // them rather than being put back on their own entries, which would have
+    // read [0.4, 0.3, 0.3].
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.5, 0.2, 0.3])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,

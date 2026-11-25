@@ -58,7 +58,8 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
 - `@corvu-next/transition-size` no longer throws when the observed element disappears while a
   size transition is running.
 - `@corvu-next/resizable` renormalises the panels that stay when one unmounts, so the sizes
-  keep summing to 1: removing one of two equal panels reports `[1]`, not `[0]`.
+  keep summing to 1 within their bounds: removing one of two equal panels reports `[1]`,
+  not `[0]`.
 - `@corvu-next/resizable` places a panel by where its element sits in the document rather
   than by when it registers. A write is staged until the end of the frame that made it, so
   every panel of one frame used to read the panel list through the accessor as it was
@@ -99,16 +100,19 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     smaller than two fifths all sit at two fifths and the layout is reported at 1.2;
     maximums that cannot take the size an unmounting panel gives up leave those panels at
     their maximums and the layout short of the root; a panel joining a layout with less
-    room than it asked for takes the room that is left, and its own minimum over that.
+    room than it asked for takes the room that is left, and its own minimum over that, with
+    the panels already there giving the shortfall where their own bounds allow.
     Apart from those, and rounding of at most n × 10⁻⁶, a layout sums to 1, and the next
     write with room in it brings the total back.
   - **Every write goes through that step:** a resize, a collapse, an expand, a drag, a key,
     a panel joining the layout and the panels that stay when one unmounts, a controlled
-    root's own resizes and drags included. Building the first frame from `initialSizes` is
-    the exception: those entries are the layout the consumer described, rounded into the
-    sizes their panels may rest at, and entries that do not all fit are clipped to the room
-    left as each panel mounts. A layout written with a number of panels that does not match
-    its number of sizes throws, naming both.
+    root's own resizes and drags included. A panel joining a layout that is not full is the
+    exception: no room is shared out, the joiner is capped at the room that is left — which
+    covers a rejoin after an unmount left the layout short as well as the first frame
+    mounting — and the entries the consumer gave are rounded into the sizes their panels may
+    rest at. Where a bound raises a panel over the room there is for it, the bound holds and
+    the panels already there give the shortfall within their own bounds. A layout written
+    with a number of panels that does not match its number of sizes throws, naming both.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and
