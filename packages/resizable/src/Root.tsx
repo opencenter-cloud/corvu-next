@@ -166,56 +166,30 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
 
   const sizesToIds: string[] = []
 
-  const registerPanel = (panelData: PanelData): PanelInstance => {
-    const _panels = panels()
-    const panelIndex = _panels.filter(
-      (panel) =>
-        !!(
-          panelData.element.compareDocumentPosition(panel.data.element) &
-          Node.DOCUMENT_POSITION_PRECEDING
-        ),
-    ).length
-
-    const idExists =
-      sizesToIds[panelIndex] === undefined ||
-      sizesToIds[panelIndex] === panelData.id
-    const sizeExists = sizes()[panelIndex] !== undefined
-
-    let panelSize: number | null = null
-    if (panelData.initialSize !== null) {
-      panelSize = resolveSize(panelData.initialSize, rootSize())
-    } else if (localProps.initialSizes[panelIndex] !== undefined && idExists) {
-      panelSize = resolveSize(localProps.initialSizes[panelIndex]!, rootSize())
+  /**
+   * Where a panel sits in the layout the consumer described — its place
+   * among this root's panel elements in the document. Registration order
+   * does not follow it: the settle callbacks that register the panels
+   * mounted in one frame run in reverse, so the first `initialSizes` entry
+   * would otherwise land on the last panel. Panels of a nested resizable
+   * belong to that root and are not counted here.
+   */
+  const documentIndexOf = (element: HTMLElement) => {
+    const rootElement = ref()
+    if (rootElement === null) return 0
+    let index = 0
+    for (const candidate of rootElement.querySelectorAll(
+      '[data-corvu-resizable-panel]',
+    )) {
+      if (candidate === element) break
+      if (candidate.closest('[data-corvu-resizable-root]') === rootElement) {
+        index++
+      }
     }
+    return index
+  }
 
-    panelSize = panelSize ?? 0.5
-
-    setSizes((sizes) => {
-      let newSizes = [...sizes]
-
-      const previousTotalSize = newSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      if (((idExists && !sizeExists) || !idExists) && previousTotalSize === 1) {
-        const offsetPerPanel = panelSize! / newSizes.length
-        // TODO: Recognize min and max sizes
-        newSizes = newSizes.map((size) => size - offsetPerPanel)
-      }
-
-      if (idExists) {
-        if (!sizeExists) {
-          newSizes[panelIndex] = panelSize!
-        }
-        sizesToIds[panelIndex] = panelData.id
-      } else {
-        newSizes.splice(panelIndex, 0, panelSize!)
-        sizesToIds.splice(panelIndex, 0, panelData.id)
-      }
-
-      return newSizes
-    })
-
+  const registerPanel = (panelData: PanelData): PanelInstance => {
     const panel: PanelInstance = {
       data: panelData,
       size: panelSizeMemoFactory(panelData.id),
@@ -225,14 +199,57 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         collapse(sizesToIds.indexOf(panelData.id), strategy),
       expand: (strategy) => expand(sizesToIds.indexOf(panelData.id), strategy),
     }
+
+    // The list is read from inside its own setter, so a panel registering in
+    // the same frame as another one sees the panel that one just added.
+    // Through the accessor it would see a list that still looks empty and
+    // take an index another panel already holds.
+    let panelIndex = 0
+    let registeredPanels = 0
     setPanels((panels) => {
+      registeredPanels = panels.length
       const newPanels = [...panels]
       newPanels.push(panel)
       newPanels.sort((a, b) =>
         sortByDocumentPosition(a.data.element, b.data.element),
       )
+      panelIndex = newPanels.indexOf(panel)
       return newPanels
     })
+
+    const documentIndex = documentIndexOf(panelData.element)
+
+    let panelSize: number | null = null
+    if (panelData.initialSize !== null) {
+      panelSize = resolveSize(panelData.initialSize, rootSize())
+    } else if (localProps.initialSizes[documentIndex] !== undefined) {
+      panelSize = resolveSize(localProps.initialSizes[documentIndex]!, rootSize())
+    }
+
+    panelSize = panelSize ?? 0.5
+
+    sizesToIds.splice(panelIndex, 0, panelData.id)
+
+    setSizes((sizes) => {
+      // The layout already carries a size for this panel: a controlled
+      // `sizes` describes every panel, including the ones still to register.
+      // Adding one here is what turned a two-panel layout into three.
+      if (sizes.length > registeredPanels) return sizes
+
+      let newSizes = [...sizes]
+      const previousTotalSize = newSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
+      )
+      if (previousTotalSize === 1) {
+        const offsetPerPanel = panelSize! / newSizes.length
+        // TODO: Recognize min and max sizes
+        newSizes = newSizes.map((size) => size - offsetPerPanel)
+      }
+      newSizes.splice(panelIndex, 0, panelSize!)
+      return newSizes
+    })
+
     return panel
   }
 
@@ -251,12 +268,14 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     setSizes((sizes) => {
       let newSizes = [...sizes]
       newSizes.splice(panelSizeIndex, 1)
+      if (newSizes.length === 0) return newSizes
       const totalSize = newSizes.reduce(
         (totalSize, size) => totalSize + size,
         0,
       )
-      const offset = totalSize - 1
-      const offsetPerPanel = offset / newSizes.length
+      // The panels that stay share the size the one that left gave up, so
+      // they sum to 1 again: the last panel standing is the whole layout.
+      const offsetPerPanel = (1 - totalSize) / newSizes.length
       // TODO: Recognize min and max sizes
       newSizes = newSizes.map((size) => size + offsetPerPanel)
       return newSizes

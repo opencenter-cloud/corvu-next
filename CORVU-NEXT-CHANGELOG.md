@@ -57,3 +57,14 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   `renderToStringAsync`.
 - `@corvu-next/transition-size` no longer throws when the observed element disappears while a
   size transition is running.
+- `@corvu-next/resizable` renormalises the panels that stay when one unmounts, so the sizes
+  keep summing to 1: removing one of two equal panels reports `[1]`, not `[0]`.
+- `@corvu-next/resizable` places a panel by where its element sits in the document rather
+  than by when it registers. The settle callbacks that register the panels mounted in one
+  frame run in reverse, which used to reverse the panel-to-size mapping, hand the first
+  `initialSizes` entry to the last panel, and add an entry to a controlled `sizes` that
+  already described every panel.
+- `createControllableSignal` leaves composition of functional writes to Solid's own setter,
+  which applies them to the value staged earlier in the same frame, and keeps its own ledger
+  only for the controlled path, where nothing is written locally. `@corvu-next/utils` and
+  `@corvu-next/resizable` carry the first unit tests in the repository, run by `pnpm test`.

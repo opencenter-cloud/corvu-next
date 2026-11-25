@@ -1903,6 +1903,44 @@ beta.19.
 
 ---
 
+## 31. One Frame, Many Registrations — Settle Order and Staged Writes
+
+### Symptoms
+
+A parent that keeps a list of children registering themselves from `onSettled` ends up with
+the list reversed, with two children on the same index, or with an extra entry in an array
+the consumer controls.
+
+### Root Cause
+
+Two things, both specific to Solid 2:
+
+1. **The settle callbacks of one frame do not run in document order.** Siblings mounted
+   together register in reverse. Any index derived from "how many have registered so far" is
+   therefore not the child's place in the layout.
+2. **A write is staged until the next flush**, so an accessor read from a second `onSettled`
+   callback still reports the value from before the first one wrote. Reading `list()` to
+   decide what to append sees an empty list.
+
+### Fix
+
+Read the value from inside its own setter — `setList((list) => …)` is handed the value staged
+earlier in the same frame, so the second registrant sees the first. For a functional write
+this also makes a hand-rolled "write in flight" ledger unnecessary: Solid's setter composes
+staged writes already.
+
+And derive position from the thing that defines it. Where position means "place in the
+layout", that is the DOM: sort the registered children by `compareDocumentPosition`, and look
+up anything the consumer indexed by position (an `initialSizes` array, say) by the element's
+place among its siblings in the document — never by registration order.
+
+### Where This Applies
+
+`@corvu-next/resizable`'s `registerPanel`. Any primitive whose children self-register and
+whose parent keeps a positional array.
+
+---
+
 ## Links
 
 - [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)
