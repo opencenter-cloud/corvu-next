@@ -146,13 +146,11 @@ describe('Resizable.Root', () => {
     setThirdPanel(true)
     flush()
 
-    // `initialSizes` describes two panels, so the third has no entry and no
-    // size of its own: it asked for nothing, and the three share the root.
-    // What they describe is [0.7, 0.3, 0.5] = 1.5, a half over, so each gives
-    // 0.166667 and lands on [0.533333, 0.133333, 0.333333] = 0.999999, with
-    // the place left over going to the largest.
+    // `initialSizes` describes two panels, so the third takes the default
+    // size, and the layout it joined makes room for it: the panels that were
+    // there each give up a share, and the sizes still sum to 1.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.533334, 0.133333, 0.333333])
+    expect(sizes).toEqual([0.45, 0.05, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -290,7 +288,8 @@ describe('Resizable.Root', () => {
     // from the three. Those three tie for largest among the panels this write
     // derived, and the first of them carries what the rounding leaves.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.208333, 0.208333, 0.208333, 0.375001])
+    expect(sizes[3]).toBe(0.5)
+    expect(sizes).toEqual([0.166666, 0.166667, 0.166667, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -331,7 +330,8 @@ describe('Resizable.Root', () => {
     flush()
 
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.275, 0.141666, 0.208334, 0.375])
+    expect(sizes[3]).toBe(0.5)
+    expect(sizes).toEqual([0.233334, 0.099999, 0.166667, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -454,7 +454,7 @@ describe('Resizable.Root', () => {
     // The layout is full, so the panel that joins takes its room from the
     // four rather than being added on top of them, at exactly its default.
     const joined = onSizesChange.mock.lastCall![0] as number[]
-    expect(joined[4]).toBe(0.4)
+    expect(joined[4]).toBe(0.5)
     expect(joined.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,
@@ -756,7 +756,7 @@ describe('Resizable.Root', () => {
     )
   })
 
-  test('a panel joining beside panels at their maximums shares the root', () => {
+  test('a panel joining beside panels at their maximums gets its size', () => {
     const onSizesChange = vi.fn()
     const [thirdPanel, setThirdPanel] = createSignal(false)
 
@@ -775,12 +775,11 @@ describe('Resizable.Root', () => {
     setThirdPanel(true)
     flush()
 
-    // A maximum holds a panel back from growing, not from giving room away.
-    // None of the three asked for a size, so what they describe is
-    // [0.5, 0.5, 0.5] = 1.5, and each gives a sixth: thirds, kept to six
-    // places as 0.333333 each, with the place left over on the first.
+    // A maximum holds a panel back from growing, not from giving room away,
+    // so both can give and the panel that joins gets exactly its default.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.333334, 0.333333, 0.333333])
+    expect(sizes[2]).toBe(0.5)
+    expect(sizes).toEqual([0.25, 0.25, 0.5])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,
@@ -1193,7 +1192,7 @@ describe('Resizable.Root', () => {
     // rests at, the panels with room give what they can, and the panel that
     // joined takes what is left.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.5, 0.090909, 0.284091, 0.125])
+    expect(sizes).toEqual([0.5, 0.090909, 0.242424, 0.166667])
     expect(sizes[1]).toBe(0.090909)
     expect(mounted.textContent).toBe('collapsed')
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
@@ -1288,52 +1287,5 @@ describe('Resizable.Root', () => {
       1,
       6,
     )
-  })
-
-  test('entry-less panels of one frame share the root whichever settles last', () => {
-    const onSizesChange = vi.fn()
-    const [firstPanel, setFirstPanel] = createSignal(false)
-
-    // Three panels with no `initialSizes` and no size of their own: none of
-    // them asked for anything, so what they describe is [0.5, 0.5, 0.5] = 1.5
-    // and each gives a sixth. Thirds are kept as 0.333333, so the place left
-    // over goes to the largest, and on a tie to the first.
-    mount(() => (
-      <Resizable onSizesChange={onSizesChange}>
-        <Resizable.Panel />
-        <Resizable.Panel />
-        <Resizable.Panel />
-      </Resizable>
-    ))
-
-    expect(onSizesChange).toHaveBeenLastCalledWith([
-      0.333334, 0.333333, 0.333333,
-    ])
-
-    dispose?.()
-    container?.remove()
-    dispose = null
-    container = null
-    onSizesChange.mockClear()
-
-    // The same three panels with the first mounting after the other two: the
-    // layout is the same, because no panel is singled out for being the one
-    // that registered last.
-    mount(() => (
-      <Resizable onSizesChange={onSizesChange}>
-        <Show when={firstPanel()}>
-          <Resizable.Panel />
-        </Show>
-        <Resizable.Panel />
-        <Resizable.Panel />
-      </Resizable>
-    ))
-
-    setFirstPanel(true)
-    flush()
-
-    expect(onSizesChange).toHaveBeenLastCalledWith([
-      0.333334, 0.333333, 0.333333,
-    ])
   })
 })

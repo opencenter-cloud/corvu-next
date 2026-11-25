@@ -248,12 +248,6 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       panelData.initialSize === null &&
       localProps.initialSizes[panelIndex] !== undefined
 
-    // A panel with neither a size of its own nor an entry takes the default,
-    // which is a placeholder rather than a size anyone asked for.
-    const panelSizeIsDefault =
-      panelData.initialSize === null &&
-      localProps.initialSizes[panelIndex] === undefined
-
     let panelSize: number | null = null
     if (panelData.initialSize !== null) {
       panelSize = resolveSize(panelData.initialSize, rootSize())
@@ -292,35 +286,18 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         Math.abs(previousTotalSize - 1) <= newSizes.length * 10 ** -PRECISION
 
       if (layoutIsFull) {
-        initialSizedPanels.clear()
-        const constraints = panelsInLayout.map((panel) =>
-          panelSizeConstraints(panel, rootSize()),
-        )
-
-        // A panel with no size of its own and no entry asked for nothing: the
-        // default is a placeholder, not a size anyone was given. The layout
-        // is written with every panel sharing what they are over the root,
-        // which for the panels of one frame is an even share each whichever
-        // of them the runtime settles last.
-        if (panelSizeIsDefault) {
-          const sizesWithPanel = [...newSizes]
-          sizesWithPanel.splice(panelIndex, 0, panelSize!)
-          return fixLayoutToPrecision({
-            sizes: sizesWithPanel,
-            constraints,
-            requestedPanel: null,
-            requestedSize: null,
-          })
-        }
-
-        // A full layout has no room for a panel that asks for a size, so the
-        // panels there each give up an equal share of it. Nothing follows
+        // A full layout has no room for another panel, so the panels there
+        // each give up an equal share of the size it takes. Nothing follows
         // `initialSizes` through that, since every entry is the layout from
         // before.
+        initialSizedPanels.clear()
         const offsetPerPanel =
           (previousTotalSize - (1 - panelSize!)) / newSizes.length
         const sizesWithRoom = newSizes.map((size) => size - offsetPerPanel)
         sizesWithRoom.splice(panelIndex, 0, panelSize!)
+        const constraints = panelsInLayout.map((panel) =>
+          panelSizeConstraints(panel, rootSize()),
+        )
 
         const joinedLayout = fixLayoutToPrecision({
           sizes: sizesWithRoom,
