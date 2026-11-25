@@ -13,6 +13,7 @@ import {
 import {
   type Accessor,
   createEffect,
+  createMemo,
   createSignal,
   createUniqueId,
   onCleanup,
@@ -23,26 +24,39 @@ import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
 
-/** One utility on the page, and whether it is preventing scroll right now.
- *  `enabled` is read where the stack is read, so a utility turning on or off
+/** One utility on the page, and when it last turned on: `enabledSince` is a
+ *  derivation read where the stack is read, so a utility turning on or off
  *  is in the stack in that flush: a stack an effect wrote instead made every
  *  reader run twice for one write of `enabled` (`EFFECT_RELAY_TEAR`), the
  *  first time against the stack as it was. */
 type PreventScrollRegistration = {
   id: string
-  enabled: Accessor<boolean>
+  enabledSince: Accessor<number | undefined>
 }
 
 const [preventScrollRegistrations, setPreventScrollRegistrations] =
   createSignal<PreventScrollRegistration[]>([], { ownedWrite: true })
 
-/** Whether this utility is the innermost one preventing scroll: only that
- *  one listens, so the listeners of the dialog behind a dialog do nothing. */
+/** Handed out in the order utilities turn on, so the greatest one is the one
+ *  enabled last. */
+let enableStamp = 0
+
+/** Whether this utility is the one enabled last: only that one listens, so
+ *  the listeners of the dialog behind a dialog do nothing. A utility that is
+ *  re-enabled takes a fresh stamp and so moves to the top of the stack,
+ *  which is what decides it — not the order the utilities were created in,
+ *  which for a page whose dialogs all mount up front is no order at all. */
 const isActive = (id: string) => {
-  const enabled = preventScrollRegistrations().filter((entry) =>
-    entry.enabled(),
-  )
-  return enabled[enabled.length - 1]?.id === id
+  let topId: string | undefined
+  let top = 0
+  for (const entry of preventScrollRegistrations()) {
+    const since = entry.enabledSince()
+    if (since !== undefined && since > top) {
+      top = since
+      topId = entry.id
+    }
+  }
+  return topId === id
 }
 
 /** Everything the body-style effect's apply phase styles the body from. */
@@ -92,10 +106,15 @@ const createPreventScroll = (props: {
   let currentTouchStartAxis: Axis | null = null
   let currentTouchStartDelta: number | null = null
 
-  // This utility's place in the stack, for as long as it lives.
+  // This utility's place in the stack, for as long as it lives. The stamp is
+  // taken the first time `enabled` is on and dropped when it goes off, so it
+  // says when this utility last turned on.
+  const enabledSince = createMemo<number | undefined>((prev) =>
+    access(props.enabled ?? true) ? (prev ?? ++enableStamp) : undefined,
+  )
   const registration: PreventScrollRegistration = {
     id: preventScrollId,
-    enabled: () => access(props.enabled ?? true),
+    enabledSince,
   }
   setPreventScrollRegistrations((registrations) => [
     ...registrations,
