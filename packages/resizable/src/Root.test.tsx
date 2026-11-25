@@ -1058,11 +1058,19 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // The same holds while the first frame is still mounting: the entry of
-    // four tenths is below the panel's own minimum, so it is given its
-    // minimum and the panels there give the shortfall within their maximums.
-    // The panel that mounts last asks for its own entry and keeps it, so the
-    // one between them gives what is left of the shortfall.
+    // The same holds while the first frame is still mounting. The panels
+    // register from `onSettled` (`Panel.tsx`), and the children of a corvu
+    // root settle in reverse of the order they were created in, so the third
+    // panel registers first and the first panel is the one that joins last.
+    //
+    // By then the other two hold their entries, the third raised to its own
+    // minimum: `[0.3, 0.3, 0.4]` re-derived from the entries, rounded into
+    // their bounds as `[0.3, 0.3, 0.6]`, which is `1.2` — over the root. So
+    // the layout goes through the write step with the panel that joined
+    // asking for its own entry of `0.3`, and the other two share the `0.2`
+    // over: a tenth each gives `[0.3, 0.2, 0.5]`, the third is pulled back up
+    // to its minimum of `0.6`, and the tenth that leaves over goes to the
+    // only derived panel with room for it, the second.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
     expect(sizes).toEqual([0.3, 0.1, 0.6])
     expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
