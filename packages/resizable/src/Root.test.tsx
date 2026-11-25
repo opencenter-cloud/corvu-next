@@ -3,6 +3,7 @@ import { createSignal, flush, Show } from 'solid-js'
 import Resizable from '@src/index'
 import type { JSX } from '@solidjs/web'
 import { render } from '@solidjs/web'
+import { fixLayoutToPrecision } from '@src/lib/utils'
 
 let dispose: (() => void) | null = null
 let container: HTMLElement | null = null
@@ -399,7 +400,7 @@ describe('Resizable.Root', () => {
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
-  test('a resize that pins every derived panel keeps them inside their bounds', () => {
+  test('a resize the bounds cut short gives the panel that asked a derived size', () => {
     const onSizesChange = vi.fn()
     const [fifthPanel, setFifthPanel] = createSignal(false)
     let resizeFirst: ((size: number) => void) | null = null
@@ -424,33 +425,212 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // Asking for more than the layout has pins all three derived panels to
-    // minimums that are none of them sizes of six places. Each rounds up into
-    // its own bound, and no panel is left that can give the rounding back:
-    // bounds come first, so the layout is handed on as it is, two places out
-    // of 1 and still well inside the n × 10⁻⁶ that counts as full.
+    // Asking for more than the layout has pins all three other panels to
+    // minimums that are none of them sizes of six places, and each rounds up
+    // into its own bound. The `0.9` asked for was not given, so that panel's
+    // size is derived like any other and it carries what the rounding left.
     resizeFirst!(0.9)
     flush()
 
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.745688, 0.142858, 0.058824, 0.052632])
+    expect(sizes).toEqual([0.745686, 0.142858, 0.058824, 0.052632])
     expect(sizes[1]).toBeGreaterThanOrEqual(1 / 7)
     expect(sizes[2]).toBeGreaterThanOrEqual(1 / 17)
     expect(sizes[3]).toBeGreaterThanOrEqual(1 / 19)
-    const total = sizes.reduce((totalSize, size) => totalSize + size, 0)
-    expect(Math.abs(total - 1)).toBeLessThanOrEqual(sizes.length * 1e-6)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
 
     setFifthPanel(true)
     flush()
 
-    // The layout still counts as full, so the panel that joins takes its room
-    // from the four rather than being added on top of them, and the write
-    // that has room in it brings the total back.
+    // The layout is full, so the panel that joins takes its room from the
+    // four rather than being added on top of them, at exactly its default.
     const joined = onSizesChange.mock.lastCall![0] as number[]
     expect(joined[4]).toBe(0.5)
     expect(joined.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,
     )
+  })
+
+  test('the request and the bounds win when no derived panel has room', () => {
+    const onSizesChange = vi.fn()
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.5, 0.25, 0.25]} onSizesChange={onSizesChange}>
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel maxSize={1 / 3} />
+        <Resizable.Panel maxSize={1 / 3} />
+      </Resizable>
+    ))
+
+    // A third is given exactly, and the two panels that take the rest are
+    // pinned to maximums of a third, which round down. The remainder would
+    // have to go up, and neither derived panel can take it without passing
+    // its maximum: the request and the bounds hold, and the total is left a
+    // place short of 1, well inside the n × 10⁻⁶ that still counts as full.
+    resizeFirst!(1 / 3)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.333333, 0.333333, 0.333333])
+    expect(sizes[1]).toBeLessThanOrEqual(1 / 3)
+    expect(sizes[2]).toBeLessThanOrEqual(1 / 3)
+    const total = sizes.reduce((totalSize, size) => totalSize + size, 0)
+    expect(total).not.toBe(1)
+    expect(Math.abs(total - 1)).toBeLessThanOrEqual(sizes.length * 1e-6)
+  })
+
+  test('a collapsible panel resting on its minimum is reported inside it', () => {
+    const onSizesChange = vi.fn()
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.5, 0.3, 0.2]} onSizesChange={onSizesChange}>
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel collapsible minSize={1 / 7} />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    // A panel that can collapse is open here, so its sizes are its minimum
+    // and maximum like any other panel's — the collapsed size is not a size
+    // it may rest between.
+    resizeFirst!(0.8)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.8, 0.142858, 0.057142])
+    expect(sizes[1]).toBeGreaterThanOrEqual(1 / 7)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel collapsed to an eleventh reads as collapsed and expands back', () => {
+    const onSizesChange = vi.fn()
+    let collapseSecond: ((strategy?: 'following') => void) | null = null
+    let expandSecond: ((strategy?: 'following') => void) | null = null
+
+    // The first panel is held at one size, so the panel that collapses
+    // reaches its collapse threshold instead of stopping at its minimum, and
+    // the third panel takes the size it gives up — and gives it back when the
+    // panel expands.
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0.5, 0.3, 0.2]} onSizesChange={onSizesChange}>
+        <Resizable.Panel minSize={0.5} maxSize={0.5} />
+        <Resizable.Panel collapsible collapsedSize={1 / 11} minSize={1 / 7}>
+          {(props) => {
+            collapseSecond = props.collapse
+            expandSecond = props.expand
+            return (
+              <span>
+                {props.collapsed === true ? 'collapsed' : 'open'} {props.size}
+              </span>
+            )
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    collapseSecond!('following')
+    flush()
+
+    // An eleventh is not a size the layout can store, so the panel rests on
+    // the size the write gives it, and that is the size a collapse is read
+    // against.
+    const collapsedSizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(collapsedSizes).toEqual([0.5, 0.090909, 0.409091])
+    expect(collapsedSizes[1]).toBe(0.090909)
+    expect(mounted.textContent).toBe('collapsed 0.090909')
+    expect(
+      collapsedSizes.reduce((totalSize, size) => totalSize + size, 0),
+    ).toBeCloseTo(1, 6)
+
+    expandSecond!('following')
+    flush()
+
+    const expandedSizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(expandedSizes).toEqual([0.5, 0.142858, 0.357142])
+    expect(expandedSizes[1]).toBeGreaterThanOrEqual(1 / 7)
+    expect(mounted.textContent).toBe(`open ${expandedSizes[1]}`)
+    expect(
+      expandedSizes.reduce((totalSize, size) => totalSize + size, 0),
+    ).toBeCloseTo(1, 6)
+  })
+
+  test('a collapsed panel keeps its size beside a panel pinned at its maximum', () => {
+    const onSizesChange = vi.fn()
+    let resizeLast: ((size: number) => void) | null = null
+    let collapseSecond: ((strategy?: 'following') => void) | null = null
+
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0.5, 0.3, 0.2]} onSizesChange={onSizesChange}>
+        <Resizable.Panel minSize={0.5} maxSize={7 / 12} />
+        <Resizable.Panel collapsible collapsedSize={1 / 11} minSize={1 / 7}>
+          {(props) => {
+            collapseSecond = props.collapse
+            return (
+              <span>{props.collapsed === true ? 'collapsed' : 'open'}</span>
+            )
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel>
+          {(props) => {
+            resizeLast = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+      </Resizable>
+    ))
+
+    collapseSecond!('following')
+    flush()
+    expect(mounted.textContent).toBe('collapsed')
+
+    // Asking the third panel to give up more than the first can take pins the
+    // first to a maximum of seven twelfths, which rounds down. The collapsed
+    // panel rests on one size and has room for nothing, so it keeps that size
+    // and goes on reading as collapsed, and the panel whose request was cut
+    // short carries what the rounding left.
+    resizeLast!(0.3)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.583333, 0.090909, 0.325758])
+    expect(sizes[0]).toBe(0.583333)
+    expect(sizes[0]).toBeLessThanOrEqual(7 / 12)
+    expect(sizes[1]).toBe(0.090909)
+    expect(mounted.textContent).toBe('collapsed')
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('writing a layout with the wrong number of panels throws', () => {
+    expect(() =>
+      fixLayoutToPrecision({
+        sizes: [0.5, 0.5],
+        constraints: [{ minSize: 0, maxSize: 1, collapsedSize: null }],
+        requestedPanel: null,
+        requestedSize: null,
+      }),
+    ).toThrow('2 sizes was written with 1 panels')
   })
 })

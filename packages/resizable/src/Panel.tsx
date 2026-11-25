@@ -17,7 +17,7 @@ import type { PanelInstance, ResizeStrategy } from '@src/lib/types'
 import createOnce from '@corvu-next/utils/create/once'
 import { createResizablePanelContext } from '@src/panelContext'
 import { mergeRefs } from '@corvu-next/utils/reactivity'
-import { resolveSize } from '@src/lib/utils'
+import { resolveSize, storedCollapsedSize } from '@src/lib/utils'
 import { useInternalResizableContext } from '@src/context'
 
 export type ResizablePanelCorvuProps = {
@@ -233,9 +233,12 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
       return false
     }
     const instance = panelInstance()
+    // Through the same rounding the layout writes with, so a collapsed size
+    // of an eleventh, which the layout cannot store as it is, still reads as
+    // collapsed.
     return instance
       ? instance.size() ===
-          resolveSize(localProps.collapsedSize, context.rootSize())
+          storedCollapsedSize(localProps.collapsedSize, context.rootSize())
       : false
   })
 

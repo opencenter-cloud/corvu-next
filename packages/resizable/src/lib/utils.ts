@@ -41,21 +41,56 @@ const splitPanels = (props: {
 const PRECISION = 6
 const fixToPrecision = (value: number) => parseFloat(value.toFixed(PRECISION))
 
-/** Where a panel's size may sit, resolved against the root. A collapsible
- *  panel rests at its collapsed size, which is below its minimum, so that is
- *  its floor. */
-type PanelSizeBounds = { minSize: number; maxSize: number }
+/** The size a collapsible panel rests at when it is collapsed, as the layout
+ *  stores it. Every comparison of a stored size with the collapsed size goes
+ *  through here, so a collapsed size of a eleventh, which no layout can store
+ *  as it is, still reads as collapsed. */
+const storedCollapsedSize = (collapsedSize: Size, rootSize: number) =>
+  fixToPrecision(resolveSize(collapsedSize, rootSize))
 
-const panelSizeBounds = (
+/**
+ * The sizes a panel may be reported at: anything from `minSize` to `maxSize`,
+ * and, for a collapsible panel, its collapsed size — never the gap between
+ * the collapsed size and the minimum. `collapsedSize` is `null` for a panel
+ * that cannot collapse.
+ */
+type PanelSizeConstraints = {
+  minSize: number
+  maxSize: number
+  collapsedSize: number | null
+}
+
+const panelSizeConstraints = (
   panel: PanelInstance,
   rootSize: number,
+): PanelSizeConstraints => ({
+  minSize: resolveSize(panel.data.minSize, rootSize),
+  maxSize: resolveSize(panel.data.maxSize, rootSize),
+  collapsedSize: panel.data.collapsible
+    ? storedCollapsedSize(panel.data.collapsedSize ?? 0, rootSize)
+    : null,
+})
+
+/** Where a size being written may sit. A collapsible panel the write puts
+ *  below the middle of its gap is being collapsed, and a collapsed panel is
+ *  pinned at its collapsed size with no room either way; anywhere above that
+ *  middle the panel is open, and its bounds are its minimum and maximum. */
+type PanelSizeBounds = { minSize: number; maxSize: number }
+
+const sizeBounds = (
+  size: number,
+  constraints: PanelSizeConstraints,
 ): PanelSizeBounds => {
-  const minSize = resolveSize(panel.data.minSize, rootSize)
-  const collapsedSize = resolveSize(panel.data.collapsedSize ?? 0, rootSize)
-  return {
-    minSize: panel.data.collapsible ? Math.min(minSize, collapsedSize) : minSize,
-    maxSize: resolveSize(panel.data.maxSize, rootSize),
+  if (
+    constraints.collapsedSize !== null &&
+    size < (constraints.collapsedSize + constraints.minSize) / 2
+  ) {
+    return {
+      minSize: constraints.collapsedSize,
+      maxSize: constraints.collapsedSize,
+    }
   }
+  return { minSize: constraints.minSize, maxSize: constraints.maxSize }
 }
 
 /** The smallest value of `PRECISION` places at or above `value`, and the
@@ -103,18 +138,20 @@ const hasRoomFor = (
 /**
  * The one way a full layout is written: the panels share whatever the layout
  * is away from the whole root, every size is rounded to `PRECISION` and into
- * its own bounds, and one panel carries what that rounding leaves over, so
- * the layout sums to 1 to the places sizes are kept at with no comparison
- * against 1 anywhere.
+ * the sizes its panel may be reported at, and one panel carries what that
+ * rounding leaves over, so the layout sums to 1 to the places sizes are kept
+ * at with no comparison against 1 anywhere.
  *
  * Which panel carries it follows `requestedPanel`, the panel whose size this
- * write is of:
+ * write is of, and `requestedSize`, the size it was asked for:
  *
  *   - A write of one panel's size — a resize, a collapse, an expand, or a
- *     panel joining the layout — names it. Its size is written as it was
- *     asked for, and the remainder goes to the largest panel derived from it
- *     that has room for it inside its own bounds; on a tie, the first of
- *     them.
+ *     panel joining the layout — names it. When the layout could give that
+ *     size, it is written as it was asked for and the remainder goes to the
+ *     largest panel derived from it that has room for it within the sizes it
+ *     may be reported at; on a tie, the first of them. When the layout could
+ *     not — a resize the other panels' bounds cut short — the size that comes
+ *     out is derived like any other, and that panel can carry too.
  *   - A drag over a handle names none (`null`): it asks for no size in
  *     particular, so every panel is derived and the largest with room carries
  *     the remainder. Without that a drag would walk the layout away from 1,
@@ -124,38 +161,57 @@ const hasRoomFor = (
  *     is carried: there is no panel to put the remainder on that was not
  *     asked for.
  *
- * Bounds come before the total. When no derived panel has room — each of them
- * pinned to a bound in the direction the remainder would move it — nothing is
- * carried and the layout is handed on as it is. Rounding a size into its
- * bounds moves it by less than 10 ** -PRECISION, so the total is then at most
- * n * 10 ** -PRECISION from 1, which still counts as a full layout, and the
- * next write with room in it brings the total back.
+ * The request and the bounds come before the total. Only when the request was
+ * given exactly and every derived panel is pinned in the direction the
+ * remainder would move it is nothing carried, and the layout is then handed
+ * on as it is. Rounding a size into its bounds moves it by less than
+ * 10 ** -PRECISION, so the total is at most n * 10 ** -PRECISION from 1,
+ * which still counts as a full layout, and the next write with room in it
+ * brings the total back.
  *
- * A panel mounting from `initialSizes` into a layout that is not full does
- * not come through here at all; the consumer's entries are handed on rounded.
+ * Every write of a full layout comes through here, a controlled root's
+ * resizes and drags included. The one write that does not is a panel mounting
+ * from `initialSizes` into a layout that is not full; the consumer's entries
+ * are handed on rounded.
  */
-const fixLayoutToPrecision = (
-  sizes: number[],
-  requestedPanel: number | null,
-  bounds: PanelSizeBounds[],
-) => {
-  const boundsOf = (index: number) =>
-    bounds[index] ?? { minSize: 0, maxSize: 1 }
-  const derivedPanels = sizes
-    .map((_, index) => index)
-    .filter((index) => index !== requestedPanel)
-  if (derivedPanels.length === 0) {
-    return sizes.map((size, index) => fixSizeToPrecision(size, boundsOf(index)))
+const fixLayoutToPrecision = (props: {
+  sizes: number[]
+  constraints: PanelSizeConstraints[]
+  requestedPanel: number | null
+  requestedSize: number | null
+}) => {
+  if (props.constraints.length !== props.sizes.length) {
+    throw new Error(
+      `[corvu] A layout of ${props.sizes.length} sizes was written with ${props.constraints.length} panels' constraints. They describe the same panels, so the two always match.`,
+    )
   }
 
-  const totalSize = sizes.reduce((totalSize, size) => totalSize + size, 0)
-  const offsetPerPanel = (totalSize - 1) / derivedPanels.length
-  const fixedSizes = sizes.map((size, index) =>
-    fixSizeToPrecision(
-      index === requestedPanel ? size : size - offsetPerPanel,
-      boundsOf(index),
-    ),
+  // A size the layout could not give is not a size anyone was given: the
+  // panel that asked for it holds a derived size like every other panel.
+  const askedSizeGiven =
+    props.requestedPanel !== null &&
+    props.requestedSize !== null &&
+    fixToPrecision(props.sizes[props.requestedPanel]!) ===
+      fixToPrecision(props.requestedSize)
+  const requestedPanel = askedSizeGiven ? props.requestedPanel : null
+
+  const derivedPanels = props.sizes
+    .map((_, index) => index)
+    .filter((index) => index !== requestedPanel)
+  const totalSize = props.sizes.reduce((totalSize, size) => totalSize + size, 0)
+  const offsetPerPanel =
+    derivedPanels.length === 0 ? 0 : (totalSize - 1) / derivedPanels.length
+
+  const writtenSizes = props.sizes.map((size, index) =>
+    index === requestedPanel ? size : size - offsetPerPanel,
   )
+  const bounds = writtenSizes.map((size, index) =>
+    sizeBounds(size, props.constraints[index]!),
+  )
+  const fixedSizes = writtenSizes.map((size, index) =>
+    fixSizeToPrecision(size, bounds[index]!),
+  )
+  if (derivedPanels.length === 0) return fixedSizes
 
   const remainder = fixToPrecision(
     1 - fixedSizes.reduce((totalSize, size) => totalSize + size, 0),
@@ -163,7 +219,7 @@ const fixLayoutToPrecision = (
   if (remainder === 0) return fixedSizes
 
   const panelsWithRoom = derivedPanels.filter((index) =>
-    hasRoomFor(fixedSizes[index]!, remainder, boundsOf(index)),
+    hasRoomFor(fixedSizes[index]!, remainder, bounds[index]!),
   )
   if (panelsWithRoom.length === 0) return fixedSizes
 
@@ -181,7 +237,8 @@ export {
   splitPanels,
   fixToPrecision,
   fixLayoutToPrecision,
-  panelSizeBounds,
+  panelSizeConstraints,
+  storedCollapsedSize,
   PRECISION,
 }
-export type { PanelSizeBounds }
+export type { PanelSizeConstraints }

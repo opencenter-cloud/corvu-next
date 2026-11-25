@@ -25,10 +25,11 @@ import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
 import {
   fixLayoutToPrecision,
   fixToPrecision,
-  panelSizeBounds,
+  panelSizeConstraints,
   PRECISION,
   resolveSize,
   splitPanels,
+  storedCollapsedSize,
 } from '@src/lib/utils'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import createOnce from '@corvu-next/utils/create/once'
@@ -319,11 +320,14 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // under-filled layout is only rounded: corvu leaves a layout the
       // consumer under-filled as they left it.
       if (layoutIsFull) {
-        return fixLayoutToPrecision(
-          newSizes,
-          panelIndex,
-          panelsInLayout.map((panel) => panelSizeBounds(panel, rootSize())),
-        )
+        return fixLayoutToPrecision({
+          sizes: newSizes,
+          constraints: panelsInLayout.map((panel) =>
+            panelSizeConstraints(panel, rootSize()),
+          ),
+          requestedPanel: panelIndex,
+          requestedSize: panelSize,
+        })
       }
       return newSizes.map(fixToPrecision)
     })
@@ -383,6 +387,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         panels: panels(),
         initialSizes: panels().map((panel) => panel.size()),
         collapsible: false,
+        requestedSize: allowedSize,
         resizableData: {
           rootSize: rootSize(),
           orientation: localProps.orientation,
@@ -398,7 +403,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       if (!panel) return
 
       const panelSize = sizes()[panelIndex]!
-      const collapsedSize = resolveSize(
+      const collapsedSize = storedCollapsedSize(
         panel.data.collapsedSize ?? 0,
         rootSize(),
       )
@@ -412,6 +417,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         panels: panels(),
         initialSizes: panels().map((panel) => panel.size()),
         collapsible: true,
+        requestedSize: collapsedSize,
         resizableData: {
           rootSize: rootSize(),
           orientation: localProps.orientation,
@@ -427,7 +433,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       if (!panel) return
 
       const panelSize = sizes()[panelIndex]!
-      const collapsedSize = resolveSize(
+      const collapsedSize = storedCollapsedSize(
         panel.data.collapsedSize ?? 0,
         rootSize(),
       )
@@ -443,6 +449,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         panels: panels(),
         initialSizes: panels().map((panel) => panel.size()),
         collapsible: true,
+        requestedSize: minSize,
         resizableData: {
           rootSize: rootSize(),
           orientation: localProps.orientation,
@@ -492,7 +499,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         if (!collapsiblePanel || !collapsiblePanel.data.collapsible) return
       }
       const size = collapsiblePanel.size()
-      const collapsedSize = resolveSize(
+      const collapsedSize = storedCollapsedSize(
         collapsiblePanel.data.collapsedSize ?? 0,
         rootSize(),
       )

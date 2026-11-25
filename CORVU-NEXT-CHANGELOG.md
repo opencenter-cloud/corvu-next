@@ -77,20 +77,29 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   six decimal places, so a layout of n panels is full when its total is within
   n × 10⁻⁶ of 1 — three thirds are stored as `0.333333` and sum to `0.999999` — and a
   panel joining one takes its room from the panels there. Nothing is written back over the
-  shares they gave up. Every size that was asked for comes back as it was asked, to those
-  six places: the panel being resized, collapsed or expanded, the panel joining the layout
-  at its own `initialSize`, its entry or the default, and a controlled `sizes`. A size
-  pinned to a bound is reported inside that bound: one sitting on its `minSize` rounds up
-  to the next six-place size at or above it, one on its `maxSize` rounds down, so no panel
-  is ever reported outside its own minimum or maximum — `minSize={1/7}` is reported as
-  `0.142858`, never `0.142857`. What the rounding leaves over is carried by the largest
-  panel the write derived that has room for it inside its own bounds, and on a tie by the
-  first of them. A drag asks for no size in particular, so every panel it moves is derived
-  and the largest with room carries it; a lone panel resizing itself derives nothing, and
-  nothing is carried. Bounds come before the total: when every derived panel is pinned in
-  the direction the remainder would move it, nothing is carried and the layout is handed on
-  up to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it
-  brings the total back.
+  shares they gave up. A size the layout could give as it was asked for comes back exactly
+  as asked, to those six places: the panel being resized, collapsed or expanded, the panel
+  joining the layout at its own `initialSize`, its entry or the default, and a controlled
+  `sizes`. A request the other panels' bounds cut short is not a size anyone was given, so
+  that panel holds a derived size like any other. A size is reported only where its panel
+  may rest: inside `minSize` and `maxSize`, rounded inward — one sitting on `minSize`
+  rounds up to the next six-place size at or above it, one on `maxSize` rounds down, so
+  `minSize={1/7}` is reported as `0.142858`, never `0.142857`. A panel that can collapse
+  rests either on its collapsed size or anywhere from its minimum to its maximum, never in
+  the gap between them: a collapsed panel is pinned at its collapsed size as the layout
+  stores it, and an open one has its minimum and maximum like any other panel. Whether a
+  panel is collapsed is read through that same rounding everywhere — `collapsed`, the
+  collapse, expand and keyboard paths, and the distribution itself — so a
+  `collapsedSize={1/11}` still reads as collapsed. What the rounding leaves over is carried
+  by the largest panel the write derived that has room for it where its panel may rest, and
+  on a tie by the first of them. A drag asks for no size in particular, so every panel it
+  moves is derived and the largest with room carries it; a lone panel resizing itself
+  derives nothing, and nothing is carried. The request and the bounds come before the
+  total: only when the request was given exactly and every derived panel is pinned in the
+  direction the remainder would move it is nothing carried, and the layout is then handed
+  on up to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it
+  brings the total back. A layout written with a number of panels that does not match its
+  number of sizes throws, naming both.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and

@@ -1959,21 +1959,36 @@ the places the values are kept at. Dropping the correction instead does not work
 that pins several values to bounds of their own rounds each of them the same way, and with
 nothing to absorb it the total walks away from 1 until the layout stops counting as full.
 
-Which value carries it is not free either. The value someone asked for must come back as they
+Which value carries it is not free either. A value someone asked for must come back as they
 asked it, so the remainder goes to one the write derived — the largest of them, and on a tie
-the first. A write that asks for no particular value, a drag over a handle, derives all of
-them, and the largest still carries it; only a write with nothing derived at all, one value
-asked for and no other, can carry nothing. Picking "the largest value" without that
-distinction is right only while the largest happens to be a derived one.
+the first. A request the other values' bounds cut short was never given, so that one is
+derived too and can carry like any other. A write that asks for no particular value, a drag
+over a handle, derives all of them, and the largest still carries it; only a write with
+nothing derived at all, one value asked for and no other, can carry nothing. Picking "the
+largest value" without that distinction is right only while the largest happens to be a
+derived one.
 
-And rounding has to respect the bounds each value is held to. A value sitting on a bound of
-the consumer's — a minimum of a seventh — rounds to the nearest six-place value and is then
-reported below the minimum it was pinned to. Round such a value toward the inside of its
-bound instead, up at a minimum and down at a maximum, and let the remainder go only to a
-value with room for it inside its own bounds. The two cannot always both hold: when every
-derived value is pinned in the direction the remainder would move it, the bounds win, the
-total is left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next
+And rounding has to respect the set of values each one is held to, which is not always an
+interval. A value sitting on a bound of the consumer's — a minimum of a seventh — rounds to
+the nearest six-place value and is then reported below the minimum it was pinned to. Round
+such a value toward the inside of its bound instead, up at a minimum and down at a maximum,
+and let the remainder go only to a value with room for it. A panel that can collapse is the
+harder case: its sizes are its collapsed size, or anything from its minimum to its maximum,
+and never the gap between, so one interval cannot describe it. Give such a thing bounds that
+depend on what the write is doing to it — pinned at the collapsed size when the write
+collapses it, its minimum and maximum when it does not — and compare "is it collapsed?"
+through the same rounding the write applies, everywhere the question is asked. Otherwise a
+collapsed size the writes cannot store, an eleventh, never compares equal to a stored size
+and the thing silently stops reading as collapsed.
+
+Request and bounds before the total: only when the request was given exactly and every
+derived value is pinned in the direction the remainder would move it is nothing carried. The
+total is then left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next
 write with room in it brings it back.
+
+Finally, a step that takes the values and the bounds as two lists must refuse a pair that
+does not match, naming both lengths. A missing bound that falls back to "anything from 0 to
+1" disables every bound at once, quietly.
 
 Every registration still sorts with `compareDocumentPosition`; what this removes is the
 `querySelectorAll` scan of the parent at each registration, which also counted children that
