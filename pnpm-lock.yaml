@@ -398,9 +398,15 @@ importers:
         specifier: workspace:*
         version: link:../utils
     devDependencies:
+      '@solidjs/vite-plugin':
+        specifier: 3.0.1
+        version: 3.0.1(@babel/core@7.29.7)(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       '@solidjs/web':
         specifier: 2.0.3
         version: 2.0.3(solid-js@2.0.3)
+      happy-dom:
+        specifier: ^21.0.4
+        version: 21.0.4
       solid-js:
         specifier: 2.0.3
         version: 2.0.3
@@ -410,6 +416,12 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vite:
+        specifier: ^8
+        version: 8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
+      vitest:
+        specifier: ^5.1.1
+        version: 5.1.1(@types/node@26.6.7)(happy-dom@21.0.4)(vite@8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/solid-focus-trap:
     dependencies:
@@ -501,9 +513,15 @@ importers:
         specifier: workspace:*
         version: link:../utils
     devDependencies:
+      '@solidjs/vite-plugin':
+        specifier: 3.0.1
+        version: 3.0.1(@babel/core@7.29.7)(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       '@solidjs/web':
         specifier: 2.0.3
         version: 2.0.3(solid-js@2.0.3)
+      happy-dom:
+        specifier: ^21.0.4
+        version: 21.0.4
       solid-js:
         specifier: 2.0.3
         version: 2.0.3
@@ -513,6 +531,12 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vite:
+        specifier: ^8
+        version: 8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
+      vitest:
+        specifier: ^5.1.1
+        version: 5.1.1(@types/node@26.6.7)(happy-dom@21.0.4)(vite@8.1.5(@types/node@26.6.7)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/solid-transition-size:
     dependencies:

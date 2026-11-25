@@ -10,7 +10,7 @@ import {
   type MaybeAccessor,
   mergeDefaults,
 } from '@corvu-next/utils/reactivity'
-import { createEffect, createSignal, createUniqueId } from 'solid-js'
+import { createEffect, createSignal, createUniqueId, untrack } from 'solid-js'
 import type { Axis } from '@corvu-next/utils'
 import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
@@ -24,6 +24,14 @@ const isActive = (id: string) => {
   const stack = preventScrollStack()
   const index = stack.indexOf(id)
   return index !== -1 && index === stack.length - 1
+}
+
+/** Everything the body-style effect's apply phase styles the body from. */
+type BodyStyleInput = {
+  enabled: boolean
+  hideScrollbar: boolean
+  preventScrollbarShift: boolean
+  preventScrollbarShiftMode: 'padding' | 'margin'
 }
 
 /**
@@ -86,15 +94,29 @@ const createPreventScroll = (props: {
 
   // Effect 2: Body style application (scrollbar hide + shift compensation)
   createEffect(
-    (prev: undefined | { enabled: boolean; hideScrollbar: boolean }) => {
+    (prev: undefined | BodyStyleInput): BodyStyleInput => {
       const enabled = access(props.enabled ?? true)
       const hideScrollbar = access(props.hideScrollbar ?? true)
-      return { enabled, hideScrollbar }
+      // The apply phase below is a strict-read window: a consumer's reactive
+      // `preventScrollbarShift` or `preventScrollbarShiftMode` read there is a
+      // `STRICT_READ_UNTRACKED`, and a change to it would not restyle the
+      // body. Both are read here, so the body's style follows them.
+      const preventScrollbarShift = access(
+        defaultedProps.preventScrollbarShift,
+      )
+      // The default widens the literal union to `string`, and only the two
+      // words the prop declares ever reach it.
+      const preventScrollbarShiftMode = access(
+        defaultedProps.preventScrollbarShiftMode,
+      ) as 'padding' | 'margin'
+      return {
+        enabled,
+        hideScrollbar,
+        preventScrollbarShift,
+        preventScrollbarShiftMode,
+      }
     },
-    (
-      next: { enabled: boolean; hideScrollbar: boolean },
-      prev?: { enabled: boolean; hideScrollbar: boolean },
-    ) => {
+    (next: BodyStyleInput, prev?: BodyStyleInput) => {
       if (!next.enabled || !next.hideScrollbar) {
         return
       }
@@ -103,12 +125,12 @@ const createPreventScroll = (props: {
 
       const scrollbarWidth = window.innerWidth - body.offsetWidth
 
-      if (access(defaultedProps.preventScrollbarShift)) {
+      if (next.preventScrollbarShift) {
         const style: Partial<CSSStyleDeclaration> = { overflow: 'hidden' }
         const properties: { key: string; value: string }[] = []
 
         if (scrollbarWidth > 0) {
-          if (access(defaultedProps.preventScrollbarShiftMode) === 'padding') {
+          if (next.preventScrollbarShiftMode === 'padding') {
             style.paddingRight = `calc(${
               window.getComputedStyle(body).paddingRight
             } + ${scrollbarWidth}px)`
@@ -133,10 +155,14 @@ const createPreventScroll = (props: {
           style,
           properties,
           cleanup: () => {
-            if (
-              access(defaultedProps.restoreScrollPosition) &&
-              scrollbarWidth > 0
-            ) {
+            // Whether to restore the scroll position is decided when the
+            // style is reverted, not when it was applied, and this runs in a
+            // cleanup, which tracks nothing: `untrack` says so, so a reactive
+            // value here is read as the plain lookup it is.
+            const restoreScrollPosition = untrack(() =>
+              access(defaultedProps.restoreScrollPosition),
+            )
+            if (restoreScrollPosition && scrollbarWidth > 0) {
               window.scrollTo(offsetLeft, offsetTop)
             }
           },

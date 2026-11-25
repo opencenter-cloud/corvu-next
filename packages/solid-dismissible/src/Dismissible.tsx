@@ -6,6 +6,7 @@ import {
   createSignal,
   createUniqueId,
   omit,
+  untrack,
   useContext,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
@@ -52,7 +53,10 @@ const Dismissible: Component<DismissibleProps> = (props) => {
   }
 
   const [layers, setLayers] = createSignal<string[]>(
-    [defaultedProps.dismissibleId],
+    // The seed of the stack, read once: a component body tracks nothing, so
+    // a consumer's reactive id is read as the plain value it is here, and
+    // the layer below keeps the registry following it.
+    [untrack(() => defaultedProps.dismissibleId)],
     { ownedWrite: true },
   )
 
@@ -96,8 +100,14 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     props,
   )
 
+  // `createDismissible` takes none of these. `dismissibleId` is among them:
+  // `otherProps` is spread into an object literal below, which reads every
+  // key it still carries once and untracked, so leaving the id in it both
+  // raises `STRICT_READ_UNTRACKED` for a reactive one and hands
+  // `createDismissible` a prop it has no use for.
   const otherProps = omit(defaultedProps,
     'enabled',
+    'dismissibleId',
     'children',
     'dismissOnEscapeKeyDown',
     'dismissOnOutsideFocus',
@@ -111,29 +121,33 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
   const context = useContext(DismissibleContext) as DismissibleContextValue
 
   createEffect(
-    () => defaultedProps.enabled,
-    (enabled) => {
+    // The id belongs here, with `enabled`: the apply phase below is a
+    // strict-read window, where reading a consumer's reactive
+    // `dismissibleId` is a `STRICT_READ_UNTRACKED`, and the cleanup would
+    // remove whatever id was current when it ran rather than the one this
+    // run registered.
+    () => ({
+      enabled: defaultedProps.enabled,
+      dismissibleId: defaultedProps.dismissibleId,
+    }),
+    ({ enabled, dismissibleId }) => {
       if (enabled) {
-        context.onLayerShow(defaultedProps.dismissibleId)
+        context.onLayerShow(dismissibleId)
         setActiveDismissibles((activeDismissibles) => [
           ...activeDismissibles,
-          defaultedProps.dismissibleId,
+          dismissibleId,
         ])
       } else {
-        context.onLayerDismiss(defaultedProps.dismissibleId)
+        context.onLayerDismiss(dismissibleId)
         setActiveDismissibles((activeDismissibles) =>
-          activeDismissibles.filter(
-            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-          ),
+          activeDismissibles.filter((active) => active !== dismissibleId),
         )
       }
 
       return () => {
-        context.onLayerDismiss(defaultedProps.dismissibleId)
+        context.onLayerDismiss(dismissibleId)
         setActiveDismissibles((activeDismissibles) =>
-          activeDismissibles.filter(
-            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-          ),
+          activeDismissibles.filter((active) => active !== dismissibleId),
         )
       }
     },

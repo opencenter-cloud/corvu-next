@@ -92,8 +92,24 @@ const createFloating = (props: {
       floating: access(defaultedProps.floating),
       arrowElement: access(defaultedProps.arrow),
       options: access(defaultedProps.options),
+      // Read here, not in `autoUpdate`'s callback: that callback first runs
+      // inside the apply phase, where a read of a consumer's reactive
+      // placement or strategy is a `STRICT_READ_UNTRACKED`, and every later
+      // run would position against whatever the first run captured. As
+      // dependencies of the compute, a new placement or strategy re-runs the
+      // effect and repositions the element.
+      placement: access(defaultedProps.placement),
+      strategy: access(defaultedProps.strategy),
     }),
-    ({ enabled, reference, floating, arrowElement, options }) => {
+    ({
+      enabled,
+      reference,
+      floating,
+      arrowElement,
+      options,
+      placement: placementOption,
+      strategy,
+    }) => {
       if (!enabled) return
       if (!reference || !floating) return
 
@@ -186,8 +202,8 @@ const createFloating = (props: {
 
       const cleanup = autoUpdate(reference, floating, () => {
         computePosition(reference, floating, {
-          placement: access(defaultedProps.placement),
-          strategy: access(defaultedProps.strategy),
+          placement: placementOption,
+          strategy,
           middleware,
         }).then(({ placement, x, y, middlewareData }) => {
           const newFloatingState = {
