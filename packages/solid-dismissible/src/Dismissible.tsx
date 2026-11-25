@@ -2,6 +2,7 @@ import {
   type Accessor,
   type Component,
   createContext,
+  createMemo,
   createSignal,
   createUniqueId,
   omit,
@@ -16,11 +17,30 @@ import { isFunction } from '@corvu-next/utils'
 
 /** What a layer tells the stacks about itself: both are read where the stack
  *  is read, so a layer that is enabled, or renamed, is in the stack in the
- *  flush that changed it. */
+ *  flush that changed it. `enabledSince` says when the layer last turned on,
+ *  and is `undefined` while it is off. */
 type LayerRegistration = {
   id: Accessor<string>
-  enabled: Accessor<boolean>
+  enabledSince: Accessor<number | undefined>
 }
+
+/** Handed out in the order layers turn on, so the greatest one is the layer
+ *  enabled last. */
+let enableStamp = 0
+
+/** The ids of the enabled layers of a stack, the one enabled last — the one
+ *  on top — last. A layer that is re-enabled takes a fresh stamp and so
+ *  moves back to the top, which is what decides the stack: not the order
+ *  the layers were created in, which for layers that mount up front and only
+ *  flip `enabled` is no order at all. */
+const enabledLayers = (registrations: LayerRegistration[]) =>
+  registrations
+    .flatMap((layer) => {
+      const since = layer.enabledSince()
+      return since === undefined ? [] : [{ since, id: layer.id() }]
+    })
+    .sort((a, b) => a.since - b.since)
+    .map((layer) => layer.id)
 
 type DismissibleContextValue = {
   layers: Accessor<string[]>
@@ -87,10 +107,7 @@ const Dismissible: Component<DismissibleProps> = (props) => {
     { ownedWrite: true },
   )
 
-  const layers = () =>
-    registrations()
-      .filter((layer) => layer.enabled())
-      .map((layer) => layer.id())
+  const layers = () => enabledLayers(registrations())
 
   return (
     <DismissibleContext
@@ -110,11 +127,8 @@ const [dismissibleRegistrations, setDismissibleRegistrations] = createSignal<
   LayerRegistration[]
 >([], { ownedWrite: true })
 
-/** The ids of the layers that are enabled, innermost last. */
-const activeDismissibles = () =>
-  dismissibleRegistrations()
-    .filter((layer) => layer.enabled())
-    .map((layer) => layer.id())
+/** The ids of the layers that are enabled, the one on top last. */
+const activeDismissibles = () => enabledLayers(dismissibleRegistrations())
 
 const DismissibleLayer: Component<DismissibleProps> = (props) => {
   const defaultedProps = mergeDefaults(
@@ -152,10 +166,15 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
 
   /** What this layer is, read wherever a stack is read: an id a consumer
    *  changes, or an `enabled` they flip, reaches both stacks in that flush,
-   *  and the layer leaves them when it unmounts. */
+   *  and the layer leaves them when it unmounts. The stamp is taken the
+   *  first time `enabled` is on and dropped when it goes off, so it says
+   *  when this layer last turned on. */
+  const enabledSince = createMemo<number | undefined>((prev) =>
+    defaultedProps.enabled ? (prev ?? ++enableStamp) : undefined,
+  )
   const registration: LayerRegistration = {
     id: () => defaultedProps.dismissibleId,
-    enabled: () => defaultedProps.enabled,
+    enabledSince,
   }
   context.registerLayer(registration)
   registerLayerIn(setDismissibleRegistrations, registration)
