@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import Dialog from '@src/index'
-import { flush } from 'solid-js'
+import { createSignal, flush } from 'solid-js'
 import type { JSX } from '@solidjs/web'
 import { render } from '@solidjs/web'
 
@@ -202,5 +202,63 @@ describe('Dialog.Root defaults', () => {
     // The content is still in the tree: no stylesheet here ends the exit
     // animation, so presence holds it while it "hides". What the consumer's
     // CSS keys on has flipped, which is the point of this test.
+  })
+
+  /**
+   * A dialog opened after it was mounted — which is every dialog an app
+   * actually renders — has to lock the page behind it exactly as one mounted
+   * open does. What decides that is the content's presence, and presence
+   * used to lose the open edge when its effect's compute ran twice before
+   * its apply: the content ref commits in the same flush as `open` flips.
+   */
+  test('a dialog opened after the mount locks the scroll behind it', () => {
+    const wheelListeners = new Set<EventListenerOrEventListenerObject>()
+    const addEventListener = document.addEventListener.bind(document)
+    const removeEventListener = document.removeEventListener.bind(document)
+    document.addEventListener = ((type: string, listener: never, options: never) => {
+      if (type === 'wheel') wheelListeners.add(listener)
+      return addEventListener(type, listener, options)
+    }) as typeof document.addEventListener
+    document.removeEventListener = ((type: string, listener: never, options: never) => {
+      if (type === 'wheel') wheelListeners.delete(listener)
+      return removeEventListener(type, listener, options)
+    }) as typeof document.removeEventListener
+
+    try {
+      const [open, setOpen] = createSignal(false)
+
+      // The content mounts where it is written, with no portal between it
+      // and the root: its ref then commits in the same flush as `open`
+      // flips, which is the flush presence used to lose the edge in.
+      mount(() => (
+        <Dialog open={open()} onOpenChange={setOpen}>
+          <Dialog.Content>content</Dialog.Content>
+        </Dialog>
+      ))
+
+      expect(document.body.style.overflow).toBe('')
+      expect(wheelListeners.size).toBe(0)
+
+      setOpen(true)
+      flush()
+
+      const content = document.querySelector('[data-corvu-dialog-content]')!
+      expect(content.getAttribute('data-open')).toBe('')
+      expect(document.body.style.overflow).toBe('hidden')
+      expect(wheelListeners.size).toBe(1)
+
+      // Closing holds the lock while the content animates out, so this one
+      // says it has no animation to run.
+      ;(content as HTMLElement).style.animationName = 'none'
+      setOpen(false)
+      flush()
+
+      // And it gives the page back when it closes.
+      expect(document.body.style.overflow).toBe('')
+      expect(wheelListeners.size).toBe(0)
+    } finally {
+      document.addEventListener = addEventListener
+      document.removeEventListener = removeEventListener
+    }
   })
 })

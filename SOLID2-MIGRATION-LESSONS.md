@@ -2168,6 +2168,71 @@ reports itself.
 
 ---
 
+## 35. An Edge Belongs To The Apply Phase, Not The Compute
+
+### Symptoms
+
+A dialog mounted closed and then opened does not lock the page behind it. Everything gated
+on "is the content present" is wrong, while the same dialog mounted already open is right.
+
+### Root Cause
+
+A split-phase `createEffect(compute, apply)` runs its *compute* once per dependency change
+and its *apply* once per committed change. `@corvu-next/presence` detected the `show` edge
+by threading the previous value through the compute's own return:
+
+```ts
+createEffect(
+  (prevResult) => {
+    const show = access(props.show)
+    const prev = prevResult?.show ?? show   // the previous COMPUTE, not the previous APPLY
+    const display = refStyles()?.display    // a second dependency
+    return { prev, show, display }
+  },
+  ({ prev, show }) => {
+    if (prev === show) return               // edge lost
+    …
+  },
+)
+```
+
+The compute also depends on the element's computed styles, and so on the element ref, which
+commits in the same flush the dialog opens in. Two compute runs, one apply: the second run
+read `prev` as its own `show`, and the apply saw no change at all.
+
+Solid's own `prev` is not the trap: the second argument the *apply* receives is the value
+from the previous apply (`_prevValue` is assigned only in an effect run), so it is safe.
+What is unsafe is state a compute threads through its return value, because the compute is
+allowed to run as often as its dependencies change.
+
+### Fix
+
+Keep the previous value in a plain variable the apply owns, seeded the same way the state
+is:
+
+```ts
+let appliedShow = untrack(() => access(props.show))
+createEffect(
+  () => ({ show: access(props.show), display: refStyles()?.display }),
+  ({ show }) => {
+    const prev = appliedShow
+    appliedShow = show
+    if (prev === show) return
+    …
+  },
+)
+```
+
+Test it in the shape that produces the extra compute run — the element rendered by the same
+flip — not only by toggling a signal, which passes either way.
+
+### Where This Applies
+
+Any split-phase effect that detects a change rather than just applying a value, and whose
+compute reads more than the thing it is detecting.
+
+---
+
 ## Links
 
 - [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)

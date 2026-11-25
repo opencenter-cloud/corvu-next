@@ -85,6 +85,16 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   build reports as `STRICT_READ_UNTRACKED`, and from the observer it is a value a write
   made in the same frame has not reached. It is plain state those callbacks own now, with
   the signal written beside it for what renders from it.
+- **A dialog opened after it was mounted locks the page behind it again.** `@corvu-next/presence`
+  decided "did `show` just change?" by threading the previous `show` through its effect's own
+  compute result. A compute runs for every dependency it has — and this one also reads the
+  element's computed styles, so it runs again when the element's ref commits, which is the
+  same flush `open` flips in. The second run then saw its own `show` as the previous one, the
+  edge was gone, and the state stayed `hidden`: `contentPresent()` stayed false, and with it
+  the scroll lock, which is gated on it, never engaged. The previous `show` is now a plain
+  variable the effect's apply phase owns, which runs once per change. A dialog whose content
+  is not behind a portal is the shape that showed it: mounted closed and then opened, it left
+  `body` scrollable and attached no wheel listener.
 - **The drawer's drag works again.** A signal write is staged until the end of the frame
   it was made in, so a handler that writes one and reads it back in the same frame sees
   the value from before it. `Drawer.Content` read the dragging flag and the live translate

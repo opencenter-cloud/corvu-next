@@ -56,16 +56,29 @@ const createPresence = (props: {
 
   let animationName = 'none'
 
+  /**
+   * The `show` this effect has already acted on. It belongs to the effect's
+   * apply phase, which runs once per change, and not to its compute, which
+   * may run again for any of its other dependencies — the element's styles,
+   * and so the element ref, which commits in the same flush as `show` flips.
+   * Deriving "what it was before" from the previous compute result lost the
+   * edge whenever a compute ran twice before an apply: a dialog opened after
+   * it was mounted stayed `hidden`, and everything gated on it — the scroll
+   * lock most visibly — never engaged.
+   */
+  let appliedShow = untrack(() => access(props.show))
+
   // Effect 1: react to `show` prop changes, compute next present state.
   createEffect(
-    (prevResult: { prev: boolean; show: boolean } | undefined) => {
+    () => {
       const show = access(props.show)
-      const prev = prevResult?.show ?? show
       const currentAnimationName = getAnimationName()
       const display = refStyles()?.display
-      return { prev, show, currentAnimationName, display }
+      return { show, currentAnimationName, display }
     },
-    ({ prev, show, currentAnimationName, display }) => {
+    ({ show, currentAnimationName, display }) => {
+      const prev = appliedShow
+      appliedShow = show
       if (prev === show) return
 
       const prevAnimationName = animationName
