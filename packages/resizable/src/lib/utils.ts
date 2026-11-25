@@ -173,7 +173,9 @@ const fixSizesToPrecision = (
  * write is of, and `requestedSize`, the size it was asked for:
  *
  *   - A write of one panel's size — a resize, a collapse, an expand, or a
- *     panel joining the layout — names it. When the layout could give that
+ *     panel joining the layout at a size it was given, its own `initialSize`
+ *     or its `initialSizes` entry — names it. A panel joining with neither
+ *     asked for nothing, so it names none and shares the root like the rest. When the layout could give that
  *     size, it is written as it was asked for and the remainder goes to the
  *     panels derived from it. When the layout could not — a resize or a join
  *     the other panels' bounds cut short — the size that comes out is derived

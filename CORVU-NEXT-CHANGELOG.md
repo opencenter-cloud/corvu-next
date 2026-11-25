@@ -78,9 +78,13 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
 - `@corvu-next/resizable` writes every layout one way, and this is that way:
   - **Exact sizes.** A size the layout can give as it was asked for comes back exactly, to
     the six decimal places sizes are kept at: the panel being resized, collapsed or
-    expanded, and a panel joining at its own `initialSize`, its entry or the default. A
+    expanded, and a panel joining at its own `initialSize` or its `initialSizes` entry. A
     request the other panels' bounds cut short is not a size anyone was given, so that
-    panel's size is derived like any other.
+    panel's size is derived like any other. A panel with neither asked for nothing: the
+    default of a half is a placeholder, so such a panel shares the root with the others —
+    three of them in one frame come out as thirds, whichever of them the runtime settles
+    last. corvu gave the panel that registered last its half and took the room from the
+    others, which made the layout depend on that order.
   - **Bounds, at every write.** A size is reported only where its panel may rest: inside
     `minSize` and `maxSize`, rounded inward, so `minSize={1/7}` comes back as `0.142858`
     and never `0.142857`. A panel that can collapse rests either on its collapsed size or
