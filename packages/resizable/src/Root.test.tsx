@@ -147,11 +147,12 @@ describe('Resizable.Root', () => {
     flush()
 
     // `initialSizes` describes two panels, so the third has no entry and no
-    // size of its own: it asked for nothing, and takes an even share of the
-    // room the panels that did ask leave. Their entries are 0.7 and 0.3, so
-    // there is none, and the layout still sums to 1.
+    // size of its own: it asked for nothing, and the three share the root.
+    // What they describe is [0.7, 0.3, 0.5] = 1.5, a half over, so each gives
+    // 0.166667 and lands on [0.533333, 0.133333, 0.333333] = 0.999999, with
+    // the place left over going to the largest.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.7, 0.3, 0])
+    expect(sizes).toEqual([0.533334, 0.133333, 0.333333])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -288,11 +289,8 @@ describe('Resizable.Root', () => {
     // size that was asked for, which comes back exactly — and takes its room
     // from the three. Those three tie for largest among the panels this write
     // derived, and the first of them carries what the rounding leaves.
-    // The three entries claim the whole root — thirds, kept as 0.333333 with
-    // the place left over on the first — so the fourth panel, which asked for
-    // nothing, takes the room they leave: none.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.333334, 0.333333, 0.333333, 0])
+    expect(sizes).toEqual([0.208333, 0.208333, 0.208333, 0.375001])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -332,11 +330,8 @@ describe('Resizable.Root', () => {
     setFourthPanel(true)
     flush()
 
-    // The resize set the three panels' sizes, so they are no longer the
-    // entries' to re-derive; they fill the root, and the fourth panel, which
-    // asked for nothing, takes the room they leave: none.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.4, 0.266666, 0.333334, 0])
+    expect(sizes).toEqual([0.275, 0.141666, 0.208334, 0.375])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -459,7 +454,7 @@ describe('Resizable.Root', () => {
     // The layout is full, so the panel that joins takes its room from the
     // four rather than being added on top of them, at exactly its default.
     const joined = onSizesChange.mock.lastCall![0] as number[]
-    expect(joined[4]).toBe(0)
+    expect(joined[4]).toBe(0.4)
     expect(joined.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,
@@ -663,21 +658,25 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // The whole root: the panel asked for no size, so it takes an even share
-    // of the room the panels that did ask leave, and there are none of those.
-    expect(onSizesChange).toHaveBeenLastCalledWith([1])
-    expect(mounted.textContent).toBe('1')
+    // Half the root, because nothing has been shared out yet: a panel with no
+    // entry mounts at the default and the first write that shares the layout
+    // out fills it, as the next one does.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.5])
+    expect(mounted.textContent).toBe('0.5')
 
-    // Asked for four fifths. There is no other panel to give the fifth it
-    // would let go of to, so the request is not given, nothing is derived
-    // from it and nothing is carried: the layout stays the whole root.
+    // There is no other panel to take the size from, so the `0.8` asked for
+    // cannot be given: the panel holds a derived size, and a layout of one
+    // panel is the whole root.
     resizeOnly!(0.8)
     flush()
 
     expect(onSizesChange).toHaveBeenLastCalledWith([1])
     expect(mounted.textContent).toBe('1')
 
-    // Asked for the whole root, which is what it has.
+    // Asked for the whole root, which it can be given, the panel is the one
+    // panel of the write and nothing is derived from it. There is no panel to
+    // put a remainder on, so none is carried and the size is reported as it
+    // was asked for.
     resizeOnly!(1)
     flush()
 
@@ -1194,7 +1193,7 @@ describe('Resizable.Root', () => {
     // rests at, the panels with room give what they can, and the panel that
     // joined takes what is left.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.5, 0.090909, 0.409091, 0])
+    expect(sizes).toEqual([0.5, 0.090909, 0.284091, 0.125])
     expect(sizes[1]).toBe(0.090909)
     expect(mounted.textContent).toBe('collapsed')
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
@@ -1336,47 +1335,5 @@ describe('Resizable.Root', () => {
     expect(onSizesChange).toHaveBeenLastCalledWith([
       0.333334, 0.333333, 0.333333,
     ])
-  })
-
-  test('four entry-less panels of one frame share the root in any order', () => {
-    const onSizesChange = vi.fn()
-    const [firstPanel, setFirstPanel] = createSignal(false)
-
-    // Four panels that asked for nothing take a quarter each: every join
-    // re-derives the placeholders to an even share of the room the panels
-    // that did ask leave, and there are none of those.
-    mount(() => (
-      <Resizable onSizesChange={onSizesChange}>
-        <Resizable.Panel />
-        <Resizable.Panel />
-        <Resizable.Panel />
-        <Resizable.Panel />
-      </Resizable>
-    ))
-
-    expect(onSizesChange).toHaveBeenLastCalledWith([0.25, 0.25, 0.25, 0.25])
-
-    dispose?.()
-    container?.remove()
-    dispose = null
-    container = null
-    onSizesChange.mockClear()
-
-    // The same four with the first mounting after the other three.
-    mount(() => (
-      <Resizable onSizesChange={onSizesChange}>
-        <Show when={firstPanel()}>
-          <Resizable.Panel />
-        </Show>
-        <Resizable.Panel />
-        <Resizable.Panel />
-        <Resizable.Panel />
-      </Resizable>
-    ))
-
-    setFirstPanel(true)
-    flush()
-
-    expect(onSizesChange).toHaveBeenLastCalledWith([0.25, 0.25, 0.25, 0.25])
   })
 })

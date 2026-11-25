@@ -2002,13 +2002,9 @@ left, or it stacks on top of a whole that was already short. Where the set as de
 not fit the whole, the value a bound of its own raised holds there and every other value
 shares what is over, within its own bounds — none of them singled out for being the one that
 registered last, or the result would depend on an order nothing promises. A child that
-asked for nothing at all — a default standing in for a value — is in the same position, and
-one share is not enough: keep those children in a set, as the ones following the consumer's
-own values are kept, and re-derive every one of them on every join to an even share of what
-the children that did ask leave. Give only the joining child a share and the set is still
-order-dependent the moment there are four of them: the first two fill the whole, the third
-makes thirds, and the fourth takes a quarter of everyone — so whichever the runtime settles
-last ends up the odd one out. A bound beats the
+asked for nothing at all — a default standing in for a value — is in the same position: give
+it a share of the whole rather than the placeholder, or the child the runtime settles last
+keeps the placeholder and the others pay for it. A bound beats the
 total only when every other value is pinned at a bound of its own too.
 
 Finally, a step that takes the values and the bounds as two lists must refuse a pair that

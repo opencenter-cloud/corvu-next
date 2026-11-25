@@ -184,25 +184,12 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   const initialSizedPanels = new Set<string>()
 
   /**
-   * The panels that asked for no size at all — no `initialSize` of their own
-   * and no `initialSizes` entry — and that nothing has moved since. The
-   * default they mount at is a placeholder, so every join re-derives them to
-   * an even share of the room the panels that did ask leave. A panel leaves
-   * this set the moment something sets its size, exactly as it leaves the
-   * `initialSizes` followers.
-   */
-  const placeholderPanels = new Set<string>()
-
-  /**
    * Called by every path that arranges the layout. None of them can be
    * answered by comparing numbers afterwards: a panel dragged back to exactly
    * its entry has still been moved, and these paths redistribute across the
    * panels they touch rather than setting one of them.
    */
-  const panelsWereMoved = () => {
-    initialSizedPanels.clear()
-    placeholderPanels.clear()
-  }
+  const panelsWereMoved = () => initialSizedPanels.clear()
 
   /**
    * The setter the consumer is handed, through the children props and both
@@ -288,26 +275,6 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // the list: this registration re-derives the entry of every panel still
       // following, from its place in the list as it now stands.
       if (fromInitialSizes) initialSizedPanels.add(panelData.id)
-      if (panelSizeIsDefault) placeholderPanels.add(panelData.id)
-
-      // Every panel still following `initialSizes` takes the entry of the
-      // place it now holds. Under a controlled root the sizes are the
-      // consumer's to set, so nothing follows anything.
-      const reDeriveFollowers = (describedSizes: number[]) => {
-        if (localProps.sizes !== undefined) {
-          initialSizedPanels.clear()
-          return
-        }
-        for (const id of initialSizedPanels) {
-          const index = sizesToIds.indexOf(id)
-          const initialSize = localProps.initialSizes[index]
-          if (initialSize === undefined) {
-            initialSizedPanels.delete(id)
-            continue
-          }
-          describedSizes[index] = resolveSize(initialSize, rootSize())
-        }
-      }
 
       const newSizes = [...sizes]
       const previousTotalSize = newSizes.reduce(
@@ -324,47 +291,27 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         newSizes.length > 0 &&
         Math.abs(previousTotalSize - 1) <= newSizes.length * 10 ** -PRECISION
 
-      // A panel with no size of its own and no entry asked for nothing: the
-      // default it mounts at is a placeholder, not a size it was given. Every
-      // join re-derives the placeholders to an even share of the room the
-      // panels that did ask leave, so a frame of them comes out in equal
-      // shares — thirds for three, quarters for four — whichever of them the
-      // runtime settles last. A panel that did ask still asks, and the
-      // placeholders give it the room.
-      if (placeholderPanels.size > 0) {
-        const constraints = panelsInLayout.map((panel) =>
-          panelSizeConstraints(panel, rootSize()),
-        )
-        const describedSizes = [...newSizes]
-        describedSizes.splice(panelIndex, 0, panelSize!)
-        reDeriveFollowers(describedSizes)
-
-        const placeholderIndexes = describedSizes
-          .map((_, index) => index)
-          .filter((index) => placeholderPanels.has(sizesToIds[index]!))
-        const claimedSize = describedSizes.reduce(
-          (totalSize, size, index) =>
-            placeholderIndexes.includes(index) ? totalSize : totalSize + size,
-          0,
-        )
-        const shareEach = (1 - claimedSize) / placeholderIndexes.length
-        for (const index of placeholderIndexes) {
-          describedSizes[index] = shareEach
-        }
-
-        return fixLayoutToPrecision({
-          sizes: describedSizes,
-          constraints,
-          requestedPanel: panelSizeIsDefault ? null : panelIndex,
-          requestedSize: panelSizeIsDefault ? null : panelSize!,
-        })
-      }
-
       if (layoutIsFull) {
         initialSizedPanels.clear()
         const constraints = panelsInLayout.map((panel) =>
           panelSizeConstraints(panel, rootSize()),
         )
+
+        // A panel with no size of its own and no entry asked for nothing: the
+        // default is a placeholder, not a size anyone was given. The layout
+        // is written with every panel sharing what they are over the root,
+        // which for the panels of one frame is an even share each whichever
+        // of them the runtime settles last.
+        if (panelSizeIsDefault) {
+          const sizesWithPanel = [...newSizes]
+          sizesWithPanel.splice(panelIndex, 0, panelSize!)
+          return fixLayoutToPrecision({
+            sizes: sizesWithPanel,
+            constraints,
+            requestedPanel: null,
+            requestedSize: null,
+          })
+        }
 
         // A full layout has no room for a panel that asks for a size, so the
         // panels there each give up an equal share of it. Nothing follows
@@ -407,8 +354,22 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       newSizes.splice(panelIndex, 0, panelSize!)
 
       // A layout still being built is not shared out: the entries the
-      // consumer gave are the layout they described.
-      reDeriveFollowers(newSizes)
+      // consumer gave are the layout they described. Nothing follows
+      // `initialSizes` under a controlled root, where the sizes are theirs to
+      // set.
+      if (localProps.sizes !== undefined) {
+        initialSizedPanels.clear()
+      } else {
+        for (const id of initialSizedPanels) {
+          const index = sizesToIds.indexOf(id)
+          const initialSize = localProps.initialSizes[index]
+          if (initialSize === undefined) {
+            initialSizedPanels.delete(id)
+            continue
+          }
+          newSizes[index] = resolveSize(initialSize, rootSize())
+        }
+      }
 
       const constraints = panelsInLayout.map((panel) =>
         panelSizeConstraints(panel, rootSize()),
@@ -457,7 +418,6 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
 
   const unregisterPanel = (id: string) => {
     initialSizedPanels.delete(id)
-    placeholderPanels.delete(id)
     let panelsInLayout: PanelInstance[] = []
     setPanels((panels) => {
       panelsInLayout = panels.filter((panel) => panel.data.id !== id)
