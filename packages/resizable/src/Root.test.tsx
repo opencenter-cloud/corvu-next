@@ -633,4 +633,78 @@ describe('Resizable.Root', () => {
       }),
     ).toThrow('2 sizes was written with 1 panels')
   })
+
+  test('a lone panel takes the whole root and carries nothing', () => {
+    const onSizesChange = vi.fn()
+    let resizeOnly: ((size: number) => void) | null = null
+
+    const mounted = mount(() => (
+      <Resizable onSizesChange={onSizesChange}>
+        <Resizable.Panel>
+          {(props) => {
+            resizeOnly = props.resize
+            return <span>{props.size}</span>
+          }}
+        </Resizable.Panel>
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.5])
+    expect(mounted.textContent).toBe('0.5')
+
+    // There is no other panel to take the size from, so the `0.8` asked for
+    // cannot be given: the panel holds a derived size, and a layout of one
+    // panel is the whole root.
+    resizeOnly!(0.8)
+    flush()
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([1])
+    expect(mounted.textContent).toBe('1')
+
+    // Asked for the whole root, which it can be given, the panel is the one
+    // panel of the write and nothing is derived from it. There is no panel to
+    // put a remainder on, so none is carried and the size is reported as it
+    // was asked for.
+    resizeOnly!(1)
+    flush()
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([1])
+    expect(mounted.textContent).toBe('1')
+  })
+
+  test('a keyboard resize derives every panel and the largest carries', () => {
+    const onSizesChange = vi.fn()
+
+    const mounted = mount(() => (
+      <Resizable
+        initialSizes={[1 / 3, 1 / 3, 1 / 3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel />
+        <Resizable.Handle />
+        <Resizable.Panel />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([
+      0.333333, 0.333333, 0.333333,
+    ])
+
+    const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    )
+    flush()
+
+    // A key asks for no panel's size in particular — it moves a handle by the
+    // root's `keyboardDelta` — so every panel is derived, and the largest of
+    // them carries what the rounding of thirds leaves over.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.433334, 0.233333, 0.333333])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
 })
