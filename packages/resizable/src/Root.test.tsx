@@ -285,15 +285,14 @@ describe('Resizable.Root', () => {
     flush()
 
     // The fourth panel has no entry, so it joins at the default `0.5` — the
-    // size that was asked for, which comes back exactly — and takes its room
-    // from the three. Those three tie for largest among the panels this write
-    // derived, and the first of them carries what the rounding leaves.
-    // Thirds fill the root, so the three give the panel that joins a sixth
-    // each of its half: 0.1666666 apiece, kept as 0.166667, which puts the
-    // layout a place over the root. No layout stands over the root, so the
-    // place comes off the largest panel that may give it.
+    // size that was asked for, which comes back exactly — and the three
+    // there give a sixth of the root each: 0.1666666 apiece, kept as
+    // `0.166667`, which is a place over the root. Only the three gave room,
+    // so only they carry it: they tie for largest, and the first of them
+    // takes the place off. Rounding a size up to the last place is not a
+    // bound, so none of them is held there.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.166667, 0.166667, 0.166667, 0.499999])
+    expect(sizes).toEqual([0.166666, 0.166667, 0.166667, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -641,8 +640,7 @@ describe('Resizable.Root', () => {
       fixLayoutToPrecision({
         sizes: [0.5, 0.5],
         constraints: [{ minSize: 0, maxSize: 1, collapsedSize: null }],
-        requestedPanel: null,
-        requestedSize: null,
+        requested: [],
       }),
     ).toThrow('2 sizes was written with 1 panels')
   })
@@ -1293,22 +1291,34 @@ describe('Resizable.Root', () => {
     )
   })
 
-  test('three panels with no sizes lay out the same in either order', () => {
-    const inBothOrders = (firstPanelShownLater: boolean) => {
+  test('three panels with no sizes of one frame lay out in document order', () => {
+    // The runtime settles the children of a frame back to front, so the last
+    // panel registers first. Putting it behind a `Show` the frame itself
+    // opens settles it last instead, which is the other order the same frame
+    // can register in.
+    const inBothOrders = (lastPanelBehindAShow: boolean) => {
       const onSizesChange = vi.fn()
-      const [firstPanel, setFirstPanel] = createSignal(!firstPanelShownLater)
+      const [lastPanel, setLastPanel] = createSignal(false)
 
-      mount(() => (
-        <Resizable onSizesChange={onSizesChange}>
-          <Show when={firstPanel()}>
+      container = document.createElement('div')
+      document.body.appendChild(container)
+      dispose = render(
+        () => (
+          <Resizable onSizesChange={onSizesChange}>
             <Resizable.Panel />
-          </Show>
-          <Resizable.Panel />
-          <Resizable.Panel />
-        </Resizable>
-      ))
-
-      setFirstPanel(true)
+            <Resizable.Panel />
+            {lastPanelBehindAShow ? (
+              <Show when={lastPanel()}>
+                <Resizable.Panel />
+              </Show>
+            ) : (
+              <Resizable.Panel />
+            )}
+          </Resizable>
+        ),
+        container,
+      )
+      setLastPanel(true)
       flush()
 
       const sizes = onSizesChange.mock.lastCall![0] as number[]
@@ -1319,15 +1329,123 @@ describe('Resizable.Root', () => {
       return sizes
     }
 
-    // Laid out from the panels in document order, as corvu lays out a panel
-    // joining: a half, then a half, which fills the root, and then a half
-    // the two there give a quarter each of. The layout is the same whether
-    // the first panel mounts with the others or after them.
+    // The three panels register in one frame, which is laid out from them in
+    // document order, as corvu lays out a panel joining: a half, then a half,
+    // which fills the root, and then a half the two there give a quarter each
+    // of. The layout is the same in either of the orders the frame settles
+    // in.
     expect(inBothOrders(false)).toEqual([0.25, 0.25, 0.5])
     expect(inBothOrders(true)).toEqual([0.25, 0.25, 0.5])
   })
 
-  test('a lone panel with no size takes half the root in either order', () => {
+  test('a panel with no size shown in front joins the layout the others left', () => {
+    const onSizesChange = vi.fn()
+    const [firstPanel, setFirstPanel] = createSignal(false)
+
+    mount(() => (
+      <Resizable onSizesChange={onSizesChange}>
+        <Show when={firstPanel()}>
+          <Resizable.Panel />
+        </Show>
+        <Resizable.Panel />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.5, 0.5])
+
+    setFirstPanel(true)
+    flush()
+
+    // A later frame is real time, not an order nothing promises: the two
+    // panels are on screen at [0.5, 0.5], which fills the root, so the panel
+    // that joins in front of them takes its default half as a quarter from
+    // each. Laying the three out again instead would move them unevenly, to
+    // [0.25, 0.25, 0.5].
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.5, 0.25, 0.25])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBe(1)
+  })
+
+  test('two panels with no size shown together join one after another', () => {
+    // As above: the frame settles its children back to front, and putting
+    // the last of them behind a `Show` the same frame opens settles it last
+    // instead.
+    const inBothOrders = (lastPanelBehindAShow: boolean) => {
+      const onSizesChange = vi.fn()
+      const [morePanels, setMorePanels] = createSignal(false)
+      const [lastPanel, setLastPanel] = createSignal(false)
+
+      mount(() => (
+        <Resizable onSizesChange={onSizesChange}>
+          <Resizable.Panel />
+          <Resizable.Panel />
+          <Show when={morePanels()}>
+            <Resizable.Panel />
+            {lastPanelBehindAShow ? (
+              <Show when={lastPanel()}>
+                <Resizable.Panel />
+              </Show>
+            ) : (
+              <Resizable.Panel />
+            )}
+          </Show>
+        </Resizable>
+      ))
+
+      expect(onSizesChange).toHaveBeenLastCalledWith([0.5, 0.5])
+
+      setMorePanels(true)
+      setLastPanel(true)
+      flush()
+
+      const sizes = onSizesChange.mock.lastCall![0] as number[]
+      dispose?.()
+      container?.remove()
+      dispose = null
+      container = null
+      return sizes
+    }
+
+    // Both panels join in the same later frame, so the frame is folded onto
+    // the layout on screen in document order, one panel joining after the
+    // other. [0.5, 0.5] fills the root, so the third takes a quarter from
+    // each, leaving [0.25, 0.25, 0.5]; that fills the root too, so the fourth
+    // takes a sixth from each of the three: 0.25 - 0.1666666 = 0.0833333 and
+    // 0.5 - 0.1666666 = 0.3333333, kept as 0.083333, 0.083333 and 0.333333,
+    // a total a place short of the root, which the largest of the panels that
+    // gave room carries: 0.333333 + 0.000001 = 0.333334. The fourth panel
+    // joined at the default it asked for and keeps it. Which of the two the
+    // runtime settles first makes no difference.
+    expect(inBothOrders(false)).toEqual([0.083333, 0.083333, 0.333334, 0.5])
+    expect(inBothOrders(true)).toEqual([0.083333, 0.083333, 0.333334, 0.5])
+  })
+
+  test('two panels raised by their minimums both hold there', () => {
+    const onSizesChange = vi.fn()
+
+    mount(() => (
+      <Resizable
+        initialSizes={[0.2, 0.2, 0.3, 0.3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel minSize={0.4} />
+        <Resizable.Panel minSize={0.4} />
+        <Resizable.Panel />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    // The entries fill the root, and the first two panels may not rest below
+    // 0.4, so both are raised to it and the layout is 0.4 over. A bound is
+    // the one size those panels may have, so both hold there and the two
+    // panels no bound touched share what is over: 0.3 - 0.2 = 0.1 each.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.4, 0.4, 0.1, 0.1])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBe(1)
+  })
+
+  test('a lone panel with no size takes half the root in either frame', () => {
     const onlyPanel = (shownLater: boolean) => {
       const onSizesChange = vi.fn()
       const [panelShown, setPanelShown] = createSignal(!shownLater)
@@ -1357,7 +1475,7 @@ describe('Resizable.Root', () => {
     expect(onlyPanel(true)).toEqual([0.5])
   })
 
-  test('an entry beside a panel with no size lays out the same in either order', () => {
+  test('an entry beside a panel with no size lays out the same in either frame', () => {
     const inBothOrders = (firstPanelShownLater: boolean) => {
       const onSizesChange = vi.fn()
       const [firstPanel, setFirstPanel] = createSignal(!firstPanelShownLater)
@@ -1384,7 +1502,10 @@ describe('Resizable.Root', () => {
 
     // The entry is kept and the panel with no size takes the default beside
     // it, under-filling the root — corvu's own layout, and the same one
-    // whichever of the two the runtime settles last.
+    // whether the two mount together or the first one mounts after the
+    // other: the panel that is there is still on the size the props describe
+    // for its place, so it moves to the one its new place is described at,
+    // which has no entry and is the default.
     expect(inBothOrders(false)).toEqual([0.3, 0.5])
     expect(inBothOrders(true)).toEqual([0.3, 0.5])
   })

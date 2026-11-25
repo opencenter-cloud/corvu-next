@@ -169,8 +169,9 @@ const fixSizesToPrecision = (
  * rounding leaves over, so the layout sums to 1 to the places sizes are kept
  * at with no comparison against 1 anywhere.
  *
- * Which panel carries it follows `requestedPanel`, the panel whose size this
- * write is of, and `requestedSize`, the size it was asked for:
+ * Which panels carry it follows `requested`, the sizes this write is of —
+ * one for a resize, several where a layout holds more than one panel where
+ * it is, a bound or a size the panels described:
  *
  *   - A write of one panel's size — a resize, a collapse, an expand, or a
  *     panel joining the layout — names it. When the layout could give that
@@ -218,23 +219,24 @@ const fixSizesToPrecision = (
 const fixLayoutToPrecision = (props: {
   sizes: number[]
   constraints: PanelSizeConstraints[]
-  requestedPanel: number | null
-  requestedSize: number | null
+  requested: { panel: number; size: number }[]
 }) => {
   checkPanelCount(props.sizes, props.constraints)
 
   // A size the layout could not give is not a size anyone was given: the
-  // panel that asked for it holds a derived size like every other panel.
-  const askedSizeGiven =
-    props.requestedPanel !== null &&
-    props.requestedSize !== null &&
-    fixToPrecision(props.sizes[props.requestedPanel]!) ===
-      fixToPrecision(props.requestedSize)
-  const requestedPanel = askedSizeGiven ? props.requestedPanel : null
+  // panel that asked for it holds a derived size like every other panel. The
+  // rest are held at the size they were given, and what the layout is away
+  // from the root is shared between the panels nobody asked anything of.
+  const heldPanels = props.requested
+    .filter(
+      ({ panel, size }) =>
+        fixToPrecision(props.sizes[panel]!) === fixToPrecision(size),
+    )
+    .map(({ panel }) => panel)
 
   const derivedPanels = props.sizes
     .map((_, index) => index)
-    .filter((index) => index !== requestedPanel)
+    .filter((index) => !heldPanels.includes(index))
   const totalSize = props.sizes.reduce((totalSize, size) => totalSize + size, 0)
   const offsetPerPanel =
     derivedPanels.length === 0 ? 0 : (totalSize - 1) / derivedPanels.length
@@ -243,7 +245,7 @@ const fixLayoutToPrecision = (props: {
     sizeBounds(size, props.constraints[index]!),
   )
   const writtenSizes = props.sizes.map((size, index) =>
-    index === requestedPanel ? size : size - offsetPerPanel,
+    heldPanels.includes(index) ? size : size - offsetPerPanel,
   )
   const fixedSizes = writtenSizes.map((size, index) =>
     fixSizeToPrecision(size, bounds[index]!),

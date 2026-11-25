@@ -108,16 +108,18 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     write then shares out whatever they are away from the root, so a resize, drag or key
     takes the room a panel still to mount would have had. That is how corvu behaved before
     this port too; it is written down here now.
-  - **A frame's first layout follows the document, not the order it settled in.** While
-    nothing has arranged the layout — no resize, collapse, expand, drag, key, consumer
-    `setSizes` or unmount — each registration lays it out again from the panels in document
-    order, applying corvu's own join rule to each in turn: its `initialSize`, else its
-    `initialSizes` entry, else the default half, with the panels already there giving an
-    equal share of it when they fill the root. That is the layout corvu produced on Solid 1,
-    where panels registered in creation order; on Solid 2 they settle in reverse, which
-    would otherwise flip it. Nothing about the defaults or the rule changes. Once something
-    has arranged the layout, a panel mounting later joins it as it stands, and one panel
-    joining has no order to depend on.
+  - **A frame is laid out in document order, not in the order it settled in.** The panels
+    that register in one frame are folded onto the layout that frame began with, in
+    document order, applying corvu's own join rule to each in turn: its `initialSize`, else
+    its `initialSizes` entry, else the default half, with the panels already there giving
+    an equal share of it when they fill the root. Every registration of the frame folds the
+    whole frame again, so which panel of it the runtime settles last makes no difference.
+    That is the layout corvu produced on Solid 1, where panels registered in document
+    order; on Solid 2 they settle in reverse, which would otherwise flip it. Nothing about
+    the defaults or the rule changes. A frame mounting later is real time, not an arbitrary
+    order: its panels join the layout on screen, one after another in document order, so
+    two panels on screen at `[0.5, 0.5]` and a third shown in front of them give
+    `[0.5, 0.25, 0.25]`, as they did on Solid 1.
   - **Every write goes through that step:** a resize, a collapse, an expand, a drag, a key,
     a panel joining the layout and the panels that stay when one unmounts, a controlled
     root's own resizes and drags included. A panel joining a layout that is not full is the

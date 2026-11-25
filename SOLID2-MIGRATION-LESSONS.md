@@ -1931,14 +1931,24 @@ Two things, and they are separate:
    way, so do not derive one from registration.
 
 So registration order is not a child's place in the layout — and it must not be the layout
-either. Where a parent builds its first layout out of the children as they register, fold
-its own join rule over the sorted list on every registration instead, so the layout is what
-the children describe in document order: on Solid 1 that is what the parent produced
-anyway, since children registered in creation order. Replacing the parent's rule — equal
-shares for the children that gave no value, say — is a change to what every consumer sees,
-it is not the port's to make, and it does not even remove the dependence: a frame mixing a
-child that gave a value with one that did not still comes out two ways, by which of them
-settled last.
+either. Where a parent builds its layout out of the children as they register, fold its own
+join rule over the children **of that frame** in document order on every registration of
+the frame, onto the layout the frames before it left, so the layout is what the children
+describe in document order: on Solid 1 that is what the parent produced anyway, since
+children registered in creation order (measured on `solid-js` 1.9.17: refs and registration
+effects both run A, B, C).
+
+Scope the fold to the frame. Order *within* a frame is arbitrary and must not show; order
+*across* frames is real time, and a child mounting later joins the layout as it stands —
+folding every child again instead moves children already on screen, unevenly. A frame ends
+when its writes are applied, so a tracked reader of the list the children register into
+cannot run before the last of them has registered: that reader is the frame boundary, and
+it costs nothing else.
+
+Replacing the parent's rule — equal shares for the children that gave no value, say — is a
+change to what every consumer sees, it is not the port's to make, and it does not even
+remove the dependence: a frame mixing a child that gave a value with one that did not still
+comes out two ways, by which of them settled last.
 
 ### Fix
 

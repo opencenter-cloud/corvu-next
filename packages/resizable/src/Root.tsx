@@ -5,6 +5,7 @@ import {
   sortByDocumentPosition,
 } from '@corvu-next/utils/dom'
 import {
+  createEffect,
   createSignal,
   getOwner,
   isDisposed,
@@ -25,6 +26,7 @@ import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
 import {
   fixLayoutToPrecision,
   fixSizesToPrecision,
+  fixToPrecision,
   panelSizeConstraints,
   PRECISION,
   resolveSize,
@@ -175,23 +177,42 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   const sizesToIds: string[] = []
 
   /**
-   * The panels whose size is still the entry `initialSizes` gave them. They
-   * follow the layout: a panel registering before them moves them to the entry
-   * of their new place. A panel leaves the moment something else sets sizes —
-   * `resize`, `collapse`, `expand`, a drag or a key — because from then on the
-   * layout is the one that was asked for, not the one `initialSizes` describes.
+   * The panels still on the size the props describe for the place they hold:
+   * their own `initialSize`, else the `initialSizes` entry of that place,
+   * else the default. A panel registering before them moves them to the size
+   * their new place is described at. A panel leaves the moment something else
+   * sets sizes — `resize`, `collapse`, `expand`, a drag, a key, the
+   * consumer's own `setSizes`, a panel unmounting — or when it gives a share
+   * of its size to a panel joining the layout, because from then on the
+   * layout is the one that was arranged, not the one the props describe.
    */
-  const initialSizedPanels = new Set<string>()
+  const describedPanels = new Set<string>()
 
   /**
-   * Whether anything has arranged the layout since the panels described it:
-   * a `resize`, `collapse`, `expand`, a drag, a key, the consumer's own
-   * `setSizes`, or a panel unmounting, which shares out what it gave up.
-   * Until then each registration lays the whole layout out again from the
-   * panels in document order, so the layout is what the panels describe and
-   * not what the order they happened to settle in made of them.
+   * The panels that have registered in the frame being laid out, with the
+   * layout and the described panels as they stood when that frame began. The
+   * panels of one frame settle in an order nothing promises, so the frame is
+   * laid out from them in document order; the frames before it are real
+   * time, and what they left is what this one folds onto.
    */
-  let layoutWasArranged = false
+  const framePanels = new Set<string>()
+  let frameSizes: number[] | null = null
+  let frameDescribed = new Set<string>()
+
+  /**
+   * A registration writes `panels`, and a write is staged until the frame it
+   * was made in ends, so nothing reading the panel list can run before every
+   * panel of that frame has registered. This effect therefore runs once a
+   * frame, after its registrations: it closes the frame, and the panels of
+   * the next one fold onto the layout this one leaves.
+   */
+  createEffect(
+    () => panels(),
+    () => {
+      framePanels.clear()
+      frameSizes = null
+    },
+  )
 
   /**
    * Called by every path that arranges the layout. None of them can be
@@ -200,8 +221,9 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
    * panels they touch rather than setting one of them.
    */
   const panelsWereMoved = () => {
-    layoutWasArranged = true
-    initialSizedPanels.clear()
+    describedPanels.clear()
+    framePanels.clear()
+    frameSizes = null
   }
 
   /**
@@ -254,141 +276,43 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newPanels
     })
 
-    // A controlled root's sizes are the consumer's to set, so nothing follows
-    // `initialSizes` there.
-    const fromInitialSizes =
-      localProps.sizes === undefined &&
-      panelData.initialSize === null &&
-      localProps.initialSizes[panelIndex] !== undefined
-
-    let panelSize: number | null = null
-    if (panelData.initialSize !== null) {
-      panelSize = resolveSize(panelData.initialSize, rootSize())
-    } else if (localProps.initialSizes[panelIndex] !== undefined) {
-      panelSize = resolveSize(localProps.initialSizes[panelIndex]!, rootSize())
-    }
-    panelSize = panelSize ?? 0.5
-
     sizesToIds.splice(panelIndex, 0, panelData.id)
 
     /**
-     * Bounds hold over the layout a registration lays out: every size is
-     * rounded into the sizes its panel may rest at, and where that leaves the
-     * layout over the root — entries of the consumer's that sum past it, a
-     * panel asking for more than the room that is left, or a bound raising a
-     * panel — the panel a bound raised holds there, since that is the one
-     * size it may have, and every other panel shares what is over within its
-     * own bounds. None of them is on its entry afterwards.
+     * How the layout a registration folded is written.
+     *
+     * Where panels gave room to the panels that joined, the fold fills the
+     * root: the sizes the panels joined at are the ones that were asked for,
+     * the panels that gave room are derived from them, and the step carries
+     * what the rounding leaves. Where their bounds would not let them give
+     * that much, the layout cannot give the panels that joined the size they
+     * asked for: they take what is left instead, like a resize the other
+     * panels' bounds cut short, so every panel is derived.
+     *
+     * Where nothing gave room, the fold is the layout the panels describe,
+     * rounded into the sizes they may rest at. One short of the root stays as
+     * it is. One the bounds put over the root — entries of the consumer's
+     * that sum past it, a panel asking for more than the room that is left,
+     * or a bound raising a panel — holds every panel a bound raised at that
+     * bound, since that is the one size it may have, and the panels no bound
+     * raised share what is over within their own bounds. None of them is on
+     * the size the props describe afterwards.
      */
-    const layoutWithinBounds = (describedSizes: number[]) => {
+    const layoutWithinBounds = (
+      foldedSizes: number[],
+      panelsThatGaveRoom: Set<number>,
+    ) => {
       const constraints = panelsInLayout.map((layoutPanel) =>
         panelSizeConstraints(layoutPanel, rootSize()),
       )
-      const fixedSizes = fixSizesToPrecision(describedSizes, constraints)
-      const fixedTotalSize = fixedSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      // A layout short of the root is the one that was described and stays
-      // as it is; one over the root never stands, not even by the place the
-      // rounding leaves, since that is what a panel on top of the root is.
-      if (fixedTotalSize <= 1 + 10 ** -(PRECISION + 3)) {
-        return fixedSizes
-      }
 
-      const raisedPanel = fixedSizes.findIndex(
-        (size, index) => size > describedSizes[index]!,
-      )
-      initialSizedPanels.clear()
-      return fixLayoutToPrecision({
-        sizes: fixedSizes,
-        constraints,
-        requestedPanel: raisedPanel === -1 ? null : raisedPanel,
-        requestedSize: raisedPanel === -1 ? null : fixedSizes[raisedPanel]!,
-      })
-    }
-
-    setSizes((sizes) => {
-      // The layout already carries a size for this panel: a controlled
-      // `sizes` describes every panel, including the ones still to register.
-      // Adding one here is what turned a two-panel layout into three.
-      if (sizes.length > registeredPanels) return sizes
-
-      // The consumer indexed `initialSizes` by the layout, which is the order
-      // of the sorted list, so a panel that takes its size from there follows
-      // the list: this registration re-derives the entry of every panel still
-      // following, from its place in the list as it now stands.
-      if (fromInitialSizes) initialSizedPanels.add(panelData.id)
-
-
-      // Nothing has arranged the layout yet, so it is still the one the
-      // panels describe. Lay it out again from the panels in document order,
-      // applying the same rule to each of them in turn as a panel joining
-      // the layout: its own `initialSize`, else its `initialSizes` entry,
-      // else the default, with the panels already there giving an equal
-      // share of it when they fill the root. That is what corvu lays out
-      // when the panels register in document order, which is what they did
-      // on Solid 1, and it depends on the sorted list rather than on which
-      // panel of a frame this runtime settled last.
-      if (!layoutWasArranged) {
-        let describedSizes: number[] = []
-        panelsInLayout.forEach((layoutPanel, index) => {
-          const describedSize =
-            layoutPanel.data.initialSize !== null
-              ? resolveSize(layoutPanel.data.initialSize, rootSize())
-              : localProps.initialSizes[index] !== undefined
-                ? resolveSize(localProps.initialSizes[index]!, rootSize())
-                : 0.5
-          const describedTotalSize = describedSizes.reduce(
-            (totalSize, size) => totalSize + size,
-            0,
-          )
-          if (
-            describedSizes.length > 0 &&
-            Math.abs(describedTotalSize - 1) <=
-              describedSizes.length * 10 ** -PRECISION
-          ) {
-            const offsetPerPanel = describedSize / describedSizes.length
-            describedSizes = describedSizes.map((size) => size - offsetPerPanel)
-          }
-          describedSizes.push(describedSize)
-        })
-        return layoutWithinBounds(describedSizes)
-      }
-      const newSizes = [...sizes]
-      const previousTotalSize = newSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      // Every stored size is kept to `PRECISION` places, so the total of a
-      // full layout of n panels can sit up to n * 10 ** -PRECISION away from
-      // 1: three thirds are stored as `0.333333` and sum to `0.999999`, and a
-      // drag leaves the same kind of remainder. A layout is full when its
-      // total is within that, and comparing with 1 would read a full layout
-      // as one still being built and let the next panel join on top of it.
-      const layoutIsFull =
-        newSizes.length > 0 &&
-        Math.abs(previousTotalSize - 1) <= newSizes.length * 10 ** -PRECISION
-
-      if (layoutIsFull) {
-        // A full layout has no room for another panel, so the panels there
-        // each give up an equal share of the size it takes. Nothing follows
-        // `initialSizes` through that, since every entry is the layout from
-        // before.
-        initialSizedPanels.clear()
-        const offsetPerPanel =
-          (previousTotalSize - (1 - panelSize!)) / newSizes.length
-        const sizesWithRoom = newSizes.map((size) => size - offsetPerPanel)
-        sizesWithRoom.splice(panelIndex, 0, panelSize!)
-        const constraints = panelsInLayout.map((panel) =>
-          panelSizeConstraints(panel, rootSize()),
-        )
-
+      if (panelsThatGaveRoom.size > 0) {
         const joinedLayout = fixLayoutToPrecision({
-          sizes: sizesWithRoom,
+          sizes: foldedSizes,
           constraints,
-          requestedPanel: panelIndex,
-          requestedSize: panelSize!,
+          requested: foldedSizes
+            .map((size, panel) => ({ panel, size }))
+            .filter(({ panel }) => !panelsThatGaveRoom.has(panel)),
         })
         const joinedTotalSize = joinedLayout.reduce(
           (totalSize, size) => totalSize + size,
@@ -400,40 +324,145 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         ) {
           return joinedLayout
         }
-
-        // Their bounds would not let them give that share, so the layout
-        // cannot give the panel that joined the size it asked for. It takes
-        // what is left instead, like a resize the other panels' bounds cut
-        // short: nobody's size is given here, so every panel is derived.
         return fixLayoutToPrecision({
-          sizes: sizesWithRoom,
+          sizes: foldedSizes,
           constraints,
-          requestedPanel: null,
-          requestedSize: null,
+          requested: [],
         })
       }
 
-      newSizes.splice(panelIndex, 0, panelSize!)
-
-      // A layout still being built is not shared out: the entries the
-      // consumer gave are the layout they described. Nothing follows
-      // `initialSizes` under a controlled root, where the sizes are theirs to
-      // set.
-      if (localProps.sizes !== undefined) {
-        initialSizedPanels.clear()
-      } else {
-        for (const id of initialSizedPanels) {
-          const index = sizesToIds.indexOf(id)
-          const initialSize = localProps.initialSizes[index]
-          if (initialSize === undefined) {
-            initialSizedPanels.delete(id)
-            continue
-          }
-          newSizes[index] = resolveSize(initialSize, rootSize())
-        }
+      const fixedSizes = fixSizesToPrecision(foldedSizes, constraints)
+      const fixedTotalSize = fixedSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
+      )
+      // A layout short of the root is the one that was described and stays
+      // as it is; one over the root never stands, not even by the place the
+      // rounding leaves, since that is what a panel on top of the root is.
+      if (fixedTotalSize <= 1 + 10 ** -(PRECISION + 3)) {
+        return fixedSizes
       }
 
-      return layoutWithinBounds(newSizes)
+      // A bound raised a panel when its size is above the size the fold gave
+      // it, read at the places sizes are kept at: rounding a size up to the
+      // last place is not a bound, and a panel it moved is not holding
+      // anywhere.
+      describedPanels.clear()
+      return fixLayoutToPrecision({
+        sizes: fixedSizes,
+        constraints,
+        requested: fixedSizes
+          .map((size, panel) => ({ panel, size }))
+          .filter(
+            ({ panel }) =>
+              fixedSizes[panel]! > fixToPrecision(foldedSizes[panel]!),
+          ),
+      })
+    }
+
+    setSizes((sizes) => {
+      // The layout already carries a size for this panel: a controlled
+      // `sizes` describes every panel, including the ones still to register.
+      // Adding one here is what turned a two-panel layout into three.
+      if (sizes.length > registeredPanels) return sizes
+
+      // The panels of one frame settle in an order nothing promises, so the
+      // frame is laid out from its panels in document order; the frames
+      // before it are real time, and the layout they left is what this one
+      // folds onto. Every registration of the frame folds the whole frame
+      // again, so the layout never depends on which of them settled last.
+      if (frameSizes === null) {
+        frameSizes = sizes
+        frameDescribed = new Set(describedPanels)
+      }
+      framePanels.add(panelData.id)
+
+      // Under a controlled root the sizes are the consumer's to set, so no
+      // panel is on a size the props describe.
+      const described =
+        localProps.sizes !== undefined ? new Set<string>() : new Set(frameDescribed)
+      if (localProps.sizes === undefined) {
+        for (const id of framePanels) described.add(id)
+      }
+
+      // corvu's rule for the size a panel is described at, unchanged: its own
+      // `initialSize`, else the `initialSizes` entry of its place, else the
+      // default. The consumer indexed `initialSizes` by the layout, so the
+      // place is the one the panel holds in the sorted list.
+      const describedSize = (layoutPanel: PanelInstance, index: number) =>
+        layoutPanel.data.initialSize !== null
+          ? resolveSize(layoutPanel.data.initialSize, rootSize())
+          : localProps.initialSizes[index] !== undefined
+            ? resolveSize(localProps.initialSizes[index]!, rootSize())
+            : 0.5
+
+      // The layout the frame began with. A panel still on a described size
+      // takes the one its place is described at now, since the panels
+      // registering before it moved its place; every other panel keeps the
+      // size the frames before this one left it at.
+      const foldedPanels = panelsInLayout.filter(
+        (layoutPanel) => !framePanels.has(layoutPanel.data.id),
+      )
+      let foldedSizes = foldedPanels.map((layoutPanel, index) =>
+        described.has(layoutPanel.data.id)
+          ? describedSize(layoutPanel, panelsInLayout.indexOf(layoutPanel))
+          : frameSizes![index]!,
+      )
+
+      // Each panel of the frame then joins that layout in document order, by
+      // corvu's own rule for a panel joining: it takes the size it is
+      // described at, and where the panels already there fill the root they
+      // each give an equal share of it. A panel that gave a share is not on a
+      // described size any more.
+      const panelsThatGaveRoom = new Set<string>()
+      for (const layoutPanel of panelsInLayout) {
+        if (!framePanels.has(layoutPanel.data.id)) continue
+        const place = panelsInLayout.indexOf(layoutPanel)
+        const index = foldedPanels.filter(
+          (foldedPanel) => panelsInLayout.indexOf(foldedPanel) < place,
+        ).length
+        const joiningSize = describedSize(layoutPanel, index)
+        const foldedTotalSize = foldedSizes.reduce(
+          (totalSize, size) => totalSize + size,
+          0,
+        )
+        // Every stored size is kept to `PRECISION` places, so the total of a
+        // full layout of n panels can sit up to n * 10 ** -PRECISION away
+        // from 1: three thirds are stored as `0.333333` and sum to
+        // `0.999999`, and a drag leaves the same kind of remainder. A layout
+        // is full when its total is within that, and comparing with 1 would
+        // read a full layout as one still being built and let the next panel
+        // join on top of it.
+        if (
+          foldedSizes.length > 0 &&
+          Math.abs(foldedTotalSize - 1) <=
+            foldedSizes.length * 10 ** -PRECISION
+        ) {
+          const offsetPerPanel =
+            (foldedTotalSize - (1 - joiningSize)) / foldedSizes.length
+          foldedSizes = foldedSizes.map((size) => size - offsetPerPanel)
+          for (const givingPanel of foldedPanels) {
+            panelsThatGaveRoom.add(givingPanel.data.id)
+            described.delete(givingPanel.data.id)
+          }
+        }
+        foldedSizes.splice(index, 0, joiningSize)
+        foldedPanels.splice(index, 0, layoutPanel)
+      }
+
+      describedPanels.clear()
+      for (const id of described) describedPanels.add(id)
+
+      return layoutWithinBounds(
+        foldedSizes,
+        new Set(
+          panelsInLayout
+            .map((layoutPanel, index) =>
+              panelsThatGaveRoom.has(layoutPanel.data.id) ? index : -1,
+            )
+            .filter((index) => index !== -1),
+        ),
+      )
     })
 
     return panel
@@ -448,10 +477,9 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   }
 
   const unregisterPanel = (id: string) => {
-    // The panels that stay share what the one that left gave up, so the
-    // layout is no longer the one the panels describe.
-    layoutWasArranged = true
-    initialSizedPanels.delete(id)
+    // The panels that stay share what the one that left gave up, so none of
+    // them is on a size the props describe any more.
+    panelsWereMoved()
     let panelsInLayout: PanelInstance[] = []
     setPanels((panels) => {
       panelsInLayout = panels.filter((panel) => panel.data.id !== id)
@@ -474,8 +502,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         constraints: panelsInLayout.map((panel) =>
           panelSizeConstraints(panel, rootSize()),
         ),
-        requestedPanel: null,
-        requestedSize: null,
+        requested: [],
       })
     })
   }
