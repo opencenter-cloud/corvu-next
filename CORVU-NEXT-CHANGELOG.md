@@ -240,14 +240,17 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     frame before — so `<Show when={present()}>` painted a frame of the old presence under the new
     `show`. The one case `show` does not decide, an exit animation still playing, is carried by the
     previous state and the element's own animation events.
-  - **The dismissible layer stacks** are the layers that are enabled: a layer registers its id and
-    its `enabled`, both read where a stack is read, and leaves the registry when it unmounts. A
-    stack an effect wrote made every reader run twice for one write of `enabled`, so the frame a
-    dialog opened in still named the layer below it as the last one. A stack is ordered by the order
-    its layers mounted in, which for corvu is the order they are nested in: a dismissible is mounted
-    with the content it dismisses.
-  - **The stack of utilities preventing scroll** is derived the same way, from each utility's own
-    `enabled`.
+  - **The dismissible layer stacks** are the layers that are enabled: a layer registers its id and a
+    derivation of when it last turned on, both read where a stack is read, and leaves the registry
+    when it unmounts. A stack an effect wrote made every reader run twice for one write of
+    `enabled`, so the frame a dialog opened in still named the layer below it as the last one. A
+    stack is ordered by when each layer became enabled, as `solid-dismissible` orders it: the layer
+    enabled last is the layer on top, and a layer turned off and on again goes back on top. Mount
+    order decides nothing, because a consumer that mounts every layer up front and only flips
+    `enabled` mounts them in no meaningful order.
+  - **The stack of utilities preventing scroll** is derived the same way, from when each utility
+    became enabled: the one enabled last is the one that listens, so the dialog behind an open
+    dialog never cancels a wheel or touch event inside it.
 
   The one finding a test is not failed on is a relay tear whose written value is not the effect's
   compute output and that Solid itself grades `info` — by Solid's own rule an effect writing what it
