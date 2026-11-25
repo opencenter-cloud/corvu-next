@@ -60,58 +60,55 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
 - `@corvu-next/resizable` renormalises the panels that stay when one unmounts, so the sizes
   keep summing to 1: removing one of two equal panels reports `[1]`, not `[0]`.
 - `@corvu-next/resizable` places a panel by where its element sits in the document rather
-  than by when it registers. Two things went wrong before. A write is staged until the end
-  of the frame that made it, so every panel of one frame read the panel list through the
-  accessor as it was before the frame — empty — took index 0, and added an entry to a
-  controlled `sizes` that already described every panel; the list is now read, and kept
-  sorted by document position, from inside its own setter, which is handed the value
-  staged earlier in the same frame. And registration order is not the layout: nothing
-  guarantees that the panels of one frame register in document order, so the first
-  `initialSizes` entry could land on the last panel. A panel whose size comes from
-  `initialSizes` now follows the sorted list — each registration re-derives those panels'
-  entries from their place in the list as it then stands — so a panel registering in front
-  of others moves them to their own entries. A panel stops following the moment anything
-  else sets sizes: `resize`, `collapse`, `expand`, a drag, a key, or the consumer's own
-  `setSizes`. It is the move that counts, not the number, so a panel put back on exactly
-  its entry stays where the consumer left it. A full layout stays full: sizes are kept to
-  six decimal places, so a layout of n panels is full when its total is within
-  n × 10⁻⁶ of 1 — three thirds are stored as `0.333333` and sum to `0.999999` — and a
-  panel joining one takes its room from the panels there. Nothing is written back over the
-  shares they gave up. A size the layout could give as it was asked for comes back exactly
-  as asked, to those six places: the panel being resized, collapsed or expanded, the panel
-  joining the layout at its own `initialSize`, its entry or the default, and a controlled
-  `sizes`. A request the other panels' bounds cut short is not a size anyone was given, so
-  that panel holds a derived size like any other. A size is reported only where its panel
-  may rest: inside `minSize` and `maxSize`, rounded inward — one sitting on `minSize`
-  rounds up to the next six-place size at or above it, one on `maxSize` rounds down, so
-  `minSize={1/7}` is reported as `0.142858`, never `0.142857`. A panel that can collapse
-  rests either on its collapsed size or anywhere from its minimum to its maximum, never in
-  the gap between them: a collapsed panel is pinned at its collapsed size as the layout
-  stores it, and an open one has its minimum and maximum like any other panel. Whether a
-  panel is collapsed is read through that same rounding everywhere — `collapsed`, the
-  collapse, expand and keyboard paths, and the distribution itself — so a
-  `collapsedSize={1/11}` still reads as collapsed. What the rounding leaves over is carried by the
-  panels the write derived, the largest of them first and on a tie the first of them, each
-  taking as much of it as its own bounds allow and passing the rest to the next. A drag asks for no size in particular, so every panel it
-  moves is derived and the largest with room carries it; a lone panel resizing itself
-  derives nothing, and nothing is carried. The derived panels carry in turn, the largest of
-  them first and on a tie the first of them, each taking as much of what is left as its own
-  bounds allow and passing the rest to the next, so nothing is carried only when every one
-  of them is already pinned in the direction it would move them; the layout is then handed on up to
-  n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it brings
-  the total back. Bounds of the consumer's that cannot all hold together win over the
-  total: three panels that may not be smaller than two fifths all sit at two fifths and the
-  layout is reported at 1.2, and maximums that cannot take the size an unmounting panel
-  gives up leave every panel at its maximum, short of the root. Every write of a full layout goes through that one step: a panel joining a full
-  layout takes an equal share from the panels there, and when their bounds will not give
-  that share it takes what is left instead, like a resize the bounds cut short; the panels
-  that stay when one unmounts share what it gave up the same way, so a collapsed panel is
-  not opened by a share it never asked for and no panel passes its maximum. A panel joining
-  a layout that is not full yet is only rounded, into the sizes its own panel may rest at.
-  Sizes are fractions of the root and stay what they are when the root is resized; a
-  `minSize` or `maxSize` given in pixels is resolved against the root and held at the next
-  write, not the moment the root changes size. A layout written with a number of panels
-  that does not match its number of sizes throws, naming both.
+  than by when it registers. A write is staged until the end of the frame that made it, so
+  every panel of one frame used to read the panel list through the accessor as it was
+  before the frame — empty — take index 0, and add an entry to a controlled `sizes` that
+  already described every panel. The list is now read, and kept sorted by document
+  position, from inside its own setter, which is handed the value staged earlier in the
+  same frame. Registration order is not the layout either: nothing guarantees that the
+  panels of one frame register in document order, so the first `initialSizes` entry could
+  land on the last panel. A panel whose size comes from `initialSizes` now follows the
+  sorted list, and each registration re-derives those panels' entries from their place in
+  the list as it then stands, so a panel registering in front of others moves them to their
+  own entries. A panel stops following the moment anything else sets sizes: `resize`,
+  `collapse`, `expand`, a drag, a key, or the consumer's own `setSizes`. It is the move
+  that counts, not the number, so a panel put back on exactly its entry stays where the
+  consumer left it.
+- `@corvu-next/resizable` writes every layout one way, and this is that way:
+  - **Exact sizes.** A size the layout can give as it was asked for comes back exactly, to
+    the six decimal places sizes are kept at: the panel being resized, collapsed or
+    expanded, and a panel joining at its own `initialSize`, its entry or the default. A
+    request the other panels' bounds cut short is not a size anyone was given, so that
+    panel's size is derived like any other.
+  - **Bounds, at every write.** A size is reported only where its panel may rest: inside
+    `minSize` and `maxSize`, rounded inward, so `minSize={1/7}` comes back as `0.142858`
+    and never `0.142857`. A panel that can collapse rests either on its collapsed size or
+    anywhere from its minimum to its maximum, never in the gap between them. Sizes are
+    fractions of the root and stay what they are when the root is resized; a `minSize` or
+    `maxSize` given in pixels is resolved against the root and held at the next write, not
+    the moment the root changes size.
+  - **Collapsed.** Whether a panel is collapsed is read through the same rounding the write
+    applies, everywhere it is asked — `collapsed`, the collapse, expand and keyboard paths,
+    and the distribution itself — so a `collapsedSize={1/11}` still reads as collapsed.
+  - **What the rounding leaves over** is carried by the panels the write derived, the
+    largest of them first and on a tie the first of them, each taking as much of it as its
+    own bounds allow and passing the rest to the next. A drag or a key asks for no size in
+    particular, so every panel it moves is derived; a lone panel resizing itself derives
+    nothing, and nothing is carried.
+  - **Where bounds and the total disagree, the bounds win.** Three panels that may not be
+    smaller than two fifths all sit at two fifths and the layout is reported at 1.2;
+    maximums that cannot take the size an unmounting panel gives up leave those panels at
+    their maximums and the layout short of the root; a panel joining a layout with less
+    room than it asked for takes the room that is left, and its own minimum over that.
+    Apart from those, and rounding of at most n × 10⁻⁶, a layout sums to 1, and the next
+    write with room in it brings the total back.
+  - **Every write goes through that step:** a resize, a collapse, an expand, a drag, a key,
+    a panel joining the layout and the panels that stay when one unmounts, a controlled
+    root's own resizes and drags included. Building the first frame from `initialSizes` is
+    the exception: those entries are the layout the consumer described, rounded into the
+    sizes their panels may rest at, and entries that do not all fit are clipped to the room
+    left as each panel mounts. A layout written with a number of panels that does not match
+    its number of sizes throws, naming both.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and

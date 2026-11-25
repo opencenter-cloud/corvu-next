@@ -205,9 +205,12 @@ const fixSizesToPrecision = (
  * Every write of a full layout comes through here: a resize, a collapse, an
  * expand, a drag, a key, a panel joining a full layout and the panels that
  * stay when one unmounts, a controlled root's own resizes and drags included.
- * A panel joining a layout that is not yet full does not, since nothing is
- * shared out there; `fixSizesToPrecision` rounds the consumer's entries into
- * the sizes their panels may be reported at and leaves the total alone.
+ * A panel joining a layout that is not full does not, since there is nothing
+ * to share out: the caller caps it at the room that is left, so no join
+ * stacks on top of the root, and `fixSizesToPrecision` rounds what the
+ * consumer described into the sizes their panels may rest at — raising a
+ * panel back to its own minimum where the room left is below it, since a
+ * bound wins over the total.
  */
 const fixLayoutToPrecision = (props: {
   sizes: number[]

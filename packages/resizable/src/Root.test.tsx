@@ -908,6 +908,17 @@ describe('Resizable.Root', () => {
     // The consumer wrote that layout back into `sizes`, and their own value is
     // not reported to them a second time.
     expect(onSizesChange).toHaveBeenCalledTimes(1)
+
+    // A resize of the layout they echoed back is written the same way again.
+    resizeFirst!(0.25)
+    flush()
+
+    expect(onSizesChange).toHaveBeenCalledTimes(2)
+    const resizedAgain = onSizesChange.mock.lastCall![0] as number[]
+    expect(resizedAgain).toEqual([0.25, 0.75])
+    expect(
+      resizedAgain.reduce((totalSize, size) => totalSize + size, 0),
+    ).toBeCloseTo(1, 6)
   })
 
   test('what one derived panel cannot carry passes to the next', () => {
@@ -942,6 +953,153 @@ describe('Resizable.Root', () => {
     expect(sizes).toEqual([0.54, 0.32, 0.14])
     expect(sizes[0]).toBeLessThanOrEqual(0.54)
     expect(sizes[1]).toBeLessThanOrEqual(0.32)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel rejoining a layout left short takes the room that is left', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(true)
+
+    mount(() => (
+      <Resizable initialSizes={[0.3, 0.3, 0.4]} onSizesChange={onSizesChange}>
+        <Resizable.Panel maxSize={0.3} />
+        <Resizable.Panel maxSize={0.3} />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    setThirdPanel(false)
+    flush()
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.3])
+
+    setThirdPanel(true)
+    flush()
+
+    // The panels that stayed are pinned to their maximums, so that layout is
+    // short of the root. A panel joining it takes the room that is left rather
+    // than its default `0.5`, which would stack on top of the root.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.3, 0.3, 0.4])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel rejoining with a minimum past the room left keeps its minimum', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(true)
+
+    mount(() => (
+      <Resizable initialSizes={[0.3, 0.3, 0.4]} onSizesChange={onSizesChange}>
+        <Resizable.Panel maxSize={0.3} />
+        <Resizable.Panel maxSize={0.3} />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel minSize={0.6} />
+        </Show>
+      </Resizable>
+    ))
+
+    setThirdPanel(false)
+    flush()
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.3])
+
+    setThirdPanel(true)
+    flush()
+
+    // Only four tenths are left, and the panel joining may not be smaller than
+    // six. A bound of the consumer's wins over the total, as everywhere else:
+    // it takes its minimum and the layout is reported over-full.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.3, 0.3, 0.6])
+    expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1.2,
+      6,
+    )
+  })
+
+  test('a panel joining beside a collapsed panel leaves it collapsed', () => {
+    const onSizesChange = vi.fn()
+    const [fourthPanel, setFourthPanel] = createSignal(false)
+    let collapseSecond: ((strategy?: 'following') => void) | null = null
+
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0.5, 0.3, 0.2]} onSizesChange={onSizesChange}>
+        <Resizable.Panel minSize={0.5} maxSize={0.5} />
+        <Resizable.Panel collapsible collapsedSize={1 / 11} minSize={1 / 7}>
+          {(props) => {
+            collapseSecond = props.collapse
+            return (
+              <span>{props.collapsed === true ? 'collapsed' : 'open'}</span>
+            )
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+        <Show when={fourthPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    collapseSecond!('following')
+    flush()
+    expect(mounted.textContent).toBe('collapsed')
+
+    setFourthPanel(true)
+    flush()
+
+    // The panels of a full layout give up an equal share for the one that
+    // joins, and a collapsed panel has none to give: it keeps the size it
+    // rests at, the panels with room give what they can, and the panel that
+    // joined takes what is left.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.5, 0.090909, 0.242424, 0.166667])
+    expect(sizes[1]).toBe(0.090909)
+    expect(mounted.textContent).toBe('collapsed')
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel unmounting after a resize shares what it gave up', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(true)
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.5, 0.3, 0.2]} onSizesChange={onSizesChange}>
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    resizeFirst!(0.6)
+    flush()
+    const resized = onSizesChange.mock.lastCall![0] as number[]
+    expect(resized).toEqual([0.6, 0.2, 0.2])
+
+    setThirdPanel(false)
+    flush()
+
+    // A layout a resize left is as full as any other, so the panels that stay
+    // share what the one that left gave up.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.7, 0.3])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,

@@ -1996,7 +1996,9 @@ outside, the join hands its neighbours shares their bounds refuse, and the depar
 share to a child that was resting at a value of its own — a collapsed panel, opened by a
 share it never asked for. Both go through the step: the join as a value that is given when
 the others have room for it and derived when they do not, the departure as a write nobody
-asked for, where every child is derived.
+asked for, where every child is derived. And a join into a set that does not add up to the
+whole — which the bounds of a previous write can leave behind — takes only the room that is
+left, or it stacks on top of a whole that was already short.
 
 Finally, a step that takes the values and the bounds as two lists must refuse a pair that
 does not match, naming both lengths. A missing bound that falls back to "anything from 0 to

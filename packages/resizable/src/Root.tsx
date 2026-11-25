@@ -330,9 +330,10 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
 
       newSizes.splice(panelIndex, 0, panelSize!)
 
-      // A layout still being built is only rounded: corvu leaves a layout the
-      // consumer under-filled as they left it. Nothing follows `initialSizes`
-      // under a controlled root, where the sizes are the consumer's to set.
+      // A layout still being built is not shared out: the entries the
+      // consumer gave are the layout they described. Nothing follows
+      // `initialSizes` under a controlled root, where the sizes are theirs to
+      // set.
       if (localProps.sizes !== undefined) {
         initialSizedPanels.clear()
       } else {
@@ -345,6 +346,24 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
           }
           newSizes[index] = resolveSize(initialSize, rootSize())
         }
+      }
+
+      // No panel joins on top of the root. When the layout has less room than
+      // the size it asked for — the panels there pinned to maximums that left
+      // it short, or entries of the consumer's that do not all fit — it takes
+      // the room that is left instead, and is a size nobody was given. Its
+      // own minimum is a bound and still wins: the rounding below raises it
+      // back to it, over the total.
+      const roomLeftOver =
+        1 -
+        newSizes.reduce(
+          (totalSize, size, index) =>
+            index === panelIndex ? totalSize : totalSize + size,
+          0,
+        )
+      if (panelSize! > roomLeftOver) {
+        newSizes[panelIndex] = roomLeftOver
+        initialSizedPanels.delete(panelData.id)
       }
 
       return fixSizesToPrecision(
