@@ -22,7 +22,7 @@ import { deltaResize, resizePanel } from '@src/lib/resize'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { isFunction, type Size } from '@corvu-next/utils'
 import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
-import { resolveSize, splitPanels } from '@src/lib/utils'
+import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import createOnce from '@corvu-next/utils/create/once'
 import createSize from '@corvu-next/utils/create/size'
@@ -261,15 +261,16 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       if (fromInitialSizes) initialSizedPanels.add(panelData.id)
 
       let newSizes = [...sizes]
-      const previousTotalSize = newSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
+      // The same rounding the resize paths apply, so a layout that is one
+      // float short of 1 counts as the full layout it is.
+      const previousTotalSize = fixToPrecision(
+        newSizes.reduce((totalSize, size) => totalSize + size, 0),
       )
       // A layout that already sums to 1 has no room for another panel, so the
-      // panels there each give up a share of it. Their `initialSizes` entries
-      // are the layout before that, and writing them back would push the sum
-      // past 1; the panels that register into a layout still being built,
-      // which is every panel of the first frame, start below 1.
+      // panels there each give up a share of it, and nothing is written back
+      // over what they gave up: their `initialSizes` entries are the layout
+      // from before, and the sum would pass 1. A layout still being built —
+      // every panel of the first frame — starts below 1.
       const madeRoom = previousTotalSize === 1
       if (madeRoom) {
         const offsetPerPanel = panelSize! / newSizes.length
@@ -283,7 +284,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // there the sizes are the consumer's to set.
       if (madeRoom || localProps.sizes !== undefined) {
         initialSizedPanels.clear()
-        return newSizes
+        return newSizes.map(fixToPrecision)
       }
 
       for (const id of initialSizedPanels) {
@@ -296,7 +297,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         newSizes[index] = resolveSize(initialSize, rootSize())
       }
 
-      return newSizes
+      return newSizes.map(fixToPrecision)
     })
 
     return panel

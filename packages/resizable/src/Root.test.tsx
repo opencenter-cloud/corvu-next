@@ -149,9 +149,7 @@ describe('Resizable.Root', () => {
     // size, and the layout it joined makes room for it: the panels that were
     // there each give up a share, and the sizes still sum to 1.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes[0]).toBeCloseTo(0.45, 10)
-    expect(sizes[1]).toBeCloseTo(0.05, 10)
-    expect(sizes[2]).toBe(0.5)
+    expect(sizes).toEqual([0.45, 0.05, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -166,8 +164,10 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
+    // The third panel has no entry of its own, and the two entries fill the
+    // layout by the time it registers, so it takes its room from them.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toHaveLength(3)
+    expect(sizes).toEqual([0.6, 0.3, 0.1])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -177,7 +177,10 @@ describe('Resizable.Root', () => {
     let setSizes: ((sizes: number[]) => unknown) | null = null
 
     mount(() => (
-      <Resizable initialSizes={[0.4, 0.3]} onSizesChange={onSizesChange}>
+      <Resizable
+        initialSizes={[0.3, 0.4, 0.3]}
+        onSizesChange={onSizesChange}
+      >
         {(props) => {
           setSizes = props.setSizes
           return (
@@ -193,14 +196,15 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    expect(onSizesChange).toHaveBeenLastCalledWith([0.4, 0.3])
+    // Two of the three panels are mounted, on the first two entries.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.3, 0.4])
 
-    // Set away from the entries, and back onto exactly them: the numbers say
-    // nothing about whether the consumer has taken the layout over, the fact
-    // that they set it does.
-    setSizes!([0.3, 0.4])
-    flush()
+    // Set away from those entries, and back onto exactly them: the numbers
+    // say nothing about whether the consumer has taken the layout over, the
+    // fact that they set it does.
     setSizes!([0.4, 0.3])
+    flush()
+    setSizes!([0.3, 0.4])
     flush()
 
     setFirstPanel(true)
@@ -208,8 +212,10 @@ describe('Resizable.Root', () => {
 
     // The panel that mounted in front takes the first entry. The two the
     // consumer set keep their sizes instead of being moved onto the entries
-    // of their new places.
-    expect(onSizesChange).toHaveBeenLastCalledWith([0.4, 0.4, 0.3])
+    // of their new places, which would have read `[0.3, 0.4, 0.3]`.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.3, 0.3, 0.4])
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
   test('a resized layout keeps summing to 1 when a panel mounts in front', () => {
