@@ -22,6 +22,7 @@ import type { Placement, Strategy } from '@floating-ui/dom'
 import createFloating from '@corvu-next/utils/create/floating'
 import createOnce from '@corvu-next/utils/create/once'
 import { isFunction } from '@corvu-next/utils'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type PopoverRootProps = {
   /**
@@ -61,7 +62,7 @@ export type PopoverRootChildrenProps = {
 
 /** Context wrapper for the popover. Is required for every popover you create. */
 const PopoverRoot: Component<PopoverRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       placement: 'bottom' as const,
       strategy: 'absolute' as const,

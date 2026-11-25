@@ -1,5 +1,9 @@
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import { createEffect } from 'solid-js'
 import { contains } from '@corvu-next/utils/dom'
 
 const EVENT_ON_FOCUS = 'dismissible.outsideFocus'
@@ -19,7 +23,7 @@ const createOutsideFocus = (props: {
   onFocus: (event: CustomEvent) => void
   ignorePointerEvents?: MaybeAccessor<boolean>
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
       ignorePointerEvents: false,

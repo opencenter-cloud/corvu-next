@@ -1,6 +1,9 @@
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
-import { merge } from 'solid-js'
 
 /**
  * Creates a keyboard navigable list.
@@ -38,7 +41,7 @@ const createList = <T>(props: {
   }>
   onActiveChange?: (active: T | null) => void
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialActive: null,
       orientation: 'vertical' as const,

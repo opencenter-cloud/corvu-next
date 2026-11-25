@@ -66,6 +66,28 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   let pointerDown = false
   let dragStartPos: number | null = null
 
+  /**
+   * The drag's own bookkeeping, kept here rather than read back out of the
+   * context's signals. A signal write is staged until the end of the frame,
+   * so a handler that writes one and reads it again in the same frame — the
+   * ordinary shape of a `touchstart`, `touchmove`, `touchend` sequence a
+   * browser can deliver within one — would see the value from before it. The
+   * signals are still written, for everything that renders from them; these
+   * are what the handlers themselves decide on.
+   */
+  let dragging = false
+  let draggedTranslate: number | null = null
+
+  /** The translate the drawer is at: the one this drag last wrote while it
+   * is dragging, and the context's otherwise. */
+  const currentTranslate = () => draggedTranslate ?? drawerContext.translate()
+
+  const stopDragging = () => {
+    dragging = false
+    draggedTranslate = null
+    drawerContext.setIsDragging(false)
+  }
+
   // Values used to handle dragging on scrollable elements.
   let currentPointerStart: [number, number] = [0, 0]
 
@@ -153,7 +175,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     () => drawerContext.transitionState(),
     (state) => {
       if (state === 'closing') {
-        drawerContext.setIsDragging(false)
+        stopDragging()
       }
     },
   )
@@ -192,7 +214,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onMove = (target: HTMLElement, x: number, y: number) => {
     if (!pointerDown) return
 
-    if (!drawerContext.isDragging() || dragStartPos === null) {
+    if (!dragging || dragStartPos === null) {
       const selection = window.getSelection()
       if (selection && selection.toString().length > 0) {
         onUp()
@@ -237,8 +259,9 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       }
 
       cachedMoveTimestamp = new Date()
-      cachedTranslate = drawerContext.translate()
+      cachedTranslate = currentTranslate()
 
+      dragging = true
       drawerContext.setIsDragging(true)
       drawerContext.setTransitionState(null)
     }
@@ -268,9 +291,10 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       drawerContext.velocityCacheReset()
     ) {
       cachedMoveTimestamp = now
-      cachedTranslate = drawerContext.translate()
+      cachedTranslate = currentTranslate()
     }
 
+    draggedTranslate = -delta
     drawerContext.setTranslate(-delta)
   }
 
@@ -285,25 +309,26 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onUp = () => {
     pointerDown = false
 
-    if (!drawerContext.isDragging()) return
+    if (!dragging) return
 
+    const translate = currentTranslate()
     const now = new Date()
     const velocity = drawerContext.velocityFunction(
-      -(cachedTranslate - drawerContext.translate()),
+      -(cachedTranslate - translate),
       now.getTime() - cachedMoveTimestamp.getTime() || 1,
     )
 
-    const translateWithVelocity = drawerContext.translate() * velocity
+    const translateWithVelocity = translate * velocity
 
     const closestSnapPoint = findClosestSnapPoint(
       snapPoints(),
-      drawerContext.translate(),
+      translate,
       translateWithVelocity,
       drawerContext.allowSkippingSnapPoints(),
     )
 
     drawerContext.setTransitionState('snapping')
-    drawerContext.setIsDragging(false)
+    stopDragging()
 
     drawerContext.setActiveSnapPoint(closestSnapPoint.value)
     if (closestSnapPoint.offset === drawerContext.drawerSize()) {

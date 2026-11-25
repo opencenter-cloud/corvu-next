@@ -5,12 +5,11 @@ import {
   createEffect,
   createSignal,
   createUniqueId,
-  merge,
   omit,
   useContext,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
-import { access } from '@corvu-next/utils/reactivity'
+import { access, mergeDefaults } from '@corvu-next/utils/reactivity'
 import createDismissible from '@src/create/dismissible'
 import type { CreateDismissibleProps } from '@src/create/dismissible'
 import { isFunction } from '@corvu-next/utils'
@@ -40,7 +39,7 @@ export type DismissibleChildrenProps = {
 
 /** A component that can be dismissed by pressing the escape key or clicking outside of it. Can be nested. */
 const Dismissible: Component<DismissibleProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       dismissibleId: createUniqueId(),
     },
@@ -84,7 +83,7 @@ const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>(
 )
 
 const DismissibleLayer: Component<DismissibleProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
       dismissibleId: createUniqueId(),

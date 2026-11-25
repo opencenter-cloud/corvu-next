@@ -2,13 +2,12 @@ import {
   type Component,
   createSignal,
   createUniqueId,
-  merge,
   type Setter,
   untrack,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
 import { createDialogContext, createInternalDialogContext } from '@src/context'
-import { access } from '@corvu-next/utils/reactivity'
+import { access, mergeDefaults } from '@corvu-next/utils/reactivity'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import createFocusTrap from '@corvu-next/focus-trap'
 import createOnce from '@corvu-next/utils/create/once'
@@ -225,7 +224,7 @@ const DEFAULT_MODAL = true
 
 /** Context wrapper for the dialog. Is required for every dialog you create. */
 const DialogRoot: Component<DialogRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       role: 'dialog' as const,
       initialOpen: false,

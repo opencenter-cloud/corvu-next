@@ -3,7 +3,6 @@ import {
   type Component,
   createSignal,
   createUniqueId,
-  merge,
   type Setter,
   untrack,
 } from 'solid-js'
@@ -23,6 +22,7 @@ import createOnce from '@corvu-next/utils/create/once'
 import createPresence from '@corvu-next/presence'
 import createTooltip from '@corvu-next/utils/create/tooltip'
 import { isFunction } from '@corvu-next/utils'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type TooltipRootProps = {
   /**
@@ -191,7 +191,7 @@ export type TooltipRootChildrenProps = {
 
 /** Context wrapper for the tooltip. Is required for every tooltip you create. */
 const TooltipRoot: Component<TooltipRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialOpen: false,
       placement: 'bottom' as const,

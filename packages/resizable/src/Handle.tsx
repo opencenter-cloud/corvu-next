@@ -8,7 +8,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  merge,
   omit,
   Show,
 } from 'solid-js'
@@ -23,7 +22,7 @@ import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
 import { registerHandle, unregisterHandle } from '@src/lib/handleManager'
 import { dataIf } from '@corvu-next/utils'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalResizableContext } from '@src/context'
 
 export type ResizableHandleCorvuProps = {
@@ -102,7 +101,7 @@ export type ResizableHandleProps<T extends ValidComponent = 'button'> =
 const ResizableHandle = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, ResizableHandleProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       startIntersection: true,
       endIntersection: true,

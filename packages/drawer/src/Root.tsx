@@ -22,6 +22,7 @@ import createSize from '@corvu-next/utils/create/size'
 import createTransitionSize from '@corvu-next/transition-size'
 import Dialog from '@corvu-next/dialog'
 import { resolveSnapPoint } from '@src/lib'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type DrawerRootProps = {
   /**
@@ -125,7 +126,7 @@ type TransitionState = 'opening' | 'closing' | 'snapping' | 'resizing' | null
 
 /** Context wrapper for the drawer. Is required for every drawer you create. */
 const DrawerRoot: Component<DrawerRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialOpen: false,
       snapPoints: [0, 1],

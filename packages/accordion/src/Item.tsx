@@ -21,6 +21,7 @@ import { Dynamic } from '@corvu-next/utils/dynamic'
 import Fragment from '@corvu-next/utils/components/Fragment'
 import { isFunction } from '@corvu-next/utils'
 import { useInternalAccordionContext } from '@src/context'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type AccordionItemCorvuProps = {
   /**
@@ -77,7 +78,7 @@ export type AccordionItemChildrenProps = {
 const AccordionItem = <T extends ValidComponent = typeof Fragment>(
   props: DynamicProps<T, AccordionItemProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       accordionId: createUniqueId(),
     },

@@ -9,7 +9,6 @@ import {
   createSignal,
   getOwner,
   isDisposed,
-  merge,
   type Setter,
   omit,
   untrack,
@@ -36,7 +35,7 @@ import {
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import createOnce from '@corvu-next/utils/create/once'
 import createSize from '@corvu-next/utils/create/size'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 
 export type ResizableRootCorvuProps = {
   /**
@@ -114,7 +113,7 @@ export type ResizableRootChildrenProps = {
 const ResizableRoot = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, ResizableRootProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       orientation: 'horizontal' as const,
       initialSizes: [],

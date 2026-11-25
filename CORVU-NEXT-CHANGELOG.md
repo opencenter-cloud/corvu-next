@@ -57,6 +57,28 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   `renderToStringAsync`.
 - `@corvu-next/transition-size` no longer throws when the observed element disappears while a
   size transition is running.
+- **A prop passed as `undefined` takes corvu's default again, everywhere.** Solid 1's
+  `mergeProps` skipped a source whose value for a key was `undefined`; Solid 2's `merge`
+  takes the last source that *has* the key, `undefined` included. A consumer forwarding an
+  optional prop they were not given — `<Dialog trapFocus={props.trapFocus} />` — therefore
+  turned the default off, and `trapFocus` turning off is a dialog that traps nothing and
+  focuses nothing when it opens. Every default in every package is now merged through
+  `mergeDefaults` from `@corvu-next/utils/reactivity`, which answers each key the defaults
+  name with the consumer's value where they gave one that is not `undefined` and the
+  default otherwise. A value they did pass still decides, `false`, `0` and `null`
+  included, and a prop that becomes defined later — or `undefined` again — is followed.
+- **The drawer's drag works again.** A signal write is staged until the end of the frame
+  it was made in, so a handler that writes one and reads it back in the same frame sees
+  the value from before it. `Drawer.Content` read the dragging flag and the live translate
+  back out of the context while dragging, so a `touchstart`, `touchmove`, `touchend`
+  sequence delivered within one frame re-anchored the drag on every move — the drawer
+  never moved — and the release bailed out before snapping, so dragging a sheet past the
+  dismiss threshold did not close it. The drag's own bookkeeping is plain state the
+  handlers own now; the signals are still written, for everything that renders from them.
+- **The OTP field is active as soon as it is focused.** Its focus handler wrote the focus
+  flag and then synced the selection, which read that same flag back and still saw the
+  field as unfocused, so no slot was active and no caret was shown. The handler hands its
+  own answer to the sync instead.
 - `@corvu-next/resizable` renormalises the panels that stay when one unmounts, so the sizes
   keep summing to 1 within their bounds: removing one of two equal panels reports `[1]`,
   not `[0]`.

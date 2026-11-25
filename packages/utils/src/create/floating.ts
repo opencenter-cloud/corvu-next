@@ -1,4 +1,8 @@
-import { access, type MaybeAccessor } from '@src/reactivity'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@src/reactivity'
 import {
   arrow,
   autoPlacement,
@@ -22,7 +26,7 @@ import {
   size,
   type Strategy,
 } from '@floating-ui/dom'
-import { createEffect, createSignal, merge } from 'solid-js'
+import { createEffect, createSignal } from 'solid-js'
 
 export type FloatingOptions = {
   offset?: OffsetOptions
@@ -59,7 +63,7 @@ const createFloating = (props: {
   strategy?: MaybeAccessor<Strategy>
   options?: MaybeAccessor<FloatingOptions | null>
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
       placement: 'bottom' as const,

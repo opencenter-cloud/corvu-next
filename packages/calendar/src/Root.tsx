@@ -3,7 +3,6 @@ import {
   createMemo,
   createSignal,
   createUniqueId,
-  merge,
   type Setter,
   untrack,
 } from 'solid-js'
@@ -24,6 +23,7 @@ import createControllableSignal from '@corvu-next/utils/create/controllableSigna
 import createOnce from '@corvu-next/utils/create/once'
 import createRegister from '@corvu-next/utils/create/register'
 import { isFunction } from '@corvu-next/utils'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type CalendarRootProps =
   | CalendarRootSingleProps
@@ -268,7 +268,7 @@ export type CalendarRootChildrenBaseProps = {
 
 /** Context wrapper for the calendar. Is required for every calendar you create. */
 const CalendarRoot = (props: CalendarRootProps) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialValue:
         props.mode === 'single'

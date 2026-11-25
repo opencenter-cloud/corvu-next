@@ -4,7 +4,6 @@ import {
   createMemo,
   createSignal,
   createUniqueId,
-  merge,
   omit,
   onCleanup,
   onSettled,
@@ -16,7 +15,7 @@ import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import type { PanelInstance, ResizeStrategy } from '@src/lib/types'
 import createOnce from '@corvu-next/utils/create/once'
 import { createResizablePanelContext } from '@src/panelContext'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 import { resolveSize, storedCollapsedSize } from '@src/lib/utils'
 import { useInternalResizableContext } from '@src/context'
 
@@ -131,7 +130,7 @@ export type ResizablePanelChildrenProps = {
 const ResizablePanel = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, ResizablePanelProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialSize: null,
       minSize: 0,

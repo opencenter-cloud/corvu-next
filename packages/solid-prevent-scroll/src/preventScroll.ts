@@ -5,8 +5,12 @@
  * https://github.com/theKashey/react-remove-scroll
  */
 
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, createSignal, createUniqueId, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import { createEffect, createSignal, createUniqueId } from 'solid-js'
 import type { Axis } from '@corvu-next/utils'
 import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
@@ -42,7 +46,7 @@ const createPreventScroll = (props: {
   restoreScrollPosition?: MaybeAccessor<boolean>
   allowPinchZoom?: MaybeAccessor<boolean>
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       element: null,
       enabled: true,

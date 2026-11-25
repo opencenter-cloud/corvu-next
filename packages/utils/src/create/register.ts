@@ -1,5 +1,9 @@
-import { access, type MaybeAccessor } from '@src/reactivity'
-import { createMemo, createSignal, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@src/reactivity'
+import { createMemo, createSignal } from 'solid-js'
 
 /**
  * Creates a memo which can be registered/unregistered with the returned `register` and `unregister` functions.
@@ -19,7 +23,7 @@ const createRegister = <T>(props: {
   value: MaybeAccessor<T | undefined>
   initialRegistered?: boolean
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialRegistered: false,
     },

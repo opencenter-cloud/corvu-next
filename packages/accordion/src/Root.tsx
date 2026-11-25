@@ -3,7 +3,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  merge,
   type Setter,
   untrack,
 } from 'solid-js'
@@ -17,6 +16,7 @@ import { createList } from '@corvu-next/list'
 import createOnce from '@corvu-next/utils/create/once'
 import { isFunction } from '@corvu-next/utils'
 import { sortByDocumentPosition } from '@corvu-next/utils/dom'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type AccordionRootProps = {
   /**
@@ -106,7 +106,7 @@ export type AccordionRootChildrenProps = {
 
 /** Context wrapper for the accordion. Is required for every accordion you create. */
 const AccordionRoot: Component<AccordionRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       multiple: false,
       initialValue: null,

@@ -2037,6 +2037,65 @@ whose parent keeps a positional array.
 
 ---
 
+## 32. A Staged Write Is Not Readable In Its Own Frame
+
+### Symptoms
+
+A drag does nothing. The sheet stays where it is through every `touchmove`, and releasing
+it past the dismiss threshold does not close it. An OTP field focused by the user shows no
+caret and no active slot until something else moves the selection.
+
+### Root Cause
+
+A signal write is staged until the end of the frame that made it, so a handler that writes
+a signal and reads it again in the same frame reads the value from before it:
+
+```ts
+setDragging(true)
+dragging() // false
+```
+
+On Solid 1 the same two lines answered `true`, and primitives were written that way:
+`Drawer.Content` wrote `isDragging` on the first move and then used it, on that move and
+on every move after, to tell "start this drag" from "continue it". A browser can deliver a
+whole touch sequence inside one frame, and then every move starts the drag again, anchors
+it at the point it just reached — a delta of zero — and the release, reading the same flag,
+decides no drag is in progress and returns.
+
+The same shape, one handler on: the OTP field's focus handler wrote `isFocused` and then
+called the selection sync, which asks whether the field is focused. It read `false`, synced
+the selection of an unfocused field and left no slot active.
+
+### Fix
+
+State a handler decides on belongs to the handler, not to a signal it reads back. Keep the
+drag's bookkeeping — whether a drag is running, where it started, the translate it is at —
+in plain variables the handlers own, and write the signals as well, for everything that
+renders from them. Where the value is needed one call deeper, hand it on as an argument
+rather than reading the signal there:
+
+```ts
+context.setIsFocused(true)
+onSelectionChange(undefined, true) // not: read context.isFocused()
+```
+
+A read *before* a write in the same handler is fine, and so is a write in one handler read
+in a later frame. What does not work is the round trip.
+
+### Where This Applies
+
+Any handler that writes a signal and then branches on it: drags, pointer and touch
+sequences, focus and blur pairs, keyboard repeats. Audit by looking for a setter and a read
+of the same signal in one function — `@corvu-next/drawer`'s `Content` and
+`@corvu-next/otp-field`'s `Input` both had one. Elsewhere in these packages the reads come
+first (`@corvu-next/resizable`'s drag reads the sizes it started from once and derives
+every move from that cached list, its handle's blur reads `hovered` before writing
+`focused`, `@corvu-next/list`'s keyboard handler reads `active` once and writes once), and
+`@corvu-next/presence` only reads its state in an animation event, which is a later frame
+than the effect that wrote it.
+
+---
+
 ## Links
 
 - [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)

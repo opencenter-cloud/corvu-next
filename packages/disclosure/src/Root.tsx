@@ -3,7 +3,6 @@ import {
   createEffect,
   createSignal,
   createUniqueId,
-  merge,
   type Setter,
   untrack,
 } from 'solid-js'
@@ -16,6 +15,7 @@ import createControllableSignal from '@corvu-next/utils/create/controllableSigna
 import createOnce from '@corvu-next/utils/create/once'
 import createPresence from '@corvu-next/presence'
 import { isFunction } from '@corvu-next/utils'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type DisclosureRootProps = {
   /**
@@ -80,7 +80,7 @@ export type DisclosureRootChildrenProps = {
 
 /** Context wrapper for the disclosure. Is required for every disclosure you create. */
 const DisclosureRoot: Component<DisclosureRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialExpanded: false,
       collapseBehavior: 'remove' as const,
