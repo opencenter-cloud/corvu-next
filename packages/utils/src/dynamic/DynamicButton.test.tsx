@@ -98,4 +98,21 @@ describe('DynamicButton', () => {
 
     cleanup()
   })
+
+  // The component keeps no ref of its own, so the consumer's ref is the only
+  // one there is: it reaches the element through the spread, which applies it
+  // once, with the element it mounted.
+  test('the consumer’s ref is called once, with the element', () => {
+    const seen: (Element | null)[] = []
+    const { element, codes, cleanup } = renderWithAttributeLog(() => (
+      <DynamicButton ref={(el: HTMLElement) => seen.push(el)}>
+        trigger
+      </DynamicButton>
+    ))
+
+    expect(seen).toEqual([element])
+    expect(codes).toEqual([])
+
+    cleanup()
+  })
 })

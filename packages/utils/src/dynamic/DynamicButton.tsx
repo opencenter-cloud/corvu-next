@@ -27,7 +27,7 @@ const DynamicButton = <T extends ValidComponent = 'button'>(
 ) => {
   const buttonProps = props as DynamicButtonProps<'button'> &
     DynamicAttributes<ValidComponent>
-  const otherProps = omit(buttonProps, 'as', 'type')
+  const otherProps = omit(buttonProps, 'as', 'ref', 'type')
 
   /** What `Dynamic` renders, with this component's `button` default standing
    *  in for the `div` one `Dynamic` applies on its own. */
@@ -57,8 +57,10 @@ const DynamicButton = <T extends ValidComponent = 'button'>(
     <Dynamic<DynamicButtonElementProps>
       as={as()}
       // === SharedElementProps ===
-      // No ref of its own to merge in any more; this normalizes the
-      // consumer's optional one into the callback the element props take.
+      // The consumer's `ref` is the only one there is — this component keeps
+      // none of its own — and `omit` drops it from the spread below, so the
+      // element is handed exactly one ref: their optional one, normalized
+      // into the callback the element props take.
       ref={mergeRefs(buttonProps.ref)}
       type={memoizedIsButton() ? 'button' : undefined}
       // === ElementProps ===
