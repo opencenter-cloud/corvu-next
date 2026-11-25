@@ -80,8 +80,9 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   shares they gave up. Every size that was asked for comes back as it was asked, to those
   six places: the panel being resized, collapsed or expanded, the panel joining the layout
   at its own `initialSize`, its entry or the default, and a controlled `sizes`. What the
-  rounding leaves over is carried by the largest panel whose size this write derived, and
-  by nothing at all in a write that derived none, such as a drag.
+  rounding leaves over is carried by the largest panel whose size the write derived. A drag
+  asks for no size in particular, so every panel it moves is derived and the largest of
+  them carries it; a lone panel resizing itself derives nothing, and nothing is carried.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and

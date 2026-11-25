@@ -1960,9 +1960,11 @@ that pins several values to bounds of their own rounds each of them the same way
 nothing to absorb it the total walks away from 1 until the layout stops counting as full.
 
 Which value carries it is not free either. The value someone asked for must come back as they
-asked it, so the remainder goes to one the write derived — the largest of them — and a write
-that derived none, a drag over a handle, carries nothing. Picking "the largest value" without
-that distinction is right only while the largest happens to be a derived one.
+asked it, so the remainder goes to one the write derived — the largest of them. A write that
+asks for no particular value, a drag over a handle, derives all of them, and the largest still
+carries it; only a write with nothing derived at all, one value asked for and no other, can
+carry nothing. Picking "the largest value" without that distinction is right only while the
+largest happens to be a derived one.
 
 Every registration still sorts with `compareDocumentPosition`; what this removes is the
 `querySelectorAll` scan of the parent at each registration, which also counted children that

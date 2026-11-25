@@ -297,7 +297,7 @@ const getResizeDirection = (props: {
  * Resizes panels based on given resize actions.
  * @param initialSizes - The initial sizes of the panels.
  * @param collapsible - Whether the panels are allowed to collapse to distribute the percentage.
- * @param requestedPanel - The index of the panel whose size was asked for, or `null` when none was: a drag asks for no size in particular. Its size is written as it is; the others carry what rounding leaves.
+ * @param requestedPanel - The index of the panel whose size was asked for. Its size is written as it was asked for, and the largest panel derived from it carries what rounding leaves. A drag passes `null`, because it asks for no size in particular: every panel is then derived and the largest of them carries it.
  * @param resizeActions - The resize actions to distribute the percentage.
  * @param resizableData - Data related to the resizable instance.
  */

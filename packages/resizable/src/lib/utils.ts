@@ -42,21 +42,29 @@ const PRECISION = 6
 const fixToPrecision = (value: number) => parseFloat(value.toFixed(PRECISION))
 
 /**
- * The one way a full layout is written. The size someone asked for comes back
- * as they asked it: `requestedPanel` is the panel whose size this write is of
- * — the one being resized, collapsed, expanded, or the one joining the layout
- * — and everything else is derived from it. The derived panels share whatever
- * the layout is away from the whole root, every size is rounded to
- * `PRECISION`, and the largest derived panel carries what that rounding
- * leaves over, so the layout sums to 1 to the places sizes are kept at with
- * no comparison against 1 anywhere.
+ * The one way a full layout is written: the panels share whatever the layout
+ * is away from the whole root, every size is rounded to `PRECISION`, and one
+ * panel carries what that rounding leaves over, so the layout sums to 1 to
+ * the places sizes are kept at with no comparison against 1 anywhere.
  *
- * A write with nothing derived — a drag has `requestedPanel` `null` because
- * it asks for no size in particular, and that leaves every panel derived; a
- * lone panel asked to resize leaves none — carries nothing: there is no panel
- * to put the remainder on that was not asked for. A panel mounting from
- * `initialSizes` into a layout that is not full does not come through here at
- * all; the consumer's entries are handed on rounded.
+ * Which panel carries it follows `requestedPanel`, the panel whose size this
+ * write is of:
+ *
+ *   - A write of one panel's size — a resize, a collapse, an expand, or a
+ *     panel joining the layout — names it. Its size is written as it was
+ *     asked for, and the largest of the panels derived from it carries the
+ *     remainder.
+ *   - A drag over a handle names none (`null`): it asks for no size in
+ *     particular, so every panel is derived and the largest of them carries
+ *     the remainder. Without that a drag would walk the layout away from 1,
+ *     every time it pins a panel to a bound that cannot be kept to
+ *     `PRECISION` places.
+ *   - A lone panel asked for its own size leaves nothing derived, so nothing
+ *     is carried: there is no panel to put the remainder on that was not
+ *     asked for.
+ *
+ * A panel mounting from `initialSizes` into a layout that is not full does
+ * not come through here at all; the consumer's entries are handed on rounded.
  */
 const fixLayoutToPrecision = (
   sizes: number[],
