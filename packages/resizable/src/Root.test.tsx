@@ -279,10 +279,12 @@ describe('Resizable.Root', () => {
     setFourthPanel(true)
     flush()
 
-    // The fourth panel has no entry, and takes its room from the three, which
-    // a comparison with 1 would have refused to do.
+    // The fourth panel has no entry, so it joins at the default `0.5` — the
+    // size that was asked for, which comes back exactly — and takes its room
+    // from the three, which carry what the rounding leaves.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.166667, 0.166667, 0.166667, 0.499999])
+    expect(sizes[3]).toBe(0.5)
+    expect(sizes).toEqual([0.166666, 0.166667, 0.166667, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -310,19 +312,103 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // The resize writes its layout the one way a full layout is written: the
-    // panel that carries the rounding remainder is the largest one.
+    // The size that was asked for comes back exactly; the panels that gave it
+    // room carry what the rounding leaves.
     resizeFirst!(0.4)
     flush()
     const resized = onSizesChange.mock.lastCall![0] as number[]
-    expect(resized).toEqual([0.400001, 0.266666, 0.333333])
+    expect(resized[0]).toBe(0.4)
+    expect(resized).toEqual([0.4, 0.266666, 0.333334])
     expect(resized.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
 
     setFourthPanel(true)
     flush()
 
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.233334, 0.099999, 0.166666, 0.500001])
+    expect(sizes[3]).toBe(0.5)
+    expect(sizes).toEqual([0.233334, 0.099999, 0.166667, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
+  })
+
+  test('a derived panel larger than the one asked for carries the remainder', () => {
+    const onSizesChange = vi.fn()
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable
+        initialSizes={[0.1, 0.6, 0.3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.1, 0.6, 0.3])
+
+    // A seventh is not a size that can be kept to six places, so this write
+    // has a remainder to put somewhere. The panel asked for is the smallest
+    // one, so a rule that picks the largest panel would pick a derived panel
+    // here too — but it would have picked this one had it been the biggest.
+    resizeFirst!(1 / 7)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes[0]).toBe(0.142857)
+    expect(sizes).toEqual([0.142857, 0.557143, 0.3])
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
+  })
+
+  test('a resize that pins panels to bounds of their own keeps the sum at 1', () => {
+    const onSizesChange = vi.fn()
+    const [fifthPanel, setFifthPanel] = createSignal(false)
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable
+        initialSizes={[0.25, 0.25, 0.25, 0.25]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel minSize={1 / 7} />
+        <Resizable.Panel minSize={1 / 17} />
+        <Resizable.Panel minSize={1 / 19} />
+        <Show when={fifthPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    // A seventh, a seventeenth and a nineteenth are none of them sizes that
+    // can be kept to six places. Asking for more than the layout has pins all
+    // three panels to those bounds, and rounding each of them moves the total
+    // the same way: without a remainder carried by a derived panel the layout
+    // comes out at 1.000001 and keeps walking with every write like it.
+    resizeFirst!(0.9)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.745688, 0.142858, 0.058823, 0.052631])
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
+
+    setFifthPanel(true)
+    flush()
+
+    // And the layout is still full, so the panel that joins takes its room
+    // from the four rather than being added on top of them.
+    const joined = onSizesChange.mock.lastCall![0] as number[]
+    expect(joined[4]).toBe(0.5)
+    expect(joined.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 })

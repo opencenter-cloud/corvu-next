@@ -310,10 +310,12 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         }
       }
 
-      // A full layout is written the one way a full layout is written. An
-      // under-filled one is only rounded: corvu leaves a layout the consumer
-      // under-filled as they left it.
-      if (layoutIsFull) return fixLayoutToPrecision(newSizes)
+      // A full layout is written the one way a full layout is written, with
+      // the panel that joined as the size that was asked for: its own
+      // `initialSize`, its `initialSizes` entry or the default. An
+      // under-filled layout is only rounded: corvu leaves a layout the
+      // consumer under-filled as they left it.
+      if (layoutIsFull) return fixLayoutToPrecision(newSizes, panelIndex)
       return newSizes.map(fixToPrecision)
     })
 

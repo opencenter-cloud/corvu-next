@@ -1952,10 +1952,17 @@ every other entry, so writing the entries back over it would push the sum past 1
 
 And when the invariant is a sum of rounded numbers, do not test it with equality. Values kept
 to p decimal places leave the total of n of them up to n × 10⁻ᵖ off: three thirds held to six
-places sum to `0.999999`, and a drag leaves the same kind of remainder. A layout is full when
-its total is within that bound, and what is written back is corrected by the remainder the
-rounding leaves, so a full layout is handed on summing to 1 to the places the values are kept
-at.
+places sum to `0.999999`, and a value pinned to a bound the consumer gave — a seventh, say —
+leaves the same kind of remainder. A layout is full when its total is within that bound, and
+the remainder is carried by one of the values, so a full layout is handed on summing to 1 to
+the places the values are kept at. Dropping the correction instead does not work: a write
+that pins several values to bounds of their own rounds each of them the same way, and with
+nothing to absorb it the total walks away from 1 until the layout stops counting as full.
+
+Which value carries it is not free either. The value someone asked for must come back as they
+asked it, so the remainder goes to one the write derived — the largest of them — and a write
+that derived none, a drag over a handle, carries nothing. Picking "the largest value" without
+that distinction is right only while the largest happens to be a derived one.
 
 Every registration still sorts with `compareDocumentPosition`; what this removes is the
 `querySelectorAll` scan of the parent at each registration, which also counted children that

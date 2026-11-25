@@ -297,12 +297,14 @@ const getResizeDirection = (props: {
  * Resizes panels based on given resize actions.
  * @param initialSizes - The initial sizes of the panels.
  * @param collapsible - Whether the panels are allowed to collapse to distribute the percentage.
+ * @param requestedPanel - The index of the panel whose size was asked for, or `null` when none was: a drag asks for no size in particular. Its size is written as it is; the others carry what rounding leaves.
  * @param resizeActions - The resize actions to distribute the percentage.
  * @param resizableData - Data related to the resizable instance.
  */
 const resize = (props: {
   initialSizes: number[]
   collapsible: boolean
+  requestedPanel: number | null
   resizeActions: {
     precedingPanels: PanelInstance[]
     followingPanels: PanelInstance[]
@@ -340,7 +342,9 @@ const resize = (props: {
 
   // The panels of a resize always make up the whole root, so the layout is
   // written the one way a full layout is written.
-  props.resizableData.setSizes(fixLayoutToPrecision(newSizes))
+  props.resizableData.setSizes(
+    fixLayoutToPrecision(newSizes, props.requestedPanel),
+  )
 }
 
 /**
@@ -404,6 +408,7 @@ const resizePanel = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: panelIndex,
       resizeActions: [
         {
           precedingPanels: precedingPanelsIncluding,
@@ -450,6 +455,7 @@ const resizePanel = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: panelIndex,
       resizeActions: [
         {
           precedingPanels,
@@ -546,6 +552,7 @@ const deltaResize = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: false,
+      requestedPanel: null,
       resizeActions: [
         {
           precedingPanels: precedingPanelsIncluding,
@@ -584,6 +591,7 @@ const deltaResize = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: null,
       resizeActions: [
         {
           precedingPanels,
