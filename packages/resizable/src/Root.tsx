@@ -248,7 +248,9 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   createEffect(
     () => ({ sizes: sizes(), onChange: localProps.onSizesChange }),
     ({ sizes: currentSizes, onChange }) => {
-      onChange?.(currentSizes)
+      // The consumer's handler is an event handler to them: run it untracked so
+      // reads inside it neither subscribe this effect nor warn as strict reads.
+      untrack(() => onChange?.(currentSizes))
     },
   )
 

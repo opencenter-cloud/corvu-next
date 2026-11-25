@@ -113,7 +113,10 @@ const OtpFieldRoot = <T extends ValidComponent = 'div'>(
     () => value(),
     (currentValue) => {
       if (currentValue.length === defaultedProps.maxLength) {
-        defaultedProps.onComplete?.(currentValue)
+        // The consumer's handler is an event handler to them: run it untracked
+        // so reads inside it neither subscribe this effect nor warn as strict
+        // reads.
+        untrack(() => defaultedProps.onComplete?.(currentValue))
       }
     },
   )

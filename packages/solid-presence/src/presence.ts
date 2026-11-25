@@ -49,7 +49,9 @@ const createPresence = (props: {
 
   const setPresentState = (state: 'present' | 'hiding' | 'hidden') => {
     setPresentStateInternal(state)
-    props.onStateChange?.(state)
+    // Runs from an effect callback as well as from animation events; the
+    // consumer's handler is an event handler to them, so run it untracked.
+    untrack(() => props.onStateChange?.(state))
   }
 
   let animationName = 'none'

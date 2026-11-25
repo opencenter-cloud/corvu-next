@@ -209,7 +209,10 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     },
     (next: { size: number; onResize?: (size: number) => void } | undefined) => {
       if (next !== undefined) {
-        next.onResize?.(next.size)
+        // The consumer's handler is an event handler to them: run it untracked
+        // so reads inside it neither subscribe this effect nor warn as strict
+        // reads.
+        untrack(() => next.onResize?.(next.size))
       }
     },
   )
@@ -236,11 +239,15 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
       : false
 
     if (instance && prev !== collapsed) {
-      if (collapsed && localProps.onCollapse !== undefined) {
-        localProps.onCollapse(instance.size())
-      } else if (!collapsed && localProps.onExpand !== undefined) {
-        localProps.onExpand(instance.size())
-      }
+      // The consumer's handler is an event handler to them: run it untracked so
+      // reads inside it neither subscribe this memo nor warn as strict reads.
+      untrack(() => {
+        if (collapsed && localProps.onCollapse !== undefined) {
+          localProps.onCollapse(instance.size())
+        } else if (!collapsed && localProps.onExpand !== undefined) {
+          localProps.onExpand(instance.size())
+        }
+      })
     }
 
     return collapsed
