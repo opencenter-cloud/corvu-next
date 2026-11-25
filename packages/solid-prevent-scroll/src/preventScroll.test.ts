@@ -1,4 +1,4 @@
-import { createRoot, createSignal, flush } from 'solid-js'
+import { createRoot, createSignal, flush, OBSERVE } from 'solid-js'
 import { afterEach, describe, expect, test } from 'vitest'
 import createPreventScroll from '@src/preventScroll'
 
@@ -62,5 +62,35 @@ describe('createPreventScroll', () => {
 
     expect(document.body.style.paddingRight).toBe('')
     expect(document.body.style.overflow).toBe('hidden')
+  })
+
+  /**
+   * The stack of utilities preventing scroll is derived from what they are,
+   * not kept in sync by an effect. The utility's own listener effect reads
+   * both its `enabled` and its place in that stack, so a stack an effect
+   * wrote made it run twice for one write of `enabled` — once with the new
+   * `enabled` against the stack as it was — which Solid reports as
+   * `EFFECT_RELAY_TEAR`.
+   */
+  test('turning a utility off settles the stack in that flush', () => {
+    const [enabled, setEnabled] = createSignal(true)
+    const codes: string[] = []
+
+    createRoot((disposeRoot) => {
+      dispose = disposeRoot
+      createPreventScroll({ enabled })
+    })
+    flush()
+
+    const unsubscribe = OBSERVE!.diagnostics.subscribe((event) => {
+      codes.push(event.code)
+    })
+
+    setEnabled(false)
+    flush()
+    unsubscribe()
+
+    expect(codes).toEqual([])
+    expect(document.body.style.overflow).toBe('')
   })
 })

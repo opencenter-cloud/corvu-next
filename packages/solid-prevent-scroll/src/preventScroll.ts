@@ -10,20 +10,39 @@ import {
   type MaybeAccessor,
   mergeDefaults,
 } from '@corvu-next/utils/reactivity'
-import { createEffect, createSignal, createUniqueId, untrack } from 'solid-js'
+import {
+  type Accessor,
+  createEffect,
+  createSignal,
+  createUniqueId,
+  onCleanup,
+  untrack,
+} from 'solid-js'
 import type { Axis } from '@corvu-next/utils'
 import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
 
-const [preventScrollStack, setPreventScrollStack] = createSignal<string[]>(
-  [],
-  { ownedWrite: true },
-)
+/** One utility on the page, and whether it is preventing scroll right now.
+ *  `enabled` is read where the stack is read, so a utility turning on or off
+ *  is in the stack in that flush: a stack an effect wrote instead made every
+ *  reader run twice for one write of `enabled` (`EFFECT_RELAY_TEAR`), the
+ *  first time against the stack as it was. */
+type PreventScrollRegistration = {
+  id: string
+  enabled: Accessor<boolean>
+}
+
+const [preventScrollRegistrations, setPreventScrollRegistrations] =
+  createSignal<PreventScrollRegistration[]>([], { ownedWrite: true })
+
+/** Whether this utility is the innermost one preventing scroll: only that
+ *  one listens, so the listeners of the dialog behind a dialog do nothing. */
 const isActive = (id: string) => {
-  const stack = preventScrollStack()
-  const index = stack.indexOf(id)
-  return index !== -1 && index === stack.length - 1
+  const enabled = preventScrollRegistrations().filter((entry) =>
+    entry.enabled(),
+  )
+  return enabled[enabled.length - 1]?.id === id
 }
 
 /** Everything the body-style effect's apply phase styles the body from. */
@@ -73,23 +92,19 @@ const createPreventScroll = (props: {
   let currentTouchStartAxis: Axis | null = null
   let currentTouchStartDelta: number | null = null
 
-  // Effect 1: Stack management
-  createEffect(
-    (prev: undefined | boolean) => {
-      const enabled = access(props.enabled ?? true)
-      return enabled
-    },
-    (enabled: boolean, prev?: boolean) => {
-      if (!enabled) return
-
-      setPreventScrollStack((stack) => [...stack, preventScrollId])
-
-      return () => {
-        setPreventScrollStack((stack) =>
-          stack.filter((id) => id !== preventScrollId),
-        )
-      }
-    },
+  // This utility's place in the stack, for as long as it lives.
+  const registration: PreventScrollRegistration = {
+    id: preventScrollId,
+    enabled: () => access(props.enabled ?? true),
+  }
+  setPreventScrollRegistrations((registrations) => [
+    ...registrations,
+    registration,
+  ])
+  onCleanup(() =>
+    setPreventScrollRegistrations((registrations) =>
+      registrations.filter((entry) => entry !== registration),
+    ),
   )
 
   // Effect 2: Body style application (scrollbar hide + shift compensation)
