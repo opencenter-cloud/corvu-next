@@ -16,7 +16,6 @@ import {
   locationIsDraggable,
   resolveSnapPoint,
 } from '@src/lib'
-import { combineStyle } from '@corvu-next/utils/dom'
 import Dialog from '@corvu-next/dialog'
 import type { DynamicProps } from '@corvu-next/utils/dynamic'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
@@ -147,6 +146,35 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     }
     return undefined
   })
+
+  /**
+   * The drawer's own styles, written to the content element rather than
+   * handed to the spread that renders it. Every one of them is derived from
+   * the drawer's size, which is measured off that element: Solid's spread
+   * applies the ref and the props beside it in one effect, so a style
+   * derived from a measurement of the element the same effect mounts closes
+   * a cycle — the ref write, the size write, the style — that Solid reports
+   * as `EFFECT_WRITES_OWN_SOURCE` and settles in three flushes, each
+   * rendering the drawer at an intermediate place. Written here, the
+   * element is measured once and styled once, and the consumer's own
+   * `style` still goes through the spread.
+   */
+  createEffect(
+    () => ({
+      element: dialogContext.contentRef(),
+      transform: transformValue(),
+      transitionDuration: drawerContext.isDragging() ? '0ms' : undefined,
+      height: transitionHeight(),
+      width: transitionWidth(),
+    }),
+    ({ element, transform, transitionDuration, height, width }) => {
+      if (!element) return
+      setStyleProperty(element, 'transform', transform)
+      setStyleProperty(element, 'transition-duration', transitionDuration)
+      setStyleProperty(element, 'height', height)
+      setStyleProperty(element, 'width', width)
+    },
+  )
 
   // Split-phase effect: compute phase tracks `dialogContext.open()`,
   // effect phase adds/removes listeners.
@@ -352,17 +380,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     >
       contextId={(props as DrawerContentProps).contextId}
       // === SharedElementProps ===
-      style={combineStyle(
-        {
-          transform: transformValue(),
-          'transition-duration': drawerContext.isDragging()
-            ? '0ms'
-            : undefined,
-          height: transitionHeight(),
-          width: transitionWidth(),
-        },
-        (props as DrawerContentProps).style,
-      )}
+      style={(props as DrawerContentProps).style}
       // === ElementProps ===
       onPointerDown={onPointerDown}
       onTouchStart={(e) => {
@@ -393,3 +411,17 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
 }
 
 export default DrawerContent
+
+/** Writes an inline style property, or removes it where there is no value —
+ *  what Solid does with an `undefined` entry of a style prop. */
+const setStyleProperty = (
+  element: HTMLElement,
+  property: string,
+  value: string | undefined,
+) => {
+  if (value === undefined) {
+    element.style.removeProperty(property)
+  } else {
+    element.style.setProperty(property, value)
+  }
+}
