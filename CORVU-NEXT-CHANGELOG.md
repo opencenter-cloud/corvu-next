@@ -70,8 +70,13 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   `initialSizes` entry could land on the last panel. A panel whose size comes from
   `initialSizes` now follows the sorted list — each registration re-derives those panels'
   entries from their place in the list as it then stands — so a panel registering in front
-  of others moves them to their own entries. A controlled `sizes`, a panel's own
-  `initialSize` and any size the consumer or a drag has set stay untouched.
+  of others moves them to their own entries. A panel stops following the moment anything
+  else sets sizes: `resize`, `collapse`, `expand`, a drag, a key, or the consumer's own
+  `setSizes`. It is the move that counts, not the number, so a panel put back on exactly
+  its entry stays where the consumer left it. The sizes always sum to 1: a panel joining a
+  layout that already sums to 1 takes its room from the panels there, and nothing is
+  written back over the shares they gave up. A controlled `sizes` and a panel's own
+  `initialSize` are untouched.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and

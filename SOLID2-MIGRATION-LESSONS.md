@@ -1923,11 +1923,12 @@ Two things, and they are separate:
 2. **Registration order is not document order.** Siblings created while their parent renders
    do settle in document order: an owned `onSettled` is a tracked effect, tracked effects
    append at the tail of their height on the dirty heap, and the heap drains ascending and
-   is iterated forward. Children created from inside a computation that itself runs while
-   the frame's queue drains do not — measured on `@solidjs/signals` 2.0.3, two siblings
-   under a component that returns a thunk rendering Solid's `Dynamic` (which is what
-   `@corvu-next`'s own `Dynamic` is) settle in reverse of the order they were created in.
-   Nothing in the API promises an order either way, so do not derive one from registration.
+   is iterated forward. Five signals-only constructions on 2.0.3 all settled in creation
+   order. Rendering is where it turns around: measured with `solid-js` / `@solidjs/web`
+   2.0.3's `Dynamic`, which renders through nested memos, two siblings under a component
+   that returns a thunk rendering it (which is what `@corvu-next`'s own `Dynamic` is)
+   settle in reverse of the order they were created in. Nothing promises an order either
+   way, so do not derive one from registration.
 
 So registration order is not a child's place in the layout.
 
@@ -1941,11 +1942,17 @@ setter, so one list is the layout and the order of registration never enters it.
 
 Then let anything the consumer indexed by position (an `initialSizes` array, say) follow that
 list instead of being read once at registration: each registration re-derives the entry of
-every child that still holds the entry it was given, from its place in the list as it then
-stands, so a child registering in front of others moves them to their own entries. A child
-the consumer has since set a value for stops following — compare its current value with the
-entry it was given. This needs no walk of the DOM at registration, and no child that never
-registers can shift the others.
+every child still following it, from its place in the list as it then stands, so a child
+registering in front of others moves them to their own entries. Which children still follow
+is a fact to record, not a number to compare: mark them as moved from every path that sets
+values — a child moved and then put back on exactly its entry has still been moved. And
+re-derive only where it cannot break the invariant the whole array carries: in a layout whose
+sizes must sum to 1, a registration that took room out of the layout has already changed
+every other entry, so writing the entries back over it would push the sum past 1.
+
+Every registration still sorts with `compareDocumentPosition`; what this removes is the
+`querySelectorAll` scan of the parent at each registration, which also counted children that
+never register.
 
 ### Where This Applies
 

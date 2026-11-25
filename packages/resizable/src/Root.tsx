@@ -167,13 +167,34 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   const sizesToIds: string[] = []
 
   /**
-   * The panels whose size is still the entry `initialSizes` gave them, with
-   * that entry's resolved value. They follow the layout: a panel registering
-   * before them moves them to the entry of their new place. A panel the
-   * consumer or a drag has resized since no longer matches and stops
-   * following.
+   * The panels whose size is still the entry `initialSizes` gave them. They
+   * follow the layout: a panel registering before them moves them to the entry
+   * of their new place. A panel leaves the moment something else sets sizes —
+   * `resize`, `collapse`, `expand`, a drag or a key — because from then on the
+   * layout is the one that was asked for, not the one `initialSizes` describes.
    */
-  const initialSizedPanels = new Map<string, number>()
+  const initialSizedPanels = new Set<string>()
+
+  /**
+   * Called by every path that arranges the layout. None of them can be
+   * answered by comparing numbers afterwards: a panel dragged back to exactly
+   * its entry has still been moved, and these paths redistribute across the
+   * panels they touch rather than setting one of them.
+   */
+  const panelsWereMoved = () => initialSizedPanels.clear()
+
+  /**
+   * The setter the consumer is handed, through the children props and both
+   * contexts. Sizes they set are the layout they asked for, so no panel
+   * follows `initialSizes` afterwards. The resize paths here write through
+   * `setSizes` and say so themselves.
+   */
+  const setConsumerSizes: Setter<number[]> = (
+    value: number[] | ((sizes: number[]) => number[]),
+  ) => {
+    panelsWereMoved()
+    return setSizes(value)
+  }
 
   const registerPanel = (panelData: PanelData): PanelInstance => {
     const panel: PanelInstance = {
@@ -210,21 +231,19 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newPanels
     })
 
-    // The consumer indexed `initialSizes` by the layout, which is the order of
-    // the sorted list. A panel that takes its size from there keeps following
-    // it: every later registration re-derives the entry of each such panel
-    // from its place in the list as it now stands.
+    // A controlled root's sizes are the consumer's to set, so nothing follows
+    // `initialSizes` there.
     const fromInitialSizes =
+      localProps.sizes === undefined &&
       panelData.initialSize === null &&
       localProps.initialSizes[panelIndex] !== undefined
 
     let panelSize: number | null = null
     if (panelData.initialSize !== null) {
       panelSize = resolveSize(panelData.initialSize, rootSize())
-    } else if (fromInitialSizes) {
+    } else if (localProps.initialSizes[panelIndex] !== undefined) {
       panelSize = resolveSize(localProps.initialSizes[panelIndex]!, rootSize())
     }
-
     panelSize = panelSize ?? 0.5
 
     sizesToIds.splice(panelIndex, 0, panelData.id)
@@ -235,37 +254,46 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // Adding one here is what turned a two-panel layout into three.
       if (sizes.length > registeredPanels) return sizes
 
-      for (const [id, entry] of initialSizedPanels) {
-        const index = sizesToIds.indexOf(id)
-        // `sizesToIds` already carries this registration, `sizes` does not.
-        if (sizes[index > panelIndex ? index - 1 : index] !== entry) {
-          initialSizedPanels.delete(id)
-        }
-      }
-      if (fromInitialSizes) initialSizedPanels.set(panelData.id, panelSize!)
+      // The consumer indexed `initialSizes` by the layout, which is the order
+      // of the sorted list, so a panel that takes its size from there follows
+      // the list: this registration re-derives the entry of every panel still
+      // following, from its place in the list as it now stands.
+      if (fromInitialSizes) initialSizedPanels.add(panelData.id)
 
       let newSizes = [...sizes]
       const previousTotalSize = newSizes.reduce(
         (totalSize, size) => totalSize + size,
         0,
       )
-      if (previousTotalSize === 1) {
+      // A layout that already sums to 1 has no room for another panel, so the
+      // panels there each give up a share of it. Their `initialSizes` entries
+      // are the layout before that, and writing them back would push the sum
+      // past 1; the panels that register into a layout still being built,
+      // which is every panel of the first frame, start below 1.
+      const madeRoom = previousTotalSize === 1
+      if (madeRoom) {
         const offsetPerPanel = panelSize! / newSizes.length
         // TODO: Recognize min and max sizes
         newSizes = newSizes.map((size) => size - offsetPerPanel)
       }
       newSizes.splice(panelIndex, 0, panelSize!)
 
-      for (const id of initialSizedPanels.keys()) {
+      // Nothing follows `initialSizes` through a registration that took room
+      // out of the layout, and nothing follows it under a controlled root:
+      // there the sizes are the consumer's to set.
+      if (madeRoom || localProps.sizes !== undefined) {
+        initialSizedPanels.clear()
+        return newSizes
+      }
+
+      for (const id of initialSizedPanels) {
         const index = sizesToIds.indexOf(id)
         const initialSize = localProps.initialSizes[index]
         if (initialSize === undefined) {
           initialSizedPanels.delete(id)
           continue
         }
-        const entry = resolveSize(initialSize, rootSize())
-        newSizes[index] = entry
-        initialSizedPanels.set(id, entry)
+        newSizes[index] = resolveSize(initialSize, rootSize())
       }
 
       return newSizes
@@ -317,6 +345,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       const newSize = resolveSize(size, rootSize())
       const allowedSize = Math.max(minSize, Math.min(newSize, maxSize))
       const deltaPercentage = allowedSize - sizes()[panelIndex]!
+      panelsWereMoved()
 
       resizePanel({
         deltaPercentage,
@@ -345,6 +374,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         rootSize(),
       )
       if (!panel.data.collapsible || panelSize === collapsedSize) return
+      panelsWereMoved()
       const deltaPercentage = collapsedSize - panelSize
       resizePanel({
         deltaPercentage,
@@ -375,6 +405,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       if (!panel.data.collapsible || panelSize !== collapsedSize) return
       const minSize = resolveSize(panel.data.minSize, rootSize())
       const deltaPercentage = minSize - panelSize
+      panelsWereMoved()
 
       resizePanel({
         deltaPercentage,
@@ -400,6 +431,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       initialSizes = panels().map((panel) => panel.size())
       altKeyCache = altKey
     }
+    panelsWereMoved()
     deltaResize({
       deltaPercentage: delta / rootSize(),
       altKey,
@@ -471,6 +503,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     event.preventDefault()
 
     const initialSizes = panels().map((panel) => panel.size())
+    panelsWereMoved()
 
     deltaResize({
       deltaPercentage,
@@ -491,7 +524,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     get sizes() {
       return sizes()
     },
-    setSizes,
+    setSizes: setConsumerSizes,
     get orientation() {
       return localProps.orientation
     },
@@ -524,7 +557,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     <ResizableContext
       value={{
         sizes,
-        setSizes,
+        setSizes: setConsumerSizes,
         orientation: () => localProps.orientation,
         keyboardDelta: () => localProps.keyboardDelta,
         handleCursorStyle: () => localProps.handleCursorStyle,
@@ -536,7 +569,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       <InternalResizableContext
         value={{
           sizes,
-          setSizes,
+          setSizes: setConsumerSizes,
           orientation: () => localProps.orientation,
           keyboardDelta: () => localProps.keyboardDelta,
           handleCursorStyle: () => localProps.handleCursorStyle,

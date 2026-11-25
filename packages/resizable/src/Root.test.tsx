@@ -125,4 +125,124 @@ describe('Resizable.Root', () => {
     expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
     expect(mounted.textContent).toBe('0.70.3')
   })
+
+  test('keeps the sizes summing to 1 when a panel without an entry joins', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(false)
+
+    mount(() => (
+      <Resizable initialSizes={[0.7, 0.3]} onSizesChange={onSizesChange}>
+        <Resizable.Panel />
+        <Resizable.Panel />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
+
+    setThirdPanel(true)
+    flush()
+
+    // `initialSizes` describes two panels, so the third takes the default
+    // size, and the layout it joined makes room for it: the panels that were
+    // there each give up a share, and the sizes still sum to 1.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes[0]).toBeCloseTo(0.45, 10)
+    expect(sizes[1]).toBeCloseTo(0.05, 10)
+    expect(sizes[2]).toBe(0.5)
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
+  })
+
+  test('keeps the sizes summing to 1 when more panels than entries settle', () => {
+    const onSizesChange = vi.fn()
+
+    mount(() => (
+      <Resizable initialSizes={[0.6, 0.4]} onSizesChange={onSizesChange}>
+        <Resizable.Panel />
+        <Resizable.Panel />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toHaveLength(3)
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
+  })
+
+  test('a panel the consumer sized stops following its initial size', () => {
+    const onSizesChange = vi.fn()
+    const [firstPanel, setFirstPanel] = createSignal(false)
+    let setSizes: ((sizes: number[]) => unknown) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.4, 0.3]} onSizesChange={onSizesChange}>
+        {(props) => {
+          setSizes = props.setSizes
+          return (
+            <>
+              <Show when={firstPanel()}>
+                <Resizable.Panel />
+              </Show>
+              <Resizable.Panel />
+              <Resizable.Panel />
+            </>
+          )
+        }}
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.4, 0.3])
+
+    // Set away from the entries, and back onto exactly them: the numbers say
+    // nothing about whether the consumer has taken the layout over, the fact
+    // that they set it does.
+    setSizes!([0.3, 0.4])
+    flush()
+    setSizes!([0.4, 0.3])
+    flush()
+
+    setFirstPanel(true)
+    flush()
+
+    // The panel that mounted in front takes the first entry. The two the
+    // consumer set keep their sizes instead of being moved onto the entries
+    // of their new places.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.4, 0.4, 0.3])
+  })
+
+  test('a resized layout keeps summing to 1 when a panel mounts in front', () => {
+    const onSizesChange = vi.fn()
+    const [firstPanel, setFirstPanel] = createSignal(false)
+    let resizeLast: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.6, 0.4]} onSizesChange={onSizesChange}>
+        <Show when={firstPanel()}>
+          <Resizable.Panel />
+        </Show>
+        <Resizable.Panel />
+        <Resizable.Panel>
+          {(props) => {
+            resizeLast = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.6, 0.4])
+
+    resizeLast!(0.5)
+    flush()
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.5, 0.5])
+
+    setFirstPanel(true)
+    flush()
+
+    // The resized panels make room for the one that mounted and keep what is
+    // left between them; neither is written back onto an `initialSizes` entry.
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.6, 0.2, 0.2])
+  })
 })
