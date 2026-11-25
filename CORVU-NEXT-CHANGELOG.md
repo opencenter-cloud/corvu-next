@@ -199,3 +199,25 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   component `as`, which renders what it likes with `type` and `role` handed to it as props
   — so the element is configured before it is inserted and the ref is nothing but the
   consumer's own. `@corvu-next/utils/create/tagName` is unchanged and still exported.
+- **A reactive prop reaches the effect that uses it, wherever a consumer passes one.**
+  An effect's apply phase tracks nothing, so a prop read there is a value frozen at the
+  first run — Solid's dev build raises `STRICT_READ_UNTRACKED` on it — and three
+  primitives read one there. `createFloating` read `placement` and `strategy` from inside
+  `autoUpdate`'s callback, whose first call runs in that phase, so a floating element
+  stayed where the first position put it; both are read in the compute phase now, and a
+  new placement repositions the element. `createPreventScroll` read
+  `preventScrollbarShift` and `preventScrollbarShiftMode` while styling the body, so the
+  compensation never changed from padding to margin or turned off; they are compute-phase
+  reads now, while `restoreScrollPosition` stays where it belongs — in the style's
+  cleanup, read `untrack`ed, because it is decided when the style is reverted, not when it
+  was applied. `Dismissible` read `dismissibleId` while registering the layer, so a new id
+  never reached the registry and the cleanup removed whichever id happened to be current;
+  the id now travels through the compute phase beside `enabled`, so each run registers and
+  removes the same one. The id is also kept out of the props spread handed to
+  `createDismissible`, which has no use for it and reads every key of that spread once,
+  untracked. `@corvu-next/prevent-scroll` and `@corvu-next/dismissible` now carry unit
+  tests, run on Solid's development build, with any dev diagnostic failing the test.
+- **A `DynamicButton` hands the element exactly one ref.** The consumer's `ref` was passed
+  to the element and then handed to it a second time by the props spread, which still
+  carried it. `omit` drops it from the spread now, so the one ref the element gets is the
+  consumer's, normalized into a callback.
