@@ -1,4 +1,9 @@
-import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
+import {
+  fixLayoutToPrecision,
+  fixToPrecision,
+  resolveSize,
+  splitPanels,
+} from '@src/lib/utils'
 import type { PanelInstance, ResizeStrategy } from '@src/lib/types'
 import { handleResizeConstraints } from '@src/lib/cursor'
 import { type Setter } from 'solid-js'
@@ -333,16 +338,9 @@ const resize = (props: {
     newSizes = [...distributedSizesPreceding, ...distributedSizesFollowing]
   }
 
-  newSizes = newSizes.map(fixToPrecision)
-  const totalSize = newSizes.reduce((totalSize, size) => totalSize + size, 0)
-  if (totalSize !== 1) {
-    const offset = totalSize - 1
-    const offsetPerPanel = offset / newSizes.length
-    // TODO: Recognize min and max sizes
-    newSizes = newSizes.map((size) => size - offsetPerPanel)
-  }
-
-  props.resizableData.setSizes(newSizes.map(fixToPrecision))
+  // The panels of a resize always make up the whole root, so the layout is
+  // written the one way a full layout is written.
+  props.resizableData.setSizes(fixLayoutToPrecision(newSizes))
 }
 
 /**

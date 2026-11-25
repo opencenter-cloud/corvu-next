@@ -286,7 +286,7 @@ describe('Resizable.Root', () => {
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
-  test('a layout a resize left a place short is full when a panel joins', () => {
+  test('a resize writes a layout that sums to 1, and a joining panel keeps it there', () => {
     const onSizesChange = vi.fn()
     const [fourthPanel, setFourthPanel] = createSignal(false)
     let resizeFirst: ((size: number) => void) | null = null
@@ -310,18 +310,19 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // A resize leaves its own remainder: this layout is a place short of 1.
+    // The resize writes its layout the one way a full layout is written: the
+    // panel that carries the rounding remainder is the largest one.
     resizeFirst!(0.4)
     flush()
     const resized = onSizesChange.mock.lastCall![0] as number[]
-    expect(resized).toEqual([0.4, 0.266666, 0.333333])
-    expect(resized.reduce((total, size) => total + size, 0)).toBe(0.999999)
+    expect(resized).toEqual([0.400001, 0.266666, 0.333333])
+    expect(resized.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
 
     setFourthPanel(true)
     flush()
 
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.233334, 0.1, 0.166667, 0.499999])
+    expect(sizes).toEqual([0.233334, 0.099999, 0.166666, 0.500001])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 })

@@ -41,4 +41,38 @@ const splitPanels = (props: {
 const PRECISION = 6
 const fixToPrecision = (value: number) => parseFloat(value.toFixed(PRECISION))
 
-export { resolveSize, splitPanels, fixToPrecision, PRECISION }
+/**
+ * The one way a full layout is written: the panels share whatever their sizes
+ * are away from the whole root, each size is rounded to `PRECISION`, and the
+ * largest panel carries what that rounding leaves over. So a layout written
+ * through here sums to 1 to the places sizes are kept at, with no comparison
+ * against 1 anywhere — three thirds come out as `0.333333` twice and
+ * `0.333334` once rather than as a total a place short.
+ */
+const fixLayoutToPrecision = (sizes: number[]) => {
+  if (sizes.length === 0) return []
+  const totalSize = sizes.reduce((totalSize, size) => totalSize + size, 0)
+  const offsetPerPanel = (totalSize - 1) / sizes.length
+  // TODO: Recognize min and max sizes
+  const fixedSizes = sizes.map((size) => fixToPrecision(size - offsetPerPanel))
+  const fixedTotalSize = fixedSizes.reduce(
+    (totalSize, size) => totalSize + size,
+    0,
+  )
+  const largestPanel = fixedSizes.reduce(
+    (largest, size, index) => (size > fixedSizes[largest]! ? index : largest),
+    0,
+  )
+  fixedSizes[largestPanel] = fixToPrecision(
+    fixedSizes[largestPanel]! + 1 - fixedTotalSize,
+  )
+  return fixedSizes
+}
+
+export {
+  resolveSize,
+  splitPanels,
+  fixToPrecision,
+  fixLayoutToPrecision,
+  PRECISION,
+}

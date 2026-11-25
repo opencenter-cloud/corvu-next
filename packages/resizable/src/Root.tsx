@@ -23,6 +23,7 @@ import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { isFunction, type Size } from '@corvu-next/utils'
 import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
 import {
+  fixLayoutToPrecision,
   fixToPrecision,
   PRECISION,
   resolveSize,
@@ -309,25 +310,11 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         }
       }
 
-      const roundedSizes = newSizes.map(fixToPrecision)
-      if (!layoutIsFull) return roundedSizes
-
-      // Rounding each size moves the total again, by up to half a place per
-      // panel. The largest panel carries what is left over, so a layout that
-      // was full is handed on summing to 1 to the places sizes are kept at.
-      const roundedTotalSize = roundedSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      const largestPanel = roundedSizes.reduce(
-        (largest, size, index) =>
-          size > roundedSizes[largest]! ? index : largest,
-        0,
-      )
-      roundedSizes[largestPanel] = fixToPrecision(
-        roundedSizes[largestPanel]! + 1 - roundedTotalSize,
-      )
-      return roundedSizes
+      // A full layout is written the one way a full layout is written. An
+      // under-filled one is only rounded: corvu leaves a layout the consumer
+      // under-filled as they left it.
+      if (layoutIsFull) return fixLayoutToPrecision(newSizes)
+      return newSizes.map(fixToPrecision)
     })
 
     return panel
