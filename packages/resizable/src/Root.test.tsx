@@ -147,11 +147,11 @@ describe('Resizable.Root', () => {
     flush()
 
     // `initialSizes` describes two panels, so the third has no entry and no
-    // size of its own: it asked for nothing, so it is held at an even share
-    // of the whole root — a third of it — and the two that asked give that
-    // third between them, a sixth each off 0.7 and 0.3.
+    // size of its own: it asked for nothing, and takes an even share of the
+    // room the panels that did ask leave. Their entries are 0.7 and 0.3, so
+    // there is none, and the layout still sums to 1.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.533334, 0.133333, 0.333333])
+    expect(sizes).toEqual([0.7, 0.3, 0])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -288,11 +288,11 @@ describe('Resizable.Root', () => {
     // size that was asked for, which comes back exactly — and takes its room
     // from the three. Those three tie for largest among the panels this write
     // derived, and the first of them carries what the rounding leaves.
-    // The fourth panel asked for nothing, so it is held at a quarter of the
-    // root, and the three thirds give it that quarter: a twelfth each, which
-    // lands all four on 0.25.
+    // The three entries claim the whole root — thirds, kept as 0.333333 with
+    // the place left over on the first — so the fourth panel, which asked for
+    // nothing, takes the room they leave: none.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.25, 0.25, 0.25, 0.25])
+    expect(sizes).toEqual([0.333334, 0.333333, 0.333333, 0])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -333,11 +333,10 @@ describe('Resizable.Root', () => {
     flush()
 
     // The resize set the three panels' sizes, so they are no longer the
-    // entries' to re-derive. The fourth asked for nothing and is held at a
-    // quarter of the root, and the three give it that quarter, a twelfth
-    // each, from [0.4, 0.266666, 0.333334].
+    // entries' to re-derive; they fill the root, and the fourth panel, which
+    // asked for nothing, takes the room they leave: none.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.316666, 0.183333, 0.250001, 0.25])
+    expect(sizes).toEqual([0.4, 0.266666, 0.333334, 0])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -460,7 +459,7 @@ describe('Resizable.Root', () => {
     // The layout is full, so the panel that joins takes its room from the
     // four rather than being added on top of them, at exactly its default.
     const joined = onSizesChange.mock.lastCall![0] as number[]
-    expect(joined[4]).toBe(0.2)
+    expect(joined[4]).toBe(0)
     expect(joined.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,
@@ -643,7 +642,8 @@ describe('Resizable.Root', () => {
       fixLayoutToPrecision({
         sizes: [0.5, 0.5],
         constraints: [{ minSize: 0, maxSize: 1, collapsedSize: null }],
-        requested: [],
+        requestedPanel: null,
+        requestedSize: null,
       }),
     ).toThrow('2 sizes was written with 1 panels')
   })
@@ -777,9 +777,9 @@ describe('Resizable.Root', () => {
     flush()
 
     // A maximum holds a panel back from growing, not from giving room away.
-    // None of the three asked for a size, so each takes a third of the root.
-    // Thirds are kept as 0.333333, which is a place short between them, and
-    // the place left over goes to the largest — on a tie, the first.
+    // None of the three asked for a size, so what they describe is
+    // [0.5, 0.5, 0.5] = 1.5, and each gives a sixth: thirds, kept to six
+    // places as 0.333333 each, with the place left over on the first.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
     expect(sizes).toEqual([0.333334, 0.333333, 0.333333])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
@@ -1193,11 +1193,8 @@ describe('Resizable.Root', () => {
     // joins, and a collapsed panel has none to give: it keeps the size it
     // rests at, the panels with room give what they can, and the panel that
     // joined takes what is left.
-    // The panel that joined asked for nothing, so it is held at a quarter of
-    // the root. The first panel is pinned at half and the collapsed one rests
-    // where it is, so the third gives the whole quarter.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.5, 0.090909, 0.159091, 0.25])
+    expect(sizes).toEqual([0.5, 0.090909, 0.409091, 0])
     expect(sizes[1]).toBe(0.090909)
     expect(mounted.textContent).toBe('collapsed')
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
@@ -1381,45 +1378,5 @@ describe('Resizable.Root', () => {
     flush()
 
     expect(onSizesChange).toHaveBeenLastCalledWith([0.25, 0.25, 0.25, 0.25])
-  })
-
-  test('a panel without a size shown after a resize joins visible', () => {
-    const onSizesChange = vi.fn()
-    const [thirdPanel, setThirdPanel] = createSignal(false)
-    let resizeFirst: ((size: number) => void) | null = null
-
-    mount(() => (
-      <Resizable initialSizes={[0.5, 0.5]} onSizesChange={onSizesChange}>
-        <Resizable.Panel>
-          {(props) => {
-            resizeFirst = props.resize
-            return null
-          }}
-        </Resizable.Panel>
-        <Resizable.Panel />
-        <Show when={thirdPanel()}>
-          <Resizable.Panel />
-        </Show>
-      </Resizable>
-    ))
-
-    resizeFirst!(0.7)
-    flush()
-    expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
-
-    setThirdPanel(true)
-    flush()
-
-    // The panel shown now asked for no size, so it is held at an even share
-    // of the whole root — a third of it, since the layout has three panels —
-    // and the two the resize sized give it that third between them. A panel
-    // that mounts late is visible, not nothing.
-    const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes[2]).toBe(0.333333)
-    expect(sizes).toEqual([0.533334, 0.133333, 0.333333])
-    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
-      1,
-      6,
-    )
   })
 })

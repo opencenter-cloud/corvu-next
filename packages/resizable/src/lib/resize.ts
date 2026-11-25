@@ -361,10 +361,8 @@ const resize = (props: {
       constraints: panelsInLayout.map((panel) =>
         panelSizeConstraints(panel, props.resizableData.rootSize),
       ),
-      requested:
-        props.requestedPanel === null || props.requestedSize === null
-          ? []
-          : [{ panel: props.requestedPanel, size: props.requestedSize }],
+      requestedPanel: props.requestedPanel,
+      requestedSize: props.requestedSize,
     }),
   )
 }
