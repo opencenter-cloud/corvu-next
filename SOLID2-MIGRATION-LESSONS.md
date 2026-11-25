@@ -1950,6 +1950,13 @@ re-derive only where it cannot break the invariant the whole array carries: in a
 sizes must sum to 1, a registration that took room out of the layout has already changed
 every other entry, so writing the entries back over it would push the sum past 1.
 
+And when the invariant is a sum of rounded numbers, do not test it with equality. Values kept
+to p decimal places leave the total of n of them up to n × 10⁻ᵖ off: three thirds held to six
+places sum to `0.999999`, and a drag leaves the same kind of remainder. A layout is full when
+its total is within that bound, and what is written back is corrected by the remainder the
+rounding leaves, so a full layout is handed on summing to 1 to the places the values are kept
+at.
+
 Every registration still sorts with `compareDocumentPosition`; what this removes is the
 `querySelectorAll` scan of the parent at each registration, which also counted children that
 never register.

@@ -22,7 +22,12 @@ import { deltaResize, resizePanel } from '@src/lib/resize'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { isFunction, type Size } from '@corvu-next/utils'
 import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
-import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
+import {
+  fixToPrecision,
+  PRECISION,
+  resolveSize,
+  splitPanels,
+} from '@src/lib/utils'
 import createControllableSignal from '@corvu-next/utils/create/controllableSignal'
 import createOnce from '@corvu-next/utils/create/once'
 import createSize from '@corvu-next/utils/create/size'
@@ -261,43 +266,68 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       if (fromInitialSizes) initialSizedPanels.add(panelData.id)
 
       let newSizes = [...sizes]
-      // The same rounding the resize paths apply, so a layout that is one
-      // float short of 1 counts as the full layout it is.
-      const previousTotalSize = fixToPrecision(
-        newSizes.reduce((totalSize, size) => totalSize + size, 0),
+      const previousTotalSize = newSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
       )
-      // A layout that already sums to 1 has no room for another panel, so the
-      // panels there each give up a share of it, and nothing is written back
-      // over what they gave up: their `initialSizes` entries are the layout
-      // from before, and the sum would pass 1. A layout still being built —
-      // every panel of the first frame — starts below 1.
-      const madeRoom = previousTotalSize === 1
-      if (madeRoom) {
-        const offsetPerPanel = panelSize! / newSizes.length
+      // Every stored size is kept to `PRECISION` places, so the total of a
+      // full layout of n panels can sit up to n * 10 ** -PRECISION away from
+      // 1: three thirds are stored as `0.333333` and sum to `0.999999`, and a
+      // drag leaves the same kind of remainder. A layout is full when its
+      // total is within that, and comparing with 1 would read a full layout
+      // as one still being built and let the next panel join on top of it.
+      const layoutIsFull =
+        newSizes.length > 0 &&
+        Math.abs(previousTotalSize - 1) <=
+          newSizes.length * 10 ** -PRECISION
+      if (layoutIsFull) {
+        // The panels there give up exactly the room the new one takes, so
+        // what comes out is a full layout again whatever the rounding left.
+        const offsetPerPanel =
+          (previousTotalSize - (1 - panelSize!)) / newSizes.length
         // TODO: Recognize min and max sizes
         newSizes = newSizes.map((size) => size - offsetPerPanel)
       }
       newSizes.splice(panelIndex, 0, panelSize!)
 
       // Nothing follows `initialSizes` through a registration that took room
-      // out of the layout, and nothing follows it under a controlled root:
-      // there the sizes are the consumer's to set.
-      if (madeRoom || localProps.sizes !== undefined) {
+      // out of the layout — their entries are the layout from before, and
+      // writing them back over the shares they gave up puts the sum past 1 —
+      // and nothing follows it under a controlled root, where the sizes are
+      // the consumer's to set.
+      if (layoutIsFull || localProps.sizes !== undefined) {
         initialSizedPanels.clear()
-        return newSizes.map(fixToPrecision)
-      }
-
-      for (const id of initialSizedPanels) {
-        const index = sizesToIds.indexOf(id)
-        const initialSize = localProps.initialSizes[index]
-        if (initialSize === undefined) {
-          initialSizedPanels.delete(id)
-          continue
+      } else {
+        for (const id of initialSizedPanels) {
+          const index = sizesToIds.indexOf(id)
+          const initialSize = localProps.initialSizes[index]
+          if (initialSize === undefined) {
+            initialSizedPanels.delete(id)
+            continue
+          }
+          newSizes[index] = resolveSize(initialSize, rootSize())
         }
-        newSizes[index] = resolveSize(initialSize, rootSize())
       }
 
-      return newSizes.map(fixToPrecision)
+      const roundedSizes = newSizes.map(fixToPrecision)
+      if (!layoutIsFull) return roundedSizes
+
+      // Rounding each size moves the total again, by up to half a place per
+      // panel. The largest panel carries what is left over, so a layout that
+      // was full is handed on summing to 1 to the places sizes are kept at.
+      const roundedTotalSize = roundedSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
+      )
+      const largestPanel = roundedSizes.reduce(
+        (largest, size, index) =>
+          size > roundedSizes[largest]! ? index : largest,
+        0,
+      )
+      roundedSizes[largestPanel] = fixToPrecision(
+        roundedSizes[largestPanel]! + 1 - roundedTotalSize,
+      )
+      return roundedSizes
     })
 
     return panel

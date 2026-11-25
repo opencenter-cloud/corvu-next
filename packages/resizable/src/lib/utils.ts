@@ -35,7 +35,10 @@ const splitPanels = (props: {
   return [precedingPanels, followingPanels]
 }
 
+/** The places a panel size is kept to. Every size written to the layout is
+ *  rounded here, so the total of a full layout of n panels can sit up to
+ *  n * 10 ** -PRECISION away from 1. */
 const PRECISION = 6
 const fixToPrecision = (value: number) => parseFloat(value.toFixed(PRECISION))
 
-export { resolveSize, splitPanels, fixToPrecision }
+export { resolveSize, splitPanels, fixToPrecision, PRECISION }

@@ -251,4 +251,77 @@ describe('Resizable.Root', () => {
     // left between them; neither is written back onto an `initialSizes` entry.
     expect(onSizesChange).toHaveBeenLastCalledWith([0.6, 0.2, 0.2])
   })
+
+  test('a layout of thirds is full when a panel without an entry joins', () => {
+    const onSizesChange = vi.fn()
+    const [fourthPanel, setFourthPanel] = createSignal(false)
+
+    mount(() => (
+      <Resizable
+        initialSizes={[1 / 3, 1 / 3, 1 / 3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel />
+        <Resizable.Panel />
+        <Resizable.Panel />
+        <Show when={fourthPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    // Sizes are kept to six places, so three thirds are stored as `0.333333`
+    // and their total is a place short of 1. That is a full layout.
+    const thirds = onSizesChange.mock.lastCall![0] as number[]
+    expect(thirds).toEqual([0.333333, 0.333333, 0.333333])
+    expect(thirds.reduce((total, size) => total + size, 0)).toBe(0.999999)
+
+    setFourthPanel(true)
+    flush()
+
+    // The fourth panel has no entry, and takes its room from the three, which
+    // a comparison with 1 would have refused to do.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.166667, 0.166667, 0.166667, 0.499999])
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
+  })
+
+  test('a layout a resize left a place short is full when a panel joins', () => {
+    const onSizesChange = vi.fn()
+    const [fourthPanel, setFourthPanel] = createSignal(false)
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable
+        initialSizes={[1 / 3, 1 / 3, 1 / 3]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+        <Resizable.Panel />
+        <Show when={fourthPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    // A resize leaves its own remainder: this layout is a place short of 1.
+    resizeFirst!(0.4)
+    flush()
+    const resized = onSizesChange.mock.lastCall![0] as number[]
+    expect(resized).toEqual([0.4, 0.266666, 0.333333])
+    expect(resized.reduce((total, size) => total + size, 0)).toBe(0.999999)
+
+    setFourthPanel(true)
+    flush()
+
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.233334, 0.1, 0.166667, 0.499999])
+    expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
+  })
 })
