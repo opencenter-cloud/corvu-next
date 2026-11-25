@@ -25,6 +25,7 @@ import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
 import {
   fixLayoutToPrecision,
   fixToPrecision,
+  panelSizeBounds,
   PRECISION,
   resolveSize,
   splitPanels,
@@ -226,6 +227,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     // and move them along.
     let panelIndex = 0
     let registeredPanels = 0
+    let panelsInLayout: PanelInstance[] = []
     setPanels((panels) => {
       registeredPanels = panels.length
       const newPanels = [...panels]
@@ -234,6 +236,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         sortByDocumentPosition(a.data.element, b.data.element),
       )
       panelIndex = newPanels.indexOf(panel)
+      panelsInLayout = newPanels
       return newPanels
     })
 
@@ -315,7 +318,13 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // `initialSize`, its `initialSizes` entry or the default. An
       // under-filled layout is only rounded: corvu leaves a layout the
       // consumer under-filled as they left it.
-      if (layoutIsFull) return fixLayoutToPrecision(newSizes, panelIndex)
+      if (layoutIsFull) {
+        return fixLayoutToPrecision(
+          newSizes,
+          panelIndex,
+          panelsInLayout.map((panel) => panelSizeBounds(panel, rootSize())),
+        )
+      }
       return newSizes.map(fixToPrecision)
     })
 

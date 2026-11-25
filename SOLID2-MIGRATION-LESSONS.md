@@ -1960,11 +1960,20 @@ that pins several values to bounds of their own rounds each of them the same way
 nothing to absorb it the total walks away from 1 until the layout stops counting as full.
 
 Which value carries it is not free either. The value someone asked for must come back as they
-asked it, so the remainder goes to one the write derived — the largest of them. A write that
-asks for no particular value, a drag over a handle, derives all of them, and the largest still
-carries it; only a write with nothing derived at all, one value asked for and no other, can
-carry nothing. Picking "the largest value" without that distinction is right only while the
-largest happens to be a derived one.
+asked it, so the remainder goes to one the write derived — the largest of them, and on a tie
+the first. A write that asks for no particular value, a drag over a handle, derives all of
+them, and the largest still carries it; only a write with nothing derived at all, one value
+asked for and no other, can carry nothing. Picking "the largest value" without that
+distinction is right only while the largest happens to be a derived one.
+
+And rounding has to respect the bounds each value is held to. A value sitting on a bound of
+the consumer's — a minimum of a seventh — rounds to the nearest six-place value and is then
+reported below the minimum it was pinned to. Round such a value toward the inside of its
+bound instead, up at a minimum and down at a maximum, and let the remainder go only to a
+value with room for it inside its own bounds. The two cannot always both hold: when every
+derived value is pinned in the direction the remainder would move it, the bounds win, the
+total is left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next
+write with room in it brings it back.
 
 Every registration still sorts with `compareDocumentPosition`; what this removes is the
 `querySelectorAll` scan of the parent at each registration, which also counted children that

@@ -1,6 +1,7 @@
 import {
   fixLayoutToPrecision,
   fixToPrecision,
+  panelSizeBounds,
   resolveSize,
   splitPanels,
 } from '@src/lib/utils'
@@ -317,6 +318,7 @@ const resize = (props: {
   }
 }) => {
   let newSizes = props.initialSizes
+  let panelsInLayout: PanelInstance[] = []
   for (const resizeAction of props.resizeActions) {
     const [, distributedSizesPreceding] = distributePercentage({
       desiredPercentage: resizeAction.deltaPercentage,
@@ -338,12 +340,23 @@ const resize = (props: {
     })
 
     newSizes = [...distributedSizesPreceding, ...distributedSizesFollowing]
+    panelsInLayout = [
+      ...resizeAction.precedingPanels,
+      ...resizeAction.followingPanels,
+    ]
   }
 
   // The panels of a resize always make up the whole root, so the layout is
-  // written the one way a full layout is written.
+  // written the one way a full layout is written, each panel within its own
+  // bounds.
   props.resizableData.setSizes(
-    fixLayoutToPrecision(newSizes, props.requestedPanel),
+    fixLayoutToPrecision(
+      newSizes,
+      props.requestedPanel,
+      panelsInLayout.map((panel) =>
+        panelSizeBounds(panel, props.resizableData.rootSize),
+      ),
+    ),
   )
 }
 

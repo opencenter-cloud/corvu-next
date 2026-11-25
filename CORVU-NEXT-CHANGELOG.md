@@ -79,10 +79,18 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   panel joining one takes its room from the panels there. Nothing is written back over the
   shares they gave up. Every size that was asked for comes back as it was asked, to those
   six places: the panel being resized, collapsed or expanded, the panel joining the layout
-  at its own `initialSize`, its entry or the default, and a controlled `sizes`. What the
-  rounding leaves over is carried by the largest panel whose size the write derived. A drag
-  asks for no size in particular, so every panel it moves is derived and the largest of
-  them carries it; a lone panel resizing itself derives nothing, and nothing is carried.
+  at its own `initialSize`, its entry or the default, and a controlled `sizes`. A size
+  pinned to a bound is reported inside that bound: one sitting on its `minSize` rounds up
+  to the next six-place size at or above it, one on its `maxSize` rounds down, so no panel
+  is ever reported outside its own minimum or maximum — `minSize={1/7}` is reported as
+  `0.142858`, never `0.142857`. What the rounding leaves over is carried by the largest
+  panel the write derived that has room for it inside its own bounds, and on a tie by the
+  first of them. A drag asks for no size in particular, so every panel it moves is derived
+  and the largest with room carries it; a lone panel resizing itself derives nothing, and
+  nothing is carried. Bounds come before the total: when every derived panel is pinned in
+  the direction the remainder would move it, nothing is carried and the layout is handed on
+  up to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it
+  brings the total back.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and
