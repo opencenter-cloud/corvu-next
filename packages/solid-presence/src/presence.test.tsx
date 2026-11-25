@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createRoot, createSignal, flush, Show } from 'solid-js'
+import { createMemo, createRoot, createSignal, flush, Show } from 'solid-js'
 import createPresence from '@src/presence'
 import { render } from '@solidjs/web'
 
@@ -136,5 +136,39 @@ describe('createPresence', () => {
     expect(present()).toBe(true)
 
     container.remove()
+  })
+
+  /**
+   * The presence is derived from `show`, not written to by an effect: an
+   * effect that wrote it made every reader run twice for one write of
+   * `show` — once against the presence of the frame before, once after the
+   * write landed — so `<Show when={present()}>` painted a frame of the old
+   * presence under the new `show`.
+   */
+  test('a reader of the presence runs once for one write of show', () => {
+    const [show, setShow] = createSignal(false)
+    let runs = 0
+
+    const { present, visible } = createRoot((disposeRoot) => {
+      dispose = disposeRoot
+      element = document.createElement('div')
+      document.body.appendChild(element)
+      const presence = createPresence({ show, element: () => element })
+      const visible = createMemo(() => {
+        runs++
+        return presence.present()
+      })
+      return { present: presence.present, visible }
+    })
+
+    expect(visible()).toBe(false)
+    const runsAfterMount = runs
+
+    setShow(true)
+    flush()
+
+    expect(visible()).toBe(true)
+    expect(present()).toBe(true)
+    expect(runs).toBe(runsAfterMount + 1)
   })
 })

@@ -37,73 +37,68 @@ const createPresence = (props: {
     return refStyles()?.animationName ?? 'none'
   }
 
-  // Initial read of `props.show` is a one-shot seed for the signal, not a
-  // reactive dependency. Wrap in `untrack` so Solid 2's strict mode does not
-  // flag it with STRICT_READ_UNTRACKED. Subsequent updates flow through the
-  // createEffect below, which reads `props.show` inside a tracked compute.
-  const [presentState, setPresentStateInternal] = createSignal<
-    'present' | 'hiding' | 'hidden'
-  >(untrack(() => access(props.show)) ? 'present' : 'hidden', {
-    ownedWrite: true,
-  })
+  /** The animation the element last started playing, from its own
+   *  `animationstart` event: plain state, because a DOM event is not a
+   *  reactive source and the only reader is the state below, at the one
+   *  moment `show` turns off. */
+  let startedAnimationName = 'none'
 
-  const setPresentState = (state: 'present' | 'hiding' | 'hidden') => {
-    setPresentStateInternal(state)
-    // Runs from an effect callback as well as from animation events; the
-    // consumer's handler is an event handler to them, so run it untracked.
-    untrack(() => props.onStateChange?.(state))
-  }
-
-  let animationName = 'none'
+  /** Whether the exit animation this hiding is waiting for has finished,
+   *  with the signal beside it that tells the state to look again. The flag
+   *  is plain state the listener owns; the signal carries nothing but the
+   *  fact that it changed. */
+  let exitAnimationEnded = false
+  const [exitAnimationTick, setExitAnimationTick] = createSignal(0)
 
   /**
-   * The `show` this effect has already acted on. It belongs to the effect's
-   * apply phase, which runs once per change, and not to its compute, which
-   * may run again for any of its other dependencies — the element's styles,
-   * and so the element ref, which commits in the same flush as `show` flips.
-   * Deriving "what it was before" from the previous compute result lost the
-   * edge whenever a compute ran twice before an apply: a dialog opened after
-   * it was mounted stayed `hidden`, and everything gated on it — the scroll
-   * lock most visibly — never engaged.
+   * The presence, derived rather than kept in sync by an effect. An effect
+   * that writes state readers depend on makes them run twice for one write
+   * of `show` — once against the stale state, once after the write landed
+   * (`EFFECT_RELAY_TEAR`) — so `<Show when={present()}>` painted the frame
+   * `show` flipped in with the presence of the frame before. As a memo the
+   * presence is answered in the flush `show` changes in.
+   *
+   * `show` decides everything but one case: turning it off while the
+   * element has an exit animation to play, which keeps the element present
+   * as `hiding` until the animation ends. That one case is what the
+   * previous state and the listeners below are for.
    */
-  let appliedShow = untrack(() => access(props.show))
+  const presentState = createMemo<'present' | 'hiding' | 'hidden'>((prev) => {
+    const show = access(props.show)
+    // Read so that the end of an exit animation re-derives the state.
+    exitAnimationTick()
 
-  // Effect 1: react to `show` prop changes, compute next present state.
-  createEffect(
-    () => {
-      const show = access(props.show)
-      const currentAnimationName = getAnimationName()
-      const display = refStyles()?.display
-      return { show, currentAnimationName, display }
-    },
-    ({ show, currentAnimationName, display }) => {
-      const prev = appliedShow
-      appliedShow = show
-      if (prev === show) return
+    if (show) {
+      exitAnimationEnded = false
+      return 'present'
+    }
+    if (prev === undefined || prev === 'hidden') return 'hidden'
+    if (prev === 'hiding') return exitAnimationEnded ? 'hidden' : 'hiding'
 
-      const prevAnimationName = animationName
+    const currentAnimationName = getAnimationName()
+    if (currentAnimationName === 'none' || refStyles()?.display === 'none') {
+      return 'hidden'
+    }
+    // An exit animation is one the element has not started playing yet: the
+    // name under the hidden state differs from the one that last started.
+    if (startedAnimationName === currentAnimationName) return 'hidden'
 
-      if (show) {
-        setPresentState('present')
-      } else if (
-        currentAnimationName === 'none' ||
-        display === 'none'
-      ) {
-        setPresentState('hidden')
-      } else {
-        const isAnimating = prevAnimationName !== currentAnimationName
+    exitAnimationEnded = false
+    return 'hiding'
+  })
 
-        if (prev === true && isAnimating) {
-          setPresentState('hiding')
-        } else {
-          setPresentState('hidden')
-        }
-      }
-    },
-  )
+  /** The state the consumer has been told about. The state a presence is
+   *  created in is not a change, so it is seeded here and never announced. */
+  let announcedState = untrack(presentState)
 
-  // Effect 2: attach animation event listeners to the tracked element.
-  // Split-phase: compute reads `element`; apply attaches listeners and returns cleanup.
+  createEffect(presentState, (state) => {
+    if (state === announcedState) return
+    announcedState = state
+    props.onStateChange?.(state)
+  })
+
+  // The element's own animation events: `animationstart` records what is
+  // playing, and the end of an exit animation releases the hiding above.
   createEffect(
     () => access(props.element),
     (element) => {
@@ -111,7 +106,7 @@ const createPresence = (props: {
 
       const handleAnimationStart = (event: AnimationEvent) => {
         if (event.target === element) {
-          animationName = getAnimationName()
+          startedAnimationName = getAnimationName()
         }
       }
 
@@ -123,9 +118,10 @@ const createPresence = (props: {
         if (
           event.target === element &&
           isCurrentAnimation &&
-          presentState() === 'hiding'
+          untrack(presentState) === 'hiding'
         ) {
-          setPresentState('hidden')
+          exitAnimationEnded = true
+          setExitAnimationTick((tick) => tick + 1)
         }
       }
 
