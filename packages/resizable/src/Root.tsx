@@ -24,7 +24,7 @@ import { isFunction, type Size } from '@corvu-next/utils'
 import type { PanelData, PanelInstance, ResizeStrategy } from '@src/lib/types'
 import {
   fixLayoutToPrecision,
-  fixToPrecision,
+  fixSizesToPrecision,
   panelSizeConstraints,
   PRECISION,
   resolveSize,
@@ -270,7 +270,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // following, from its place in the list as it now stands.
       if (fromInitialSizes) initialSizedPanels.add(panelData.id)
 
-      let newSizes = [...sizes]
+      const newSizes = [...sizes]
       const previousTotalSize = newSizes.reduce(
         (totalSize, size) => totalSize + size,
         0,
@@ -283,24 +283,57 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // as one still being built and let the next panel join on top of it.
       const layoutIsFull =
         newSizes.length > 0 &&
-        Math.abs(previousTotalSize - 1) <=
-          newSizes.length * 10 ** -PRECISION
+        Math.abs(previousTotalSize - 1) <= newSizes.length * 10 ** -PRECISION
+
       if (layoutIsFull) {
-        // The panels there give up exactly the room the new one takes, so
-        // what comes out is a full layout again whatever the rounding left.
+        // A full layout has no room for another panel, so the panels there
+        // each give up an equal share of the size it takes. Nothing follows
+        // `initialSizes` through that, since every entry is the layout from
+        // before.
+        initialSizedPanels.clear()
         const offsetPerPanel =
           (previousTotalSize - (1 - panelSize!)) / newSizes.length
-        // TODO: Recognize min and max sizes
-        newSizes = newSizes.map((size) => size - offsetPerPanel)
+        const sizesWithRoom = newSizes.map((size) => size - offsetPerPanel)
+        sizesWithRoom.splice(panelIndex, 0, panelSize!)
+        const constraints = panelsInLayout.map((panel) =>
+          panelSizeConstraints(panel, rootSize()),
+        )
+
+        const joinedLayout = fixLayoutToPrecision({
+          sizes: sizesWithRoom,
+          constraints,
+          requestedPanel: panelIndex,
+          requestedSize: panelSize!,
+        })
+        const joinedTotalSize = joinedLayout.reduce(
+          (totalSize, size) => totalSize + size,
+          0,
+        )
+        if (
+          Math.abs(joinedTotalSize - 1) <=
+          joinedLayout.length * 10 ** -PRECISION
+        ) {
+          return joinedLayout
+        }
+
+        // Their bounds would not let them give that share, so the layout
+        // cannot give the panel that joined the size it asked for. It takes
+        // what is left instead, like a resize the other panels' bounds cut
+        // short: nobody's size is given here, so every panel is derived.
+        return fixLayoutToPrecision({
+          sizes: sizesWithRoom,
+          constraints,
+          requestedPanel: null,
+          requestedSize: null,
+        })
       }
+
       newSizes.splice(panelIndex, 0, panelSize!)
 
-      // Nothing follows `initialSizes` through a registration that took room
-      // out of the layout — their entries are the layout from before, and
-      // writing them back over the shares they gave up puts the sum past 1 —
-      // and nothing follows it under a controlled root, where the sizes are
-      // the consumer's to set.
-      if (layoutIsFull || localProps.sizes !== undefined) {
+      // A layout still being built is only rounded: corvu leaves a layout the
+      // consumer under-filled as they left it. Nothing follows `initialSizes`
+      // under a controlled root, where the sizes are the consumer's to set.
+      if (localProps.sizes !== undefined) {
         initialSizedPanels.clear()
       } else {
         for (const id of initialSizedPanels) {
@@ -314,22 +347,10 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         }
       }
 
-      // A full layout is written the one way a full layout is written, with
-      // the panel that joined as the size that was asked for: its own
-      // `initialSize`, its `initialSizes` entry or the default. An
-      // under-filled layout is only rounded: corvu leaves a layout the
-      // consumer under-filled as they left it.
-      if (layoutIsFull) {
-        return fixLayoutToPrecision({
-          sizes: newSizes,
-          constraints: panelsInLayout.map((panel) =>
-            panelSizeConstraints(panel, rootSize()),
-          ),
-          requestedPanel: panelIndex,
-          requestedSize: panelSize,
-        })
-      }
-      return newSizes.map(fixToPrecision)
+      return fixSizesToPrecision(
+        newSizes,
+        panelsInLayout.map((panel) => panelSizeConstraints(panel, rootSize())),
+      )
     })
 
     return panel
@@ -345,23 +366,31 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
 
   const unregisterPanel = (id: string) => {
     initialSizedPanels.delete(id)
-    setPanels((panels) => panels.filter((panel) => panel.data.id !== id))
+    let panelsInLayout: PanelInstance[] = []
+    setPanels((panels) => {
+      panelsInLayout = panels.filter((panel) => panel.data.id !== id)
+      return panelsInLayout
+    })
     const panelSizeIndex = sizesToIds.indexOf(id)
     sizesToIds.splice(panelSizeIndex, 1)
     setSizes((sizes) => {
-      let newSizes = [...sizes]
+      const newSizes = [...sizes]
       newSizes.splice(panelSizeIndex, 1)
       if (newSizes.length === 0) return newSizes
-      const totalSize = newSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      // The panels that stay share the size the one that left gave up, so
-      // they sum to 1 again: the last panel standing is the whole layout.
-      const offsetPerPanel = (1 - totalSize) / newSizes.length
-      // TODO: Recognize min and max sizes
-      newSizes = newSizes.map((size) => size + offsetPerPanel)
-      return newSizes
+      // The panels that stay share the size the one that left gave up, and
+      // they share it the one way a full layout is written: no panel passes
+      // its own bounds, a collapsed one stays collapsed rather than being
+      // opened by a share it never asked for, and the last panel standing is
+      // the whole layout. Nobody asked for a size here, so every panel is
+      // derived.
+      return fixLayoutToPrecision({
+        sizes: newSizes,
+        constraints: panelsInLayout.map((panel) =>
+          panelSizeConstraints(panel, rootSize()),
+        ),
+        requestedPanel: null,
+        requestedSize: null,
+      })
     })
   }
 

@@ -1981,10 +1981,20 @@ through the same rounding the write applies, everywhere the question is asked. O
 collapsed size the writes cannot store, an eleventh, never compares equal to a stored size
 and the thing silently stops reading as collapsed.
 
-Request and bounds before the total: only when the request was given exactly and every
-derived value is pinned in the direction the remainder would move it is nothing carried. The
-total is then left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next
-write with room in it brings it back.
+Request and bounds before the total: nothing is carried when the request was given exactly
+and every derived value is pinned in the direction the remainder would move it. The total is
+then left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next write
+with room in it brings it back. Bounds the consumer gave that cannot all hold together are
+the one case that leaves the total further off, and they win: the layout they describe is
+what is reported.
+
+And every write has to go through the one step, not just the obvious ones. A child joining
+the set and the children that stay when one leaves are writes of the whole layout too: left
+outside, the join hands its neighbours shares their bounds refuse, and the departure hands a
+share to a child that was resting at a value of its own — a collapsed panel, opened by a
+share it never asked for. Both go through the step: the join as a value that is given when
+the others have room for it and derived when they do not, the departure as a write nobody
+asked for, where every child is derived.
 
 Finally, a step that takes the values and the bounds as two lists must refuse a pair that
 does not match, naming both lengths. A missing bound that falls back to "anything from 0 to

@@ -95,11 +95,22 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   on a tie by the first of them. A drag asks for no size in particular, so every panel it
   moves is derived and the largest with room carries it; a lone panel resizing itself
   derives nothing, and nothing is carried. The request and the bounds come before the
-  total: only when the request was given exactly and every derived panel is pinned in the
-  direction the remainder would move it is nothing carried, and the layout is then handed
-  on up to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it
-  brings the total back. A layout written with a number of panels that does not match its
-  number of sizes throws, naming both.
+  total: nothing is carried when the request was given exactly and every derived panel is
+  pinned in the direction the remainder would move it, and the layout is then handed on up
+  to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it brings
+  the total back. Bounds of the consumer's that cannot all hold together — three panels
+  that may not be smaller than two fifths, or maximums that cannot take the size an
+  unmounting panel gives up — win over the total, and the layout they describe is what is
+  reported. Every write of a full layout goes through that one step: a panel joining a full
+  layout takes an equal share from the panels there, and when their bounds will not give
+  that share it takes what is left instead, like a resize the bounds cut short; the panels
+  that stay when one unmounts share what it gave up the same way, so a collapsed panel is
+  not opened by a share it never asked for and no panel passes its maximum. A panel joining
+  a layout that is not full yet is only rounded, into the sizes its own panel may rest at.
+  Sizes are fractions of the root and stay what they are when the root is resized; a
+  `minSize` or `maxSize` given in pixels is resolved against the root and held at the next
+  write, not the moment the root changes size. A layout written with a number of panels
+  that does not match its number of sizes throws, naming both.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and
