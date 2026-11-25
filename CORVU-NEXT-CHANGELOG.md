@@ -184,3 +184,18 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   which applies them to the value staged earlier in the same frame, and keeps its own ledger
   only for the controlled path, where nothing is written locally. `@corvu-next/utils` and
   `@corvu-next/resizable` carry the first unit tests in the repository, run by `pnpm test`.
+- **A trigger rendered `as` anything but a button no longer flashes a native `type`.**
+  `DynamicButton` — what `Tooltip.Trigger`, `Dialog.Trigger`, `Dialog.Close`,
+  `Disclosure.Trigger` and the calendar's nav buttons all render — decided whether the
+  element is a real button by measuring the tag name of the *mounted* node through a ref,
+  starting from a `button` fallback. Solid's spread applies a ref and the attributes beside
+  it in one effect, so that measurement wrote a signal the very same effect read `type` and
+  `role` back through: the effect re-ran on its own write (Solid's dev build raises
+  `EFFECT_WRITES_OWN_SOURCE` under its attribution engine, which a dev server runs), the
+  flush settled in two passes, and in between `<Tooltip.Trigger as="div">` sat in the
+  document carrying `type="button"` with no `role`. Server rendering had no second pass at
+  all, so that wrong markup is what it shipped. The tag name is now read off the prop that
+  decides it — a string `as` *is* the tag, and `button` stands for the default and for a
+  component `as`, which renders what it likes with `type` and `role` handed to it as props
+  — so the element is configured before it is inserted and the ref is nothing but the
+  consumer's own. `@corvu-next/utils/create/tagName` is unchanged and still exported.
