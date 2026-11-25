@@ -1,21 +1,7 @@
 import { type DiagnosticEvent, OBSERVE, flush } from 'solid-js'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import DynamicButton from '@src/dynamic/DynamicButton'
-import { attribution } from 'solid-js/attribution'
 import { render } from '@solidjs/web'
-
-/**
- * The attribution engine is what a Solid dev server runs (`@solidjs/vite-plugin`
- * prebundles `solid-js/attribution` for `serve`), and it is what raises the
- * feedback diagnostics — `EFFECT_WRITES_OWN_SOURCE` among them. The plain
- * development build carries the hook slot and leaves it empty, so these cases
- * hold the engine open for the file rather than assuming a consumer did.
- */
-let release: () => void
-beforeAll(() => {
-  release = attribution.enable()
-})
-afterAll(() => release())
 
 /**
  * Renders into a host already in the document and reports what Solid did to it

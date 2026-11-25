@@ -14,9 +14,11 @@
   },
   "devDependencies": {
     "@solidjs/compiler": "2.0.2",
+    "solid-js": "2.0.3",
     "tsup": "^8.5.0",
     "turbo": "^2.5.5",
-    "typedoc": "^0.28.20"
+    "typedoc": "^0.28.20",
+    "vitest": "^5.1.1"
   },
   "license": "MIT"
 }
