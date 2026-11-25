@@ -5,8 +5,9 @@ import {
   sortByDocumentPosition,
 } from '@corvu-next/utils/dom'
 import {
-  createEffect,
   createSignal,
+  getOwner,
+  isDisposed,
   merge,
   type Setter,
   omit,
@@ -127,10 +128,27 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
     'children',
   )
 
+  const owner = getOwner()
+
   const [sizes, setSizes] = createControllableSignal<number[]>({
     value: () => localProps.sizes,
     initialValue: [],
-    onChange: localProps.onSizesChange,
+    // Every write builds a fresh array, so compare the sizes themselves: a
+    // layout pass that lands on the same numbers is not a change to report.
+    equals: (prev, next) =>
+      prev !== undefined &&
+      prev.length === next.length &&
+      prev.every((size, index) => size === next[index]),
+    // The one place the consumer is told about a size change, so a change is
+    // reported exactly once and a value they passed in through `sizes` is
+    // never echoed back at them. Nothing is reported once the root itself is
+    // disposed: its panels unregister as they unmount, and that bookkeeping
+    // would otherwise hand the consumer the leftovers of a layout that no
+    // longer exists.
+    onChange: (newSizes) => {
+      if (owner !== null && isDisposed(owner)) return
+      localProps.onSizesChange?.(newSizes)
+    },
     ownedWrite: true,
   })
 
@@ -244,15 +262,6 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return newSizes
     })
   }
-
-  createEffect(
-    () => ({ sizes: sizes(), onChange: localProps.onSizesChange }),
-    ({ sizes: currentSizes, onChange }) => {
-      // The consumer's handler is an event handler to them: run it untracked so
-      // reads inside it neither subscribe this effect nor warn as strict reads.
-      untrack(() => onChange?.(currentSizes))
-    },
-  )
 
   const resize = (
     panelIndex: number,
