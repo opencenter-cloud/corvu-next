@@ -221,3 +221,36 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   to the element and then handed to it a second time by the props spread, which still
   carried it. `omit` drops it from the spread now, so the one ref the element gets is the
   consumer's, normalized into a callback.
+- **State a dev server's diagnostics name is derived, not kept in sync by an effect.** Solid's
+  attribution engine — what a dev server runs, and what raises `EFFECT_WRITES_OWN_SOURCE` and
+  `EFFECT_RELAY_TEAR` — is now enabled in this repository's own test setup, one file at the root
+  that every package loads, and a test fails on every diagnostic it raises. What it found, and what
+  each one meant on screen:
+  - **A resizable handle's aria values** (which panel it sizes, where that panel stands between its
+    bounds) are measured from where the mounted handle sits between the panels, through the ref the
+    spread writes. Handed to that same spread, the attributes made it re-run on its own write: two
+    flushes, with the handle in the document carrying no aria values in between, and the same
+    valueless markup from SSR. They are written to the element by an effect of their own now.
+  - **A drawer's content** is transformed by its own measured size, so the ref write, the size
+    measurement and the style closed a cycle that settled in three flushes, each rendering the
+    drawer at an intermediate place. The drawer's own transform, transition duration and transition
+    size are written to the element now; the consumer's `style` still goes through the spread.
+  - **The presence of an element** is derived from `show` rather than written to by an effect. The
+    effect made every reader run twice for one write of `show` — once against the presence of the
+    frame before — so `<Show when={present()}>` painted a frame of the old presence under the new
+    `show`. The one case `show` does not decide, an exit animation still playing, is carried by the
+    previous state and the element's own animation events.
+  - **The dismissible layer stacks** are the layers that are enabled: a layer registers its id and
+    its `enabled`, both read where a stack is read, and leaves the registry when it unmounts. A
+    stack an effect wrote made every reader run twice for one write of `enabled`, so the frame a
+    dialog opened in still named the layer below it as the last one. A stack is ordered by the order
+    its layers mounted in, which for corvu is the order they are nested in: a dismissible is mounted
+    with the content it dismisses.
+  - **The stack of utilities preventing scroll** is derived the same way, from each utility's own
+    `enabled`.
+
+  The one finding a test is not failed on is a relay tear whose written value is not the effect's
+  compute output and that Solid itself grades `info` — by Solid's own rule an effect writing what it
+  measured, where the reader runs once before the measurement exists and once after. `createSize`,
+  measuring the element it is handed, is the only one left in these packages; it is reported rather
+  than silent. Nothing is allowed by name, so a diagnostic Solid adds is covered the day it ships.
