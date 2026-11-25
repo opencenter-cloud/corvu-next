@@ -228,30 +228,38 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     return instance.size()
   }
 
-  const collapsed = createMemo<boolean>((prev) => {
-    const instance = panelInstance()
+  const collapsed = createMemo<boolean>(() => {
     if (localProps.collapsible !== true) {
       return false
     }
-    const collapsed = instance
+    const instance = panelInstance()
+    return instance
       ? instance.size() ===
-        resolveSize(localProps.collapsedSize, context.rootSize())
+          resolveSize(localProps.collapsedSize, context.rootSize())
       : false
+  })
 
-    if (instance && prev !== collapsed) {
-      // The consumer's handler is an event handler to them: run it untracked so
-      // reads inside it neither subscribe this memo nor warn as strict reads.
+  // The consumer is told about a collapse from here rather than from the memo
+  // above: their handler may write a signal or a store, which a computation
+  // rejects, and it is an event handler from their side, so it runs untracked.
+  // The previous state is seeded with `false` because that is what the memo
+  // reports until the panel is registered — a panel that mounts collapsed
+  // reports it, one that mounts expanded stays silent, as before.
+  createEffect(
+    () => ({ collapsed: collapsed(), instance: panelInstance() }),
+    (next, prev) => {
+      const wasCollapsed = prev?.collapsed ?? false
+      const instance = next.instance
+      if (!instance || wasCollapsed === next.collapsed) return
       untrack(() => {
-        if (collapsed && localProps.onCollapse !== undefined) {
-          localProps.onCollapse(instance.size())
-        } else if (!collapsed && localProps.onExpand !== undefined) {
-          localProps.onExpand(instance.size())
+        if (next.collapsed) {
+          localProps.onCollapse?.(instance.size())
+        } else {
+          localProps.onExpand?.(instance.size())
         }
       })
-    }
-
-    return collapsed
-  })
+    },
+  )
 
   const resize = (size: Size, strategy?: ResizeStrategy) => {
     const instance = panelInstance()
