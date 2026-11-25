@@ -2004,11 +2004,13 @@ shares what is over, within its own bounds — none of them singled out for bein
 registered last, or the result would depend on an order nothing promises. A child that
 asked for nothing at all — a default standing in for a value — is in the same position, and
 one share is not enough: keep those children in a set, as the ones following the consumer's
-own values are kept, and re-derive every one of them on every join to an even share of what
-the children that did ask leave. Give only the joining child a share and the set is still
-order-dependent the moment there are four of them: the first two fill the whole, the third
-makes thirds, and the fourth takes a quarter of everyone — so whichever the runtime settles
-last ends up the odd one out. A bound beats the
+own values are kept, and on every join hold every one of them at an even share of the whole
+— `1 / n` — while the children that did ask give them that room. Give only the joining child
+a share and the set is still order-dependent the moment there are four of them: the first
+two fill the whole, the third makes thirds, and the fourth takes a quarter of everyone, so
+whichever the runtime settles last ends up the odd one out. And share out only what the
+children that asked leave, and a child shown later gets nothing at all where their values
+already fill the whole — order-free, and useless. A bound beats the
 total only when every other value is pinned at a bound of its own too.
 
 Finally, a step that takes the values and the bounds as two lists must refuse a pair that

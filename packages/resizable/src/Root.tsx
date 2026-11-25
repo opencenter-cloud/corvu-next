@@ -342,21 +342,48 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         const placeholderIndexes = describedSizes
           .map((_, index) => index)
           .filter((index) => placeholderPanels.has(sizesToIds[index]!))
-        const claimedSize = describedSizes.reduce(
-          (totalSize, size, index) =>
-            placeholderIndexes.includes(index) ? totalSize : totalSize + size,
-          0,
-        )
-        const shareEach = (1 - claimedSize) / placeholderIndexes.length
+        const shareEach = 1 / describedSizes.length
         for (const index of placeholderIndexes) {
           describedSizes[index] = shareEach
         }
 
+        // The placeholders are held at that share and the panels that asked
+        // give it to them. When every panel is a placeholder there is nobody
+        // to give it, and nobody is held: the shares are already even, so all
+        // that moves is the place the rounding leaves over.
+        const everyPanelIsPlaceholder =
+          placeholderIndexes.length === describedSizes.length
+        const requested = everyPanelIsPlaceholder
+          ? []
+          : placeholderIndexes.map((panel) => ({ panel, size: shareEach }))
+        if (!everyPanelIsPlaceholder && !panelSizeIsDefault) {
+          requested.push({ panel: panelIndex, size: panelSize! })
+        }
+
+        const heldLayout = fixLayoutToPrecision({
+          sizes: describedSizes,
+          constraints,
+          requested,
+        })
+        const heldTotalSize = heldLayout.reduce(
+          (totalSize, size) => totalSize + size,
+          0,
+        )
+        if (
+          Math.abs(heldTotalSize - 1) <=
+          heldLayout.length * 10 ** -PRECISION
+        ) {
+          return heldLayout
+        }
+
+        // The panels that asked cannot give the placeholders that much
+        // without passing their own minimums. Those minimums win, and the
+        // placeholders take what is left between them, evenly: nobody is held
+        // here, so every panel shares what the layout is away from the root.
         return fixLayoutToPrecision({
           sizes: describedSizes,
           constraints,
-          requestedPanel: panelSizeIsDefault ? null : panelIndex,
-          requestedSize: panelSizeIsDefault ? null : panelSize!,
+          requested: [],
         })
       }
 
@@ -378,8 +405,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         const joinedLayout = fixLayoutToPrecision({
           sizes: sizesWithRoom,
           constraints,
-          requestedPanel: panelIndex,
-          requestedSize: panelSize!,
+          requested: [{ panel: panelIndex, size: panelSize! }],
         })
         const joinedTotalSize = joinedLayout.reduce(
           (totalSize, size) => totalSize + size,
@@ -399,8 +425,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         return fixLayoutToPrecision({
           sizes: sizesWithRoom,
           constraints,
-          requestedPanel: null,
-          requestedSize: null,
+          requested: [],
         })
       }
 
@@ -439,8 +464,10 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       return fixLayoutToPrecision({
         sizes: fixedSizes,
         constraints,
-        requestedPanel: raisedPanel === -1 ? null : raisedPanel,
-        requestedSize: raisedPanel === -1 ? null : fixedSizes[raisedPanel]!,
+        requested:
+          raisedPanel === -1
+            ? []
+            : [{ panel: raisedPanel, size: fixedSizes[raisedPanel]! }],
       })
     })
 
@@ -480,8 +507,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         constraints: panelsInLayout.map((panel) =>
           panelSizeConstraints(panel, rootSize()),
         ),
-        requestedPanel: null,
-        requestedSize: null,
+        requested: [],
       })
     })
   }
