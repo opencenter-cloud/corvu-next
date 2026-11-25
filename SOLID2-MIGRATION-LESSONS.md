@@ -1981,12 +1981,13 @@ through the same rounding the write applies, everywhere the question is asked. O
 collapsed size the writes cannot store, an eleventh, never compares equal to a stored size
 and the thing silently stops reading as collapsed.
 
-Request and bounds before the total: nothing is carried when the request was given exactly
-and every derived value is pinned in the direction the remainder would move it. The total is
-then left up to n × 10⁻ᵖ off, which is still within what counts as full, and the next write
-with room in it brings it back. Bounds the consumer gave that cannot all hold together are
-the one case that leaves the total further off, and they win: the layout they describe is
-what is reported.
+Request and bounds before the total. The value that carries takes as much of the remainder
+as its own bounds allow, so nothing is carried only when every derived value is already
+pinned in the direction it would move them; the total is then left up to n × 10⁻ᵖ off, which
+is still within what counts as full, and the next write with room in it brings it back.
+Bounds the consumer gave that cannot all hold together are the one case that leaves the
+total further off, and they win: every value sits at the bound it cannot pass, and the
+layout they describe is what is reported.
 
 And every write has to go through the one step, not just the obvious ones. A child joining
 the set and the children that stay when one leaves are writes of the whole layout too: left

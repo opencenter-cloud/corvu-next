@@ -789,17 +789,15 @@ describe('Resizable.Root', () => {
     flush()
 
     // Three panels that may not be smaller than two fifths do not fit in one
-    // root, and the panel that joined may not be smaller than two fifths
-    // either, so it keeps the default it asked for. The bounds the consumer
-    // gave win over the total: the layout is reported over-full, and the
-    // sizes that do not fit are theirs to fix.
+    // root. The panels there cannot give the panel that joined the size it
+    // asked for, so it is derived and takes what is left — nothing — raised
+    // only as far as its own minimum. Every panel sits at its minimum and the
+    // total is the sum of the minimums: the bounds the consumer gave win over
+    // the total, and the sizes that do not fit are theirs to fix.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.4, 0.4, 0.5])
-    expect(sizes[0]).toBeGreaterThanOrEqual(0.4)
-    expect(sizes[1]).toBeGreaterThanOrEqual(0.4)
-    expect(sizes[2]).toBeGreaterThanOrEqual(0.4)
+    expect(sizes).toEqual([0.4, 0.4, 0.4])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
-      1.3,
+      1.2,
       6,
     )
   })

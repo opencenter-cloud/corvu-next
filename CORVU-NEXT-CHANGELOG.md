@@ -94,14 +94,14 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   by the largest panel the write derived that has room for it where its panel may rest, and
   on a tie by the first of them. A drag asks for no size in particular, so every panel it
   moves is derived and the largest with room carries it; a lone panel resizing itself
-  derives nothing, and nothing is carried. The request and the bounds come before the
-  total: nothing is carried when the request was given exactly and every derived panel is
-  pinned in the direction the remainder would move it, and the layout is then handed on up
-  to n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it brings
-  the total back. Bounds of the consumer's that cannot all hold together — three panels
-  that may not be smaller than two fifths, or maximums that cannot take the size an
-  unmounting panel gives up — win over the total, and the layout they describe is what is
-  reported. Every write of a full layout goes through that one step: a panel joining a full
+  derives nothing, and nothing is carried. The panel that carries takes as much of the
+  remainder as its own bounds allow, so nothing is carried only when every derived panel is
+  already pinned in the direction it would move them; the layout is then handed on up to
+  n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it brings
+  the total back. Bounds of the consumer's that cannot all hold together win over the
+  total: three panels that may not be smaller than two fifths all sit at two fifths and the
+  layout is reported at 1.2, and maximums that cannot take the size an unmounting panel
+  gives up leave every panel at its maximum, short of the root. Every write of a full layout goes through that one step: a panel joining a full
   layout takes an equal share from the panels there, and when their bounds will not give
   that share it takes what is left instead, like a resize the bounds cut short; the panels
   that stay when one unmounts share what it gave up the same way, so a collapsed panel is

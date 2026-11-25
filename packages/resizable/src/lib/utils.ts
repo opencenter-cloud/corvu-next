@@ -126,17 +126,14 @@ const fixSizeToPrecision = (size: number, bounds: PanelSizeBounds) => {
   return Math.min(Math.max(fixedSize, lowestSize), highestSize)
 }
 
-/** Whether a panel can take the remainder and stay within its bounds. */
-const hasRoomFor = (
+/** The size a panel ends at when it takes the remainder: as much of it as its
+ *  own bounds allow, which is none of it for a panel already pinned in that
+ *  direction and all of it for one with room to spare. */
+const sizeCarrying = (
   size: number,
   remainder: number,
   bounds: PanelSizeBounds,
-) => {
-  const carriedSize = fixToPrecision(size + remainder)
-  return remainder > 0
-    ? carriedSize <= floorToPrecision(bounds.maxSize)
-    : carriedSize >= ceilToPrecision(bounds.minSize)
-}
+) => fixSizeToPrecision(size + remainder, bounds)
 
 /** Sizes and panels describe the same layout, so the two lists always match.
  *  A missing panel would quietly take every bound with it. */
@@ -178,10 +175,10 @@ const fixSizesToPrecision = (
  *   - A write of one panel's size — a resize, a collapse, an expand, or a
  *     panel joining the layout — names it. When the layout could give that
  *     size, it is written as it was asked for and the remainder goes to the
- *     largest panel derived from it that has room for it within the sizes it
- *     may be reported at; on a tie, the first of them. When the layout could
- *     not — a resize the other panels' bounds cut short — the size that comes
- *     out is derived like any other, and that panel can carry too.
+ *     largest panel derived from it with room for any of it; on a tie, the
+ *     first of them. When the layout could not — a resize or a join the other
+ *     panels' bounds cut short — the size that comes out is derived like any
+ *     other, and that panel can carry too.
  *   - A drag over a handle names none (`null`): it asks for no size in
  *     particular, so every panel is derived and the largest with room carries
  *     the remainder. Without that a drag would walk the layout away from 1,
@@ -191,16 +188,21 @@ const fixSizesToPrecision = (
  *     is carried: there is no panel to put the remainder on that was not
  *     asked for.
  *
- * The request and the bounds come before the total. Nothing is carried when
- * the request was given exactly and every derived panel is pinned in the
- * direction the remainder would move it, and the layout is then handed on as
- * it is. Rounding a size into the sizes it may be reported at moves it by less
- * than 10 ** -PRECISION, so the total is then at most n * 10 ** -PRECISION
- * from 1, which still counts as a full layout, and the next write with room in
- * it brings the total back. The one way a layout leaves 1 by more than that is
- * bounds of the consumer's that cannot all hold together — minimums summing
- * past 1, or maximums that cannot take the size an unmounting panel gives up.
- * Their bounds win, and the layout they describe is what is reported.
+ * The carrying panel takes as much of the remainder as its own bounds allow,
+ * so a layout whose bounds cannot hold the whole of it still comes out as
+ * close to the root as those bounds permit. Nothing is carried only when
+ * every derived panel is already pinned in the direction the remainder would
+ * move it.
+ *
+ * The request and the bounds come before the total. Rounding a size into the
+ * sizes it may be reported at moves it by less than 10 ** -PRECISION, so a
+ * layout that carries nothing is at most n * 10 ** -PRECISION from 1, which
+ * still counts as a full layout, and the next write with room in it brings
+ * the total back. The one way a layout leaves 1 by more than that is bounds
+ * of the consumer's that cannot all hold together: minimums summing past 1
+ * leave every panel at its minimum and the total at their sum, and maximums
+ * that cannot take the size an unmounting panel gives up leave every panel at
+ * its maximum. Their bounds win, and the layout they describe is reported.
  *
  * Every write of a full layout comes through here: a resize, a collapse, an
  * expand, a drag, a key, a panel joining a full layout and the panels that
@@ -249,16 +251,20 @@ const fixLayoutToPrecision = (props: {
   )
   if (remainder === 0) return fixedSizes
 
-  const panelsWithRoom = derivedPanels.filter((index) =>
-    hasRoomFor(fixedSizes[index]!, remainder, bounds[index]!),
+  const panelsWithRoom = derivedPanels.filter(
+    (index) =>
+      sizeCarrying(fixedSizes[index]!, remainder, bounds[index]!) !==
+      fixedSizes[index],
   )
   if (panelsWithRoom.length === 0) return fixedSizes
 
   const carryingPanel = panelsWithRoom.reduce((largest, index) =>
     fixedSizes[index]! > fixedSizes[largest]! ? index : largest,
   )
-  fixedSizes[carryingPanel] = fixToPrecision(
-    fixedSizes[carryingPanel]! + remainder,
+  fixedSizes[carryingPanel] = sizeCarrying(
+    fixedSizes[carryingPanel]!,
+    remainder,
+    bounds[carryingPanel]!,
   )
   return fixedSizes
 }
