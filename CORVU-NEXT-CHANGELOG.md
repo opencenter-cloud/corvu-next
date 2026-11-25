@@ -81,10 +81,13 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     expanded, and a panel joining at its own `initialSize` or its `initialSizes` entry. A
     request the other panels' bounds cut short is not a size anyone was given, so that
     panel's size is derived like any other. A panel with neither asked for nothing: the
-    default of a half is a placeholder, so such a panel shares the root with the others —
-    three of them in one frame come out as thirds, whichever of them the runtime settles
-    last. corvu gave the panel that registered last its half and took the room from the
-    others, which made the layout depend on that order.
+    default it mounts at is a placeholder, and every join re-derives the placeholders to an
+    even share of the room the panels that did ask leave. Three of them in one frame come
+    out as thirds and four as quarters, whichever of them the runtime settles last, and one
+    joining a layout whose entries already fill the root gets what they leave: nothing. A
+    panel leaves the placeholders the moment anything sets its size, exactly as it leaves
+    the `initialSizes` followers. corvu gave the panel that registered last its half and
+    took the room from the others, which made the layout depend on that order.
   - **Bounds, at every write.** A size is reported only where its panel may rest: inside
     `minSize` and `maxSize`, rounded inward, so `minSize={1/7}` comes back as `0.142858`
     and never `0.142857`. A panel that can collapse rests either on its collapsed size or
