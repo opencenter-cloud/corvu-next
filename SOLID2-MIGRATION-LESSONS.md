@@ -1960,8 +1960,8 @@ that pins several values to bounds of their own rounds each of them the same way
 nothing to absorb it the total walks away from 1 until the layout stops counting as full.
 
 Which value carries it is not free either. A value someone asked for must come back as they
-asked it, so the remainder goes to one the write derived — the largest of them, and on a tie
-the first. A request the other values' bounds cut short was never given, so that one is
+asked it, so the remainder goes to the ones the write derived, the largest first and on a tie
+the first of them. A request the other values' bounds cut short was never given, so that one is
 derived too and can carry like any other. A write that asks for no particular value, a drag
 over a handle, derives all of them, and the largest still carries it; only a write with
 nothing derived at all, one value asked for and no other, can carry nothing. Picking "the
@@ -1981,8 +1981,9 @@ through the same rounding the write applies, everywhere the question is asked. O
 collapsed size the writes cannot store, an eleventh, never compares equal to a stored size
 and the thing silently stops reading as collapsed.
 
-Request and bounds before the total. The value that carries takes as much of the remainder
-as its own bounds allow, so nothing is carried only when every derived value is already
+Request and bounds before the total. The derived values carry in turn, the largest first and
+on a tie the first of them, each taking as much of what is left as its own bounds allow and
+passing the rest to the next, so nothing is carried only when every one of them is already
 pinned in the direction it would move them; the total is then left up to n × 10⁻ᵖ off, which
 is still within what counts as full, and the next write with room in it brings it back.
 Bounds the consumer gave that cannot all hold together are the one case that leaves the

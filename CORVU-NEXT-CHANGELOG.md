@@ -90,13 +90,14 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   stores it, and an open one has its minimum and maximum like any other panel. Whether a
   panel is collapsed is read through that same rounding everywhere — `collapsed`, the
   collapse, expand and keyboard paths, and the distribution itself — so a
-  `collapsedSize={1/11}` still reads as collapsed. What the rounding leaves over is carried
-  by the largest panel the write derived that has room for it where its panel may rest, and
-  on a tie by the first of them. A drag asks for no size in particular, so every panel it
+  `collapsedSize={1/11}` still reads as collapsed. What the rounding leaves over is carried by the
+  panels the write derived, the largest of them first and on a tie the first of them, each
+  taking as much of it as its own bounds allow and passing the rest to the next. A drag asks for no size in particular, so every panel it
   moves is derived and the largest with room carries it; a lone panel resizing itself
-  derives nothing, and nothing is carried. The panel that carries takes as much of the
-  remainder as its own bounds allow, so nothing is carried only when every derived panel is
-  already pinned in the direction it would move them; the layout is then handed on up to
+  derives nothing, and nothing is carried. The derived panels carry in turn, the largest of
+  them first and on a tie the first of them, each taking as much of what is left as its own
+  bounds allow and passing the rest to the next, so nothing is carried only when every one
+  of them is already pinned in the direction it would move them; the layout is then handed on up to
   n × 10⁻⁶ from 1, which still counts as full, and the next write with room in it brings
   the total back. Bounds of the consumer's that cannot all hold together win over the
   total: three panels that may not be smaller than two fifths all sit at two fifths and the

@@ -909,4 +909,42 @@ describe('Resizable.Root', () => {
     // not reported to them a second time.
     expect(onSizesChange).toHaveBeenCalledTimes(1)
   })
+
+  test('what one derived panel cannot carry passes to the next', () => {
+    const onSizesChange = vi.fn()
+    const [fourthPanel, setFourthPanel] = createSignal(true)
+
+    mount(() => (
+      <Resizable
+        initialSizes={[0.5, 0.3, 0.1, 0.1]}
+        onSizesChange={onSizesChange}
+      >
+        <Resizable.Panel maxSize={0.54} />
+        <Resizable.Panel maxSize={0.32} />
+        <Resizable.Panel />
+        <Show when={fourthPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.5, 0.3, 0.1, 0.1])
+
+    setFourthPanel(false)
+    flush()
+
+    // The three that stay share what the one that left gave up, and two of
+    // them are held back by a maximum. The largest can take a place and a
+    // half of what the rounding into those maximums leaves over, the second
+    // is at its maximum and can take none, and the third takes the rest: the
+    // layout fills the root again.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.54, 0.32, 0.14])
+    expect(sizes[0]).toBeLessThanOrEqual(0.54)
+    expect(sizes[1]).toBeLessThanOrEqual(0.32)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
 })
