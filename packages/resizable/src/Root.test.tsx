@@ -1589,4 +1589,42 @@ describe('Resizable.Root', () => {
     flush()
     expect(handle.getAttribute('data-active')).toBe('')
   })
+
+  /**
+   * A handle tells a screen reader which panel it sizes and where that panel
+   * stands between its bounds. Those values are measurements of where the
+   * mounted handle sits between the panels, so they are written to the
+   * element by an effect of their own: handed to the spread instead, beside
+   * the ref that measures the element, the spread re-ran on its own write
+   * (`EFFECT_WRITES_OWN_SOURCE`, which the setup fails a test on) and the
+   * handle sat in the document with no aria values for a flush.
+   */
+  test('a handle carries the aria values of the panels it sits between', () => {
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0.4, 0.6]}>
+        <Resizable.Panel minSize={0.1} />
+        <Resizable.Handle />
+        <Resizable.Panel minSize={0.2} />
+      </Resizable>
+    ))
+
+    const panels = mounted.querySelectorAll('[data-corvu-resizable-panel]')
+    const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+
+    expect(handle.getAttribute('aria-controls')).toBe(panels[0]!.id)
+    expect(handle.getAttribute('aria-valuemin')).toBe('0.1')
+    expect(handle.getAttribute('aria-valuemax')).toBe('0.8')
+    expect(handle.getAttribute('aria-valuenow')).toBe('0.4')
+
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    )
+    flush()
+
+    // The key moved the handle, so the panel it controls is bigger and the
+    // value says so.
+    expect(
+      Number(handle.getAttribute('aria-valuenow')),
+    ).toBeGreaterThan(0.4)
+  })
 })

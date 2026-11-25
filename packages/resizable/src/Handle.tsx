@@ -77,11 +77,7 @@ export type ResizableHandleSharedElementProps<
 
 export type ResizableHandleElementProps = ResizableHandleSharedElementProps & {
   role: 'separator'
-  'aria-controls': string | undefined
   'aria-orientation': 'horizontal' | 'vertical'
-  'aria-valuemax': number | undefined
-  'aria-valuemin': number | undefined
-  'aria-valuenow': number | undefined
   'data-active': '' | undefined
   'data-dragging': '' | undefined
   'data-orientation': 'horizontal' | 'vertical'
@@ -181,6 +177,25 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       ariaValueNow: fixToPrecision(ariaValueNow),
     }
   })
+
+  /** The aria values are measurements of where the mounted handle sits
+   *  between the panels, so they are applied to the element rather than
+   *  handed to the spread beside the ref that measures it: the spread applies
+   *  a ref and the attributes next to it in one effect, so attributes derived
+   *  from that ref make the effect re-run on its own write
+   *  (`EFFECT_WRITES_OWN_SOURCE`) — two flushes, with the handle in the
+   *  document carrying no aria values in between. These four are corvu's own
+   *  and no longer among the element props, so nothing else writes them. */
+  createEffect(
+    () => ({ element: ref(), aria: ariaInformation() }),
+    ({ element, aria }) => {
+      if (!element) return
+      setAttribute(element, 'aria-controls', aria?.ariaControls)
+      setAttribute(element, 'aria-valuemax', aria?.ariaValueMax)
+      setAttribute(element, 'aria-valuemin', aria?.ariaValueMin)
+      setAttribute(element, 'aria-valuenow', aria?.ariaValueNow)
+    },
+  )
 
   let globalHandleCallbacks: HandleCallbacks | null = null
 
@@ -340,11 +355,7 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       onPointerDown={onPointerDown}
       // === ElementProps ===
       role="separator"
-      aria-controls={ariaInformation()?.ariaControls}
       aria-orientation={context.orientation()}
-      aria-valuemax={ariaInformation()?.ariaValueMax}
-      aria-valuemin={ariaInformation()?.ariaValueMin}
-      aria-valuenow={ariaInformation()?.ariaValueNow}
       data-active={dataIf(active())}
       data-dragging={dataIf(dragging())}
       data-orientation={context.orientation()}
@@ -410,6 +421,20 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       </Show>
     </Dynamic>
   )
+}
+
+/** Writes an attribute, or removes it where there is no value — what Solid
+ *  does with an `undefined` attribute prop. */
+const setAttribute = (
+  element: Element,
+  name: string,
+  value: string | number | undefined,
+) => {
+  if (value === undefined) {
+    element.removeAttribute(name)
+  } else {
+    element.setAttribute(name, String(value))
+  }
 }
 
 export default ResizableHandle
