@@ -104,14 +104,19 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     the panels already there giving the shortfall where their own bounds allow.
     Apart from those, and rounding of at most n × 10⁻⁶, a layout sums to 1, and the next
     write with room in it brings the total back.
+  - **A resize fills a layout that is not full.** It moves size between the panels and the
+    write then shares out whatever they are away from the root, so a resize, drag or key
+    takes the room a panel still to mount would have had. That is how corvu behaved before
+    this port too; it is written down here now.
   - **Every write goes through that step:** a resize, a collapse, an expand, a drag, a key,
     a panel joining the layout and the panels that stay when one unmounts, a controlled
     root's own resizes and drags included. A panel joining a layout that is not full is the
-    exception: no room is shared out, the joiner is capped at the room that is left — which
-    covers a rejoin after an unmount left the layout short as well as the first frame
-    mounting — and the entries the consumer gave are rounded into the sizes their panels may
-    rest at. Where a bound raises a panel over the room there is for it, the bound holds and
-    the panels already there give the shortfall within their own bounds. A layout written
+    exception: no room is shared out, and the entries the consumer gave are rounded into the
+    sizes their panels may rest at — which covers a rejoin after an unmount left the layout
+    short as well as the first frame mounting. Where the layout they describe does not fit
+    the root, a panel its own bound raised holds at that bound and every other panel shares
+    what is over, within its own bounds: no panel is singled out for being the one that
+    registered last, so the layout is the same whichever of a frame's panels that was. A layout written
     with a number of panels that does not match its number of sizes throws, naming both.
 - `createControllableSignal` leaves composition of functional writes to Solid's own setter,
   which applies them to the value staged earlier in the same frame, and keeps its own ledger

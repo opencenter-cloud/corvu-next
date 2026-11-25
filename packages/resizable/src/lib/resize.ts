@@ -349,9 +349,12 @@ const resize = (props: {
     ]
   }
 
-  // The panels of a resize always make up the whole root, so the layout is
-  // written the one way a full layout is written, each panel within the sizes
-  // it may be reported at.
+  // A resize moves size between the panels and leaves their total where it
+  // was, and the layout is then written the one way a layout is written: each
+  // panel within the sizes it may be reported at, and whatever the panels are
+  // away from the whole root shared out between them. So a resize of a layout
+  // that is not full fills it, taking the room a panel still to mount would
+  // have had.
   props.resizableData.setSizes(
     fixLayoutToPrecision({
       sizes: newSizes,

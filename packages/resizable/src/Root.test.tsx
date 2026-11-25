@@ -1058,24 +1058,68 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // The same holds while the first frame is still mounting. The panels
-    // register from `onSettled` (`Panel.tsx`), and the children of a corvu
-    // root settle in reverse of the order they were created in, so the third
-    // panel registers first and the first panel is the one that joins last.
-    //
-    // By then the other two hold their entries, the third raised to its own
-    // minimum: `[0.3, 0.3, 0.4]` re-derived from the entries, rounded into
-    // their bounds as `[0.3, 0.3, 0.6]`, which is `1.2` — over the root. So
-    // the layout goes through the write step with the panel that joined
-    // asking for its own entry of `0.3`, and the other two share the `0.2`
-    // over: a tenth each gives `[0.3, 0.2, 0.5]`, the third is pulled back up
-    // to its minimum of `0.6`, and the tenth that leaves over goes to the
-    // only derived panel with room for it, the second.
+    // The same holds while the first frame is still mounting, and it holds
+    // whichever panel of that frame the runtime settles last. The entries
+    // rounded into the panels' bounds are `[0.3, 0.3, 0.6]`, which is 1.2:
+    // the panel its own minimum raised holds at `0.6`, and the other two
+    // share the `0.2` over, a tenth each, within maximums of `0.3`.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.3, 0.1, 0.6])
+    expect(sizes).toEqual([0.2, 0.2, 0.6])
     expect(sizes[2]).toBeGreaterThanOrEqual(0.6)
     expect(sizes[0]).toBeLessThanOrEqual(0.3)
     expect(sizes[1]).toBeLessThanOrEqual(0.3)
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('the same panels mounted in another order give the same layout', () => {
+    const onSizesChange = vi.fn()
+    const [firstPanel, setFirstPanel] = createSignal(false)
+
+    mount(() => (
+      <Resizable initialSizes={[0.3, 0.3, 0.4]} onSizesChange={onSizesChange}>
+        <Show when={firstPanel()}>
+          <Resizable.Panel maxSize={0.3} />
+        </Show>
+        <Resizable.Panel maxSize={0.3} />
+        <Resizable.Panel minSize={0.6} />
+      </Resizable>
+    ))
+
+    setFirstPanel(true)
+    flush()
+
+    // The same three panels and the same entries as the test above, with the
+    // first panel mounting after the other two instead of with them. The
+    // layout is a function of the entries and the bounds, so it is the same.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.2, 0.2, 0.6])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('a panel that asked for more than the room gives when a bound raises another', () => {
+    const onSizesChange = vi.fn()
+
+    mount(() => (
+      <Resizable initialSizes={[0.9, 0.3]} onSizesChange={onSizesChange}>
+        <Resizable.Panel />
+        <Resizable.Panel minSize={0.6} />
+      </Resizable>
+    ))
+
+    // Nine tenths and three tenths do not fit, and the second panel's own
+    // minimum raises its three tenths to six: `[0.9, 0.6]` is 1.5. The panel
+    // the bound raised holds at `0.6`, and the other gives the half over —
+    // it asked for more room than there was, so it is not a size anyone was
+    // given and it shares like any other panel.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.4, 0.6])
+    expect(sizes[1]).toBeGreaterThanOrEqual(0.6)
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,

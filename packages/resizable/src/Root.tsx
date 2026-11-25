@@ -352,22 +352,6 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         panelSizeConstraints(panel, rootSize()),
       )
 
-      // No panel joins on top of the root. When the layout has less room than
-      // the size it asked for — the panels there pinned to maximums that left
-      // it short, or entries of the consumer's that do not all fit — it takes
-      // the room that is left instead, and is a size nobody was given.
-      const roomLeftOver =
-        1 -
-        newSizes.reduce(
-          (totalSize, size, index) =>
-            index === panelIndex ? totalSize : totalSize + size,
-          0,
-        )
-      if (panelSize! > roomLeftOver) {
-        newSizes[panelIndex] = roomLeftOver
-        initialSizedPanels.delete(panelData.id)
-      }
-
       const fixedSizes = fixSizesToPrecision(newSizes, constraints)
       const fixedTotalSize = fixedSizes.reduce(
         (totalSize, size) => totalSize + size,
@@ -377,18 +361,24 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         return fixedSizes
       }
 
-      // Bounds raised a panel over the room there is for it — the one that
-      // joined is smaller than its own minimum, or an entry of the consumer's
-      // is. The bound holds, and the panels there give the shortfall within
-      // their own bounds: the layout goes through the write step, with the
-      // panel that joined asking for the size its bounds left it at. Only
-      // when they are pinned too does the layout come out over the root.
-      initialSizedPanels.delete(panelData.id)
+      // The layout as described does not fit the root: entries of the
+      // consumer's that sum past it, a panel asking for more than the room
+      // that is left, or a panel's own bound raising it. A panel a bound
+      // raised holds there, since that is the one size it may have, and every
+      // other panel shares what is over within its own bounds. No panel is
+      // singled out for joining last: which panel of a frame registers last
+      // is not something to build a layout on, so the layout that comes out
+      // is the same whichever of them that was. None of them is on its entry
+      // afterwards.
+      const raisedPanel = fixedSizes.findIndex(
+        (size, index) => size > newSizes[index]!,
+      )
+      initialSizedPanels.clear()
       return fixLayoutToPrecision({
         sizes: fixedSizes,
         constraints,
-        requestedPanel: panelIndex,
-        requestedSize: fixedSizes[panelIndex]!,
+        requestedPanel: raisedPanel === -1 ? null : raisedPanel,
+        requestedSize: raisedPanel === -1 ? null : fixedSizes[raisedPanel]!,
       })
     })
 

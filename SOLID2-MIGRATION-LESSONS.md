@@ -1998,9 +1998,11 @@ share it never asked for. Both go through the step: the join as a value that is 
 the others have room for it and derived when they do not, the departure as a write nobody
 asked for, where every child is derived. And a join into a set that does not add up to the
 whole — which the bounds of a previous write can leave behind — takes only the room that is
-left, or it stacks on top of a whole that was already short. Where its own bound raises it
-over that room, the bound holds and the step shares the shortfall over the others: a bound
-beats the total only when the others are pinned at bounds of their own too.
+left, or it stacks on top of a whole that was already short. Where the set as described does
+not fit the whole, the value a bound of its own raised holds there and every other value
+shares what is over, within its own bounds — none of them singled out for being the one that
+registered last, or the result would depend on an order nothing promises. A bound beats the
+total only when every other value is pinned at a bound of its own too.
 
 Finally, a step that takes the values and the bounds as two lists must refuse a pair that
 does not match, naming both lengths. A missing bound that falls back to "anything from 0 to
