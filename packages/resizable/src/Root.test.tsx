@@ -165,10 +165,11 @@ describe('Resizable.Root', () => {
       </Resizable>
     ))
 
-    // The third panel has no entry of its own, and the two entries fill the
-    // layout by the time it registers, so it takes its room from them.
+    // The layout is laid out from the panels in document order: 0.6, then
+    // 0.4, which fills the root, and then a panel with no entry at the
+    // default half, which the two there give a quarter each of.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes).toEqual([0.6, 0.3, 0.1])
+    expect(sizes).toEqual([0.35, 0.15, 0.5])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 10)
   })
 
@@ -287,9 +288,12 @@ describe('Resizable.Root', () => {
     // size that was asked for, which comes back exactly — and takes its room
     // from the three. Those three tie for largest among the panels this write
     // derived, and the first of them carries what the rounding leaves.
+    // Thirds fill the root, so the three give the panel that joins a sixth
+    // each of its half: 0.1666666 apiece, kept as 0.166667, which puts the
+    // layout a place over the root. No layout stands over the root, so the
+    // place comes off the largest panel that may give it.
     const sizes = onSizesChange.mock.lastCall![0] as number[]
-    expect(sizes[3]).toBe(0.5)
-    expect(sizes).toEqual([0.166666, 0.166667, 0.166667, 0.5])
+    expect(sizes).toEqual([0.166667, 0.166667, 0.166667, 0.499999])
     expect(sizes.reduce((total, size) => total + size, 0)).toBeCloseTo(1, 6)
   })
 
@@ -1283,6 +1287,141 @@ describe('Resizable.Root', () => {
     // read [0.4, 0.3, 0.3].
     const sizes = onSizesChange.mock.lastCall![0] as number[]
     expect(sizes).toEqual([0.5, 0.2, 0.3])
+    expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
+      1,
+      6,
+    )
+  })
+
+  test('three panels with no sizes lay out the same in either order', () => {
+    const inBothOrders = (firstPanelShownLater: boolean) => {
+      const onSizesChange = vi.fn()
+      const [firstPanel, setFirstPanel] = createSignal(!firstPanelShownLater)
+
+      mount(() => (
+        <Resizable onSizesChange={onSizesChange}>
+          <Show when={firstPanel()}>
+            <Resizable.Panel />
+          </Show>
+          <Resizable.Panel />
+          <Resizable.Panel />
+        </Resizable>
+      ))
+
+      setFirstPanel(true)
+      flush()
+
+      const sizes = onSizesChange.mock.lastCall![0] as number[]
+      dispose?.()
+      container?.remove()
+      dispose = null
+      container = null
+      return sizes
+    }
+
+    // Laid out from the panels in document order, as corvu lays out a panel
+    // joining: a half, then a half, which fills the root, and then a half
+    // the two there give a quarter each of. The layout is the same whether
+    // the first panel mounts with the others or after them.
+    expect(inBothOrders(false)).toEqual([0.25, 0.25, 0.5])
+    expect(inBothOrders(true)).toEqual([0.25, 0.25, 0.5])
+  })
+
+  test('a lone panel with no size takes half the root in either order', () => {
+    const onlyPanel = (shownLater: boolean) => {
+      const onSizesChange = vi.fn()
+      const [panelShown, setPanelShown] = createSignal(!shownLater)
+
+      mount(() => (
+        <Resizable onSizesChange={onSizesChange}>
+          <Show when={panelShown()}>
+            <Resizable.Panel />
+          </Show>
+        </Resizable>
+      ))
+
+      setPanelShown(true)
+      flush()
+
+      const sizes = onSizesChange.mock.lastCall![0] as number[]
+      dispose?.()
+      container?.remove()
+      dispose = null
+      container = null
+      return sizes
+    }
+
+    // corvu's default, unchanged: a panel that was given no size takes half
+    // the root, and the layout is under-filled until something fills it.
+    expect(onlyPanel(false)).toEqual([0.5])
+    expect(onlyPanel(true)).toEqual([0.5])
+  })
+
+  test('an entry beside a panel with no size lays out the same in either order', () => {
+    const inBothOrders = (firstPanelShownLater: boolean) => {
+      const onSizesChange = vi.fn()
+      const [firstPanel, setFirstPanel] = createSignal(!firstPanelShownLater)
+
+      mount(() => (
+        <Resizable initialSizes={[0.3]} onSizesChange={onSizesChange}>
+          <Show when={firstPanel()}>
+            <Resizable.Panel />
+          </Show>
+          <Resizable.Panel />
+        </Resizable>
+      ))
+
+      setFirstPanel(true)
+      flush()
+
+      const sizes = onSizesChange.mock.lastCall![0] as number[]
+      dispose?.()
+      container?.remove()
+      dispose = null
+      container = null
+      return sizes
+    }
+
+    // The entry is kept and the panel with no size takes the default beside
+    // it, under-filling the root — corvu's own layout, and the same one
+    // whichever of the two the runtime settles last.
+    expect(inBothOrders(false)).toEqual([0.3, 0.5])
+    expect(inBothOrders(true)).toEqual([0.3, 0.5])
+  })
+
+  test('a panel with no size shown after a resize joins the layout the resize left', () => {
+    const onSizesChange = vi.fn()
+    const [thirdPanel, setThirdPanel] = createSignal(false)
+    let resizeFirst: ((size: number) => void) | null = null
+
+    mount(() => (
+      <Resizable initialSizes={[0.5, 0.5]} onSizesChange={onSizesChange}>
+        <Resizable.Panel>
+          {(props) => {
+            resizeFirst = props.resize
+            return null
+          }}
+        </Resizable.Panel>
+        <Resizable.Panel />
+        <Show when={thirdPanel()}>
+          <Resizable.Panel />
+        </Show>
+      </Resizable>
+    ))
+
+    resizeFirst!(0.7)
+    flush()
+    expect(onSizesChange).toHaveBeenLastCalledWith([0.7, 0.3])
+
+    setThirdPanel(true)
+    flush()
+
+    // The resize arranged the layout, so this is not a frame being laid out
+    // any more: one panel joins the layout as it stands, at the default half,
+    // and the two there give a quarter each of it. One panel joining has no
+    // order to depend on.
+    const sizes = onSizesChange.mock.lastCall![0] as number[]
+    expect(sizes).toEqual([0.45, 0.05, 0.5])
     expect(sizes.reduce((totalSize, size) => totalSize + size, 0)).toBeCloseTo(
       1,
       6,

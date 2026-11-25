@@ -1930,7 +1930,15 @@ Two things, and they are separate:
    settle in reverse of the order they were created in. Nothing promises an order either
    way, so do not derive one from registration.
 
-So registration order is not a child's place in the layout.
+So registration order is not a child's place in the layout — and it must not be the layout
+either. Where a parent builds its first layout out of the children as they register, fold
+its own join rule over the sorted list on every registration instead, so the layout is what
+the children describe in document order: on Solid 1 that is what the parent produced
+anyway, since children registered in creation order. Replacing the parent's rule — equal
+shares for the children that gave no value, say — is a change to what every consumer sees,
+it is not the port's to make, and it does not even remove the dependence: a frame mixing a
+child that gave a value with one that did not still comes out two ways, by which of them
+settled last.
 
 ### Fix
 

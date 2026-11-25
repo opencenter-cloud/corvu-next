@@ -184,12 +184,25 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   const initialSizedPanels = new Set<string>()
 
   /**
+   * Whether anything has arranged the layout since the panels described it:
+   * a `resize`, `collapse`, `expand`, a drag, a key, the consumer's own
+   * `setSizes`, or a panel unmounting, which shares out what it gave up.
+   * Until then each registration lays the whole layout out again from the
+   * panels in document order, so the layout is what the panels describe and
+   * not what the order they happened to settle in made of them.
+   */
+  let layoutWasArranged = false
+
+  /**
    * Called by every path that arranges the layout. None of them can be
    * answered by comparing numbers afterwards: a panel dragged back to exactly
    * its entry has still been moved, and these paths redistribute across the
    * panels they touch rather than setting one of them.
    */
-  const panelsWereMoved = () => initialSizedPanels.clear()
+  const panelsWereMoved = () => {
+    layoutWasArranged = true
+    initialSizedPanels.clear()
+  }
 
   /**
    * The setter the consumer is handed, through the children props and both
@@ -258,6 +271,43 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
 
     sizesToIds.splice(panelIndex, 0, panelData.id)
 
+    /**
+     * Bounds hold over the layout a registration lays out: every size is
+     * rounded into the sizes its panel may rest at, and where that leaves the
+     * layout over the root — entries of the consumer's that sum past it, a
+     * panel asking for more than the room that is left, or a bound raising a
+     * panel — the panel a bound raised holds there, since that is the one
+     * size it may have, and every other panel shares what is over within its
+     * own bounds. None of them is on its entry afterwards.
+     */
+    const layoutWithinBounds = (describedSizes: number[]) => {
+      const constraints = panelsInLayout.map((layoutPanel) =>
+        panelSizeConstraints(layoutPanel, rootSize()),
+      )
+      const fixedSizes = fixSizesToPrecision(describedSizes, constraints)
+      const fixedTotalSize = fixedSizes.reduce(
+        (totalSize, size) => totalSize + size,
+        0,
+      )
+      // A layout short of the root is the one that was described and stays
+      // as it is; one over the root never stands, not even by the place the
+      // rounding leaves, since that is what a panel on top of the root is.
+      if (fixedTotalSize <= 1 + 10 ** -(PRECISION + 3)) {
+        return fixedSizes
+      }
+
+      const raisedPanel = fixedSizes.findIndex(
+        (size, index) => size > describedSizes[index]!,
+      )
+      initialSizedPanels.clear()
+      return fixLayoutToPrecision({
+        sizes: fixedSizes,
+        constraints,
+        requestedPanel: raisedPanel === -1 ? null : raisedPanel,
+        requestedSize: raisedPanel === -1 ? null : fixedSizes[raisedPanel]!,
+      })
+    }
+
     setSizes((sizes) => {
       // The layout already carries a size for this panel: a controlled
       // `sizes` describes every panel, including the ones still to register.
@@ -270,6 +320,41 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
       // following, from its place in the list as it now stands.
       if (fromInitialSizes) initialSizedPanels.add(panelData.id)
 
+
+      // Nothing has arranged the layout yet, so it is still the one the
+      // panels describe. Lay it out again from the panels in document order,
+      // applying the same rule to each of them in turn as a panel joining
+      // the layout: its own `initialSize`, else its `initialSizes` entry,
+      // else the default, with the panels already there giving an equal
+      // share of it when they fill the root. That is what corvu lays out
+      // when the panels register in document order, which is what they did
+      // on Solid 1, and it depends on the sorted list rather than on which
+      // panel of a frame this runtime settled last.
+      if (!layoutWasArranged) {
+        let describedSizes: number[] = []
+        panelsInLayout.forEach((layoutPanel, index) => {
+          const describedSize =
+            layoutPanel.data.initialSize !== null
+              ? resolveSize(layoutPanel.data.initialSize, rootSize())
+              : localProps.initialSizes[index] !== undefined
+                ? resolveSize(localProps.initialSizes[index]!, rootSize())
+                : 0.5
+          const describedTotalSize = describedSizes.reduce(
+            (totalSize, size) => totalSize + size,
+            0,
+          )
+          if (
+            describedSizes.length > 0 &&
+            Math.abs(describedTotalSize - 1) <=
+              describedSizes.length * 10 ** -PRECISION
+          ) {
+            const offsetPerPanel = describedSize / describedSizes.length
+            describedSizes = describedSizes.map((size) => size - offsetPerPanel)
+          }
+          describedSizes.push(describedSize)
+        })
+        return layoutWithinBounds(describedSizes)
+      }
       const newSizes = [...sizes]
       const previousTotalSize = newSizes.reduce(
         (totalSize, size) => totalSize + size,
@@ -348,38 +433,7 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
         }
       }
 
-      const constraints = panelsInLayout.map((panel) =>
-        panelSizeConstraints(panel, rootSize()),
-      )
-
-      const fixedSizes = fixSizesToPrecision(newSizes, constraints)
-      const fixedTotalSize = fixedSizes.reduce(
-        (totalSize, size) => totalSize + size,
-        0,
-      )
-      if (fixedTotalSize - 1 <= fixedSizes.length * 10 ** -PRECISION) {
-        return fixedSizes
-      }
-
-      // The layout as described does not fit the root: entries of the
-      // consumer's that sum past it, a panel asking for more than the room
-      // that is left, or a panel's own bound raising it. A panel a bound
-      // raised holds there, since that is the one size it may have, and every
-      // other panel shares what is over within its own bounds. No panel is
-      // singled out for joining last: which panel of a frame registers last
-      // is not something to build a layout on, so the layout that comes out
-      // is the same whichever of them that was. None of them is on its entry
-      // afterwards.
-      const raisedPanel = fixedSizes.findIndex(
-        (size, index) => size > newSizes[index]!,
-      )
-      initialSizedPanels.clear()
-      return fixLayoutToPrecision({
-        sizes: fixedSizes,
-        constraints,
-        requestedPanel: raisedPanel === -1 ? null : raisedPanel,
-        requestedSize: raisedPanel === -1 ? null : fixedSizes[raisedPanel]!,
-      })
+      return layoutWithinBounds(newSizes)
     })
 
     return panel
@@ -394,6 +448,9 @@ const ResizableRoot = <T extends ValidComponent = 'div'>(
   }
 
   const unregisterPanel = (id: string) => {
+    // The panels that stay share what the one that left gave up, so the
+    // layout is no longer the one the panels describe.
+    layoutWasArranged = true
     initialSizedPanels.delete(id)
     let panelsInLayout: PanelInstance[] = []
     setPanels((panels) => {
