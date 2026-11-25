@@ -2096,6 +2096,78 @@ than the effect that wrote it.
 
 ---
 
+## 33. Booleans Are Not Attribute Values
+
+### Symptoms
+
+An attribute a consumer's CSS keys on is gone, or carries the wrong word. In Solid 1
+`spellcheck={false}` rendered `spellcheck="false"`; in Solid 2 the attribute is removed,
+and an input with no `spellcheck` attribute inherits spellchecking rather than having it
+off.
+
+### Root Cause
+
+Solid 2's `setAttribute` treats a boolean as the presence of the attribute: `true` writes
+an empty value, `false` and `null` remove it. Solid 1 stringified whatever it was given. So
+the three kinds of attribute have to be told apart:
+
+- **A flag** — corvu's `data-open`, `data-dragging`, `data-transitioning` — is present or
+  absent, and a stylesheet selects on `[data-open]`. `dataIf(condition)` returning
+  `'' | undefined` is the shape that survives both versions, and it is what upstream used.
+- **A true boolean attribute** — `disabled`, `checked` — is the same in both: a `false`
+  means absent, which is what it meant on Solid 1 too.
+- **An enumerated attribute** — `spellcheck`, `draggable`, `contenteditable`, `aria-*` —
+  carries a *word*, and an absent one is a third state, not `false`. These must be written
+  as `'true'`/`'false'` strings, which is what `aria-expanded`, `aria-modal` and
+  `aria-disabled` already did here and what `spellcheck` now does.
+
+### Fix
+
+Audit every attribute with a boolean-typed expression. Assert the rendered value in a test
+— `getAttribute('data-open') === ''` and `hasAttribute('data-closed') === false`, not
+`toBeTruthy()` — because the difference between `""` and `"false"` is exactly what breaks a
+consumer's CSS.
+
+### Where This Applies
+
+Any ported component library whose public API is its DOM attributes.
+
+---
+
+## 34. A Strict-Read Window Is Wider Than JSX
+
+### Symptoms
+
+`STRICT_READ_UNTRACKED` in the dev build: "Reactive value … read directly in an effect
+callback will not update."
+
+### Root Cause
+
+Solid 2 reports a read of a reactive value made inside a reactive scope that is not
+tracking. The compute phase of an effect tracks; the *apply* phase, its cleanup, and
+anything they call synchronously do not. `@corvu-next/transition-size` kept "a transition is
+running" in a signal and read it from `reset()`, which the effect's cleanup calls — a read
+in exactly that window, and one that would also be stale if the write happened in the same
+frame (lesson 32).
+
+A DOM listener or a `setTimeout` callback registered from an effect is *not* in that window
+— it runs with no owner — so a one-shot read of the current value there is fine, and that is
+what `createTooltip`, `createOutsidePointer` and the dismissible primitives do.
+
+### Fix
+
+State the callbacks own goes in plain variables, with the signal written beside it for
+rendering. Where a genuine one-shot read of someone else's signal is needed in an apply
+phase or a cleanup, wrap it in `untrack` and say why.
+
+### Where This Applies
+
+Effect apply phases, effect cleanups, and any helper they call. Mount every component of a
+package in a test under a setup that fails on Solid's dev diagnostics, and the window
+reports itself.
+
+---
+
 ## Links
 
 - [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)

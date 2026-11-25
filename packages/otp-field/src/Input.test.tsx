@@ -72,4 +72,32 @@ describe('OtpField.Input', () => {
 
     expect(fieldProps!.activeSlots).toEqual([])
   })
+
+  /**
+   * The hidden input has spellchecking off. `spellcheck` is an enumerated
+   * attribute: the word `false` turns it off, and an absent attribute leaves
+   * it inherited. Solid 1 stringified a `false` into the attribute; Solid 2
+   * removes the attribute instead, so the word is written here.
+   */
+  test('the input turns spellchecking off with the word, not a boolean', () => {
+    mount(() => (
+      <OtpField maxLength={4}>
+        <OtpField.Input />
+      </OtpField>
+    ))
+
+    const input = document.querySelector('input')!
+    expect(input.getAttribute('spellcheck')).toBe('false')
+  })
+
+  test('a consumer asking for spellchecking gets it', () => {
+    mount(() => (
+      <OtpField maxLength={4}>
+        <OtpField.Input spellcheck={true} />
+      </OtpField>
+    ))
+
+    const input = document.querySelector('input')!
+    expect(input.getAttribute('spellcheck')).toBe('true')
+  })
 })

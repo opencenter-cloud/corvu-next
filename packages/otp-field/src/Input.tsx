@@ -52,8 +52,18 @@ export type OtpFieldInputSharedElementProps<
   style: string | JSX.CSSProperties
 }
 
-export type OtpFieldInputElementProps = OtpFieldInputSharedElementProps & {
+export type OtpFieldInputElementProps = Omit<
+  OtpFieldInputSharedElementProps,
+  'spellcheck'
+> & {
   pattern: string | undefined
+  /**
+   * `spellcheck` is an enumerated attribute, not a boolean one: the word
+   * `false` is what turns spellchecking off, and no attribute at all means
+   * the element inherits it. Solid 2 renders a `false` by removing the
+   * attribute, so the value written here is the word.
+   */
+  spellcheck: 'true' | 'false'
   'data-corvu-otp-field-input': '' | null
 }
 
@@ -381,7 +391,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
         inputMode="numeric"
         autocomplete={defaultedProps.autocomplete ?? 'one-time-code'}
         disabled={defaultedProps.disabled}
-        spellcheck={defaultedProps.spellcheck ?? false}
+        spellcheck={(defaultedProps.spellcheck ?? false) ? 'true' : 'false'}
         style={combineStyle(
           {
             display: 'flex',

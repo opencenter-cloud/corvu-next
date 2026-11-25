@@ -67,6 +67,24 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   name with the consumer's value where they gave one that is not `undefined` and the
   default otherwise. A value they did pass still decides, `false`, `0` and `null`
   included, and a prop that becomes defined later — or `undefined` again — is followed.
+- **The OTP field's hidden input says `spellcheck="false"` again.** `spellcheck` is an
+  enumerated attribute, not a boolean one: the word `false` turns spellchecking off, and no
+  attribute at all leaves it inherited. Solid 1 stringified the `false` into the attribute;
+  Solid 2 renders a `false` by removing it, which turned spellchecking back on over the
+  input corvu hides behind the slots. The word is written now. Every other attribute these
+  packages render was checked: the state attributes consumers style on (`data-open`,
+  `data-closed`, `data-expanded`, `data-collapsed`, `data-active`, `data-dragging`,
+  `data-transitioning`, `data-opening`, `data-closing`, `data-snapping`, `data-resizing`,
+  `data-selected`, `data-disabled`, …) all go through `dataIf`, which renders an empty
+  attribute or none — what upstream rendered and what `[data-open]` selects on — and every
+  `aria-*` one already writes the word.
+- **`@corvu-next/transition-size` no longer reads a signal in a scope that cannot track
+  it.** Whether a size transition is running was kept in a signal that the `ResizeObserver`
+  callback, the `transitionend` listener and the effect's cleanup all read back; from the
+  cleanup that is a read inside a reactive scope that is not tracking, which Solid 2's dev
+  build reports as `STRICT_READ_UNTRACKED`, and from the observer it is a value a write
+  made in the same frame has not reached. It is plain state those callbacks own now, with
+  the signal written beside it for what renders from it.
 - **The drawer's drag works again.** A signal write is staged until the end of the frame
   it was made in, so a handler that writes one and reads it back in the same frame sees
   the value from before it. `Drawer.Content` read the dragging flag and the live translate

@@ -200,4 +200,81 @@ describe('Drawer.Content', () => {
     const content = document.querySelector('[data-corvu-drawer-content]')!
     expect(content.getAttribute('data-side')).toBe('bottom')
   })
+
+  /**
+   * Every part of the drawer, mounted open. The package's vitest setup fails
+   * a test on any dev diagnostic Solid raises, so this also says that no
+   * part of it reads a reactive value in a strict-read window.
+   */
+  test('an open drawer renders its state as the attributes consumers style', async () => {
+    const [open, setOpen] = createSignal(false)
+
+    mount(() => (
+      <Drawer open={open()} onOpenChange={setOpen}>
+        <Drawer.Trigger>open</Drawer.Trigger>
+        <Drawer.Portal>
+          <Drawer.Overlay />
+          <Drawer.Content>
+            <Drawer.Label>label</Drawer.Label>
+            <Drawer.Description>description</Drawer.Description>
+            <Drawer.Close>close</Drawer.Close>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer>
+    ))
+
+    setOpen(true)
+    flush()
+    await afterPaint()
+    flush()
+
+    const trigger = document.querySelector('[data-corvu-drawer-trigger]')!
+    const overlay = document.querySelector('[data-corvu-drawer-overlay]')!
+    const content = document.querySelector('[data-corvu-drawer-content]')!
+
+    // Present or absent, never the string "true" or "false": consumers
+    // select on `[data-open]` and on `[data-transitioning]`.
+    for (const element of [trigger, overlay, content]) {
+      expect(element.getAttribute('data-open')).toBe('')
+      expect(element.hasAttribute('data-closed')).toBe(false)
+    }
+    for (const element of [overlay, content]) {
+      expect(element.getAttribute('data-side')).toBe('bottom')
+      // The open transition is still running — no stylesheet here gives it a
+      // duration to end at — so these two are present, as empty attributes.
+      expect(element.getAttribute('data-transitioning')).toBe('')
+      expect(element.getAttribute('data-opening')).toBe('')
+      // And the states it is not in are absent, not the word "false".
+      expect(element.hasAttribute('data-closing')).toBe(false)
+      expect(element.hasAttribute('data-snapping')).toBe(false)
+      expect(element.hasAttribute('data-resizing')).toBe(false)
+    }
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  /**
+   * `transitionResize` brings `@corvu-next/transition-size` into the tree,
+   * which watches the content for size changes. Mounted under the same
+   * diagnostics as everything else here.
+   */
+  test('a drawer that transitions its size mounts and reports its side', async () => {
+    const [open, setOpen] = createSignal(false)
+
+    mount(() => (
+      <Drawer open={open()} onOpenChange={setOpen} transitionResize>
+        <Drawer.Portal>
+          <Drawer.Content>drawer</Drawer.Content>
+        </Drawer.Portal>
+      </Drawer>
+    ))
+
+    setOpen(true)
+    flush()
+    await afterPaint()
+    flush()
+
+    const content = document.querySelector('[data-corvu-drawer-content]')!
+    expect(content.getAttribute('data-side')).toBe('bottom')
+    expect(content.hasAttribute('data-resizing')).toBe(false)
+  })
 })

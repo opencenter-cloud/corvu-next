@@ -1548,4 +1548,45 @@ describe('Resizable.Root', () => {
       6,
     )
   })
+
+  /**
+   * The attributes consumers style a resizable on. Each is present or
+   * absent, never the string "true" or "false": Solid 2 renders a boolean as
+   * an empty attribute or no attribute, so a state is read by selecting on
+   * `[data-collapsed]`, not by its value.
+   */
+  test('a resizable renders its state as the attributes consumers style', () => {
+    const mounted = mount(() => (
+      <Resizable initialSizes={[0, 1]} orientation="vertical">
+        <Resizable.Panel collapsible collapsedSize={0} minSize={0.2} />
+        <Resizable.Handle />
+        <Resizable.Panel collapsible collapsedSize={0} minSize={0.2} />
+      </Resizable>
+    ))
+
+    const root = mounted.querySelector('[data-corvu-resizable-root]')!
+    const panels = mounted.querySelectorAll('[data-corvu-resizable-panel]')
+    const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+
+    expect(root.getAttribute('data-orientation')).toBe('vertical')
+    expect(panels[0]!.getAttribute('data-orientation')).toBe('vertical')
+    expect(handle.getAttribute('data-orientation')).toBe('vertical')
+    expect(handle.getAttribute('aria-orientation')).toBe('vertical')
+
+    // The first panel rests at its collapsed size, the second is open.
+    // `data-expanded` is a collapsible panel's attribute, as upstream
+    // documents it, so both of these are collapsible.
+    expect(panels[0]!.getAttribute('data-collapsed')).toBe('')
+    expect(panels[0]!.hasAttribute('data-expanded')).toBe(false)
+    expect(panels[1]!.getAttribute('data-expanded')).toBe('')
+    expect(panels[1]!.hasAttribute('data-collapsed')).toBe(false)
+
+    // Nothing is touching the handle.
+    expect(handle.hasAttribute('data-active')).toBe(false)
+    expect(handle.hasAttribute('data-dragging')).toBe(false)
+
+    handle.dispatchEvent(new FocusEvent('focus', { bubbles: false }))
+    flush()
+    expect(handle.getAttribute('data-active')).toBe('')
+  })
 })
