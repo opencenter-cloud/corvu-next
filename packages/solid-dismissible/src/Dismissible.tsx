@@ -50,9 +50,9 @@ type DismissibleContextValue = {
 const DismissibleContext = createContext<DismissibleContextValue | null>(null)
 
 /** Adds a layer to a list for as long as the component that calls this
- *  lives. The list is ordered by the order the layers mounted in, which is
- *  the order they are nested in: corvu mounts a dismissible with the content
- *  it dismisses. */
+ *  lives. The list is membership only — which layers exist — and carries no
+ *  meaningful order: what orders the stack is each layer's `enabledSince`
+ *  stamp, read where the stack is read. */
 const registerLayerIn = (
   setRegistrations: (
     update: (registrations: LayerRegistration[]) => LayerRegistration[],
@@ -122,7 +122,8 @@ const Dismissible: Component<DismissibleProps> = (props) => {
   ) as unknown as JSX.Element
 }
 
-/** Every dismissible layer on the page, in the order they mounted. */
+/** Every dismissible layer on the page. Membership only; the stack order
+ *  comes from each layer's `enabledSince` stamp. */
 const [dismissibleRegistrations, setDismissibleRegistrations] = createSignal<
   LayerRegistration[]
 >([], { ownedWrite: true })
