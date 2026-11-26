@@ -51,45 +51,14 @@ OBSERVE.diagnostics.subscribe((event) => {
   raised.push({ event, stack: new Error().stack ?? '' })
 })
 
-/**
- * The one finding a test is not failed on: a relay tear whose written value
- * is *not* the effect's compute output (`data.copy` is not true) and which
- * Solid itself grades `info`. By Solid's own rule that is an effect writing
- * something it measured — the DOM, the clock — and "the tear is the cost of
- * measuring": the reader runs once against the value from before the
- * measurement and once after, because the measurement cannot exist before
- * the element does. `@corvu-next/utils`' `createSize` is the one in this
- * repository, measuring the element it is handed.
- *
- * A tear whose value *is* derivable (`copy`), and every other code at every
- * severity, fails the test. Nothing is allowed by name, so a diagnostic
- * Solid adds is covered the day it ships.
- */
-const isMeasurement = ({ event }: Raised) =>
-  event.code === 'EFFECT_RELAY_TEAR' &&
-  event.severity === 'info' &&
-  event.data?.copy !== true
-
 afterEach(() => {
   if (raised.length === 0) return
   const events = raised
   raised = []
 
-  const measurements = events.filter(isMeasurement)
-  if (measurements.length > 0) {
-    console.info(
-      `Solid reported ${measurements.length} measurement tear(s), the cost of measuring:\n` +
-        measurements
-          .map(({ event }) => `  [${event.code}] ${event.message}`)
-          .join('\n'),
-    )
-  }
-
-  const failures = events.filter((entry) => !isMeasurement(entry))
-  if (failures.length === 0) return
   throw new Error(
-    `Solid raised ${failures.length} dev diagnostic(s) during this test:\n` +
-      failures
+    `Solid raised ${events.length} dev diagnostic(s) during this test:\n` +
+      events
         .map(
           ({ event, stack }) =>
             `  [${event.severity}] [${event.code}] ${event.message}` +

@@ -251,9 +251,28 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
   - **The stack of utilities preventing scroll** is derived the same way, from when each utility
     became enabled: the one enabled last is the one that listens, so the dialog behind an open
     dialog never cancels a wheel or touch event inside it.
+  - **A resizable handle registers itself from its effect's callback**, not from the compute that
+    gathers what the registration needs. Registering pairs the handle with the touching handles of
+    other resizables and writes THEIR intersection signals, which from a computation is a write
+    made while a computation is running: Solid refuses it and throws, and the throw escaped after
+    the handle had been added to the global list and before the unregister was in place — so the
+    handle carried no intersection affordance, could not drag one, and stayed in the list for the
+    life of the page after its resizable unmounted. The registration runs in the callback now, with
+    the orientation, the alt-key mode and both intersection flags handed to it through the compute,
+    and it returns the unregister.
+  - **A measured size is derived from the element it describes.** `createSize` measured from an
+    effect and wrote a signal, so everything reading the size ran once against the element with the
+    size of the element before it, and again a flush later — for a drawer, a frame of the new
+    content at the old content's height. The size is a memo over the element and the dimension now,
+    invalidated by the `ResizeObserver` from the browser's own callback, so a reader gets an
+    element and its size together.
+  - **A drawer's presence and its closing transition are derived from `open`.** An effect wrote
+    both, so the content element applied its props once in the flush `open` changed in — still
+    carrying the drawer's state from before it — and again in the next one. The content is present
+    from the moment `open` turns on until the closing transition has finished, and it is closing
+    from the moment `open` turns off; the states only a paint or a drag can know — `opening`,
+    `snapping`, and the end of each — are still written.
 
-  The one finding a test is not failed on is a relay tear whose written value is not the effect's
-  compute output and that Solid itself grades `info` — by Solid's own rule an effect writing what it
-  measured, where the reader runs once before the measurement exists and once after. `createSize`,
-  measuring the element it is handed, is the only one left in these packages; it is reported rather
-  than silent. Nothing is allowed by name, so a diagnostic Solid adds is covered the day it ships.
+  No finding is waived: every diagnostic Solid raises, at every severity, fails the test that
+  raised it. Nothing is allowed by name either, so a diagnostic Solid adds is covered the day it
+  ships.

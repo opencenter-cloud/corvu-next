@@ -199,64 +199,81 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
 
   let globalHandleCallbacks: HandleCallbacks | null = null
 
-  createEffect((_prev: undefined | Handle) => {
-    if (localProps.disabled === true) return undefined
-    const element = ref()
-    if (!element) return undefined
-
-    const globalHandle: Handle = {
-      element,
+  /** The handle's registration in the global handle list. `registerHandle`
+   *  pairs the handle with the touching handles of other resizables and
+   *  writes THEIR `startIntersectionHandle` / `endIntersectionHandle`
+   *  signals, so it belongs in the effect's callback, where a write to
+   *  another owner's signal is an imperative one the next flush carries —
+   *  from the compute it would be a write made while a computation is
+   *  running (`REACTIVE_WRITE_IN_OWNED_SCOPE`).
+   *
+   *  Everything reactive the registration needs therefore comes through the
+   *  compute, the two intersection flags included: `setHandle` reads them
+   *  when `registerHandle` calls it, which is now inside the callback, where
+   *  reading a prop would be an untracked read of reactive state. */
+  createEffect(
+    () => ({
+      element: localProps.disabled === true ? null : ref(),
       orientation: context.orientation(),
-      handleCursorStyle: context.handleCursorStyle,
       altKey: localProps.altKey,
-      startIntersection: {
-        handle: startIntersectionHandle,
-        setHandle: (handle) => {
-          if (localProps.startIntersection !== true) return
-          setStartIntersectionHandle(handle)
-        },
-      },
-      endIntersection: {
-        handle: endIntersectionHandle,
-        setHandle: (handle) => {
-          if (localProps.endIntersection !== true) return
-          setEndIntersectionHandle(handle)
-        },
-      },
-      hovered,
-      focused,
-      hoveredAsIntersection,
-      setHoveredAsIntersection,
-      active,
-      setActive,
-      dragging,
-      setDragging,
-      onDrag: (delta: number, altKey: boolean) => {
-        if (localProps.onHandleDrag !== undefined) {
-          const dragEvent = new CustomEvent('drag', {
-            cancelable: true,
-          })
-          localProps.onHandleDrag(dragEvent)
-          if (dragEvent.defaultPrevented) return
-        }
-        context.onDrag(element, delta, altKey)
-      },
-      onDragEnd: (event) => {
-        localProps.onHandleDragEnd?.(event)
-        context.onDragEnd()
-      },
-    }
+      startIntersection: localProps.startIntersection,
+      endIntersection: localProps.endIntersection,
+    }),
+    (registration) => {
+      const element = registration.element
+      if (!element) return
 
-    globalHandleCallbacks = registerHandle(globalHandle)
-    return globalHandle
-  }, (nextHandle) => {
-    if (!nextHandle) return
-    // Cleanup: unregister the handle when compute returns a new value or on dispose
-    return () => {
-      unregisterHandle(nextHandle)
-      globalHandleCallbacks = null
-    }
-  })
+      const globalHandle: Handle = {
+        element,
+        orientation: registration.orientation,
+        handleCursorStyle: context.handleCursorStyle,
+        altKey: registration.altKey,
+        startIntersection: {
+          handle: startIntersectionHandle,
+          setHandle: (handle) => {
+            if (registration.startIntersection !== true) return
+            setStartIntersectionHandle(handle)
+          },
+        },
+        endIntersection: {
+          handle: endIntersectionHandle,
+          setHandle: (handle) => {
+            if (registration.endIntersection !== true) return
+            setEndIntersectionHandle(handle)
+          },
+        },
+        hovered,
+        focused,
+        hoveredAsIntersection,
+        setHoveredAsIntersection,
+        active,
+        setActive,
+        dragging,
+        setDragging,
+        onDrag: (delta: number, altKey: boolean) => {
+          if (localProps.onHandleDrag !== undefined) {
+            const dragEvent = new CustomEvent('drag', {
+              cancelable: true,
+            })
+            localProps.onHandleDrag(dragEvent)
+            if (dragEvent.defaultPrevented) return
+          }
+          context.onDrag(element, delta, altKey)
+        },
+        onDragEnd: (event) => {
+          localProps.onHandleDragEnd?.(event)
+          context.onDragEnd()
+        },
+      }
+
+      globalHandleCallbacks = registerHandle(globalHandle)
+
+      return () => {
+        unregisterHandle(globalHandle)
+        globalHandleCallbacks = null
+      }
+    },
+  )
 
   const setHoveredAndNotify = (state: HoverState) => {
     setHovered(state)
