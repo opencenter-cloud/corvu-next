@@ -276,7 +276,13 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     apply within the flush `open` changed in, which is what `Root.test.tsx` measures: it counts
     the applies of that flush alone and starts the next count before the paint the transition
     is scheduled from.
+  - **A resizable handle's aria values are compared as values.** The memo rebuilds them whenever
+    the panels, their sizes or the root's measured size change, and most of those changes leave
+    the handle standing where it stood; the rebuilt object read as a change, so the effect that
+    writes the four attributes re-ran for every one of them. The memo now compares the four
+    values it carries (`UNSTABLE_MEMO_OUTPUT`).
 
   No finding is waived: every diagnostic Solid raises, at every severity, fails the test that
-  raised it. Nothing is allowed by name either, so a diagnostic Solid adds is covered the day it
-  ships.
+  raised it, and the engine runs with its own checks on — the ones that judge a graph over
+  several runs, not just one write. Nothing is allowed by name either, so a diagnostic Solid
+  adds is covered the day it ships.

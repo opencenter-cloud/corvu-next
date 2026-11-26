@@ -140,4 +140,51 @@ describe('Resizable.Handle', () => {
     // handle that just mounted to intersect with.
     expect(secondAcross.querySelector(END_INTERSECTION)).toBeNull()
   })
+
+  /**
+   * The handle's aria values are rebuilt whenever the panels, their sizes or
+   * the root's measured size change, and most of those changes leave the
+   * handle standing exactly where it stood. A rebuilt object that says the
+   * same thing is not a change, and a memo that reports it as one re-runs
+   * every subscriber — here, the effect that writes four attributes.
+   */
+  test('reports no change while the handle stands where it stood', () => {
+    const [orientation, setOrientation] = createSignal<
+      'horizontal' | 'vertical'
+    >('horizontal')
+
+    // Two sizes the consumer controls, so the layout is the same whichever
+    // way the panels are laid out, while the root is measured in a different
+    // dimension each time — the memo re-runs, and says the same thing.
+    const mounted = mount(() => (
+      <Resizable
+        orientation={orientation()}
+        sizes={[0.5, 0.5]}
+        ref={(element: HTMLElement) => {
+          Object.defineProperty(element, 'offsetWidth', { value: 200 })
+          Object.defineProperty(element, 'offsetHeight', { value: 800 })
+        }}
+      >
+        <Resizable.Panel />
+        <Resizable.Handle />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+
+    for (const next of [
+      'vertical',
+      'horizontal',
+      'vertical',
+      'horizontal',
+    ] as const) {
+      setOrientation(next)
+      flush()
+    }
+
+    expect(handle.getAttribute('aria-valuenow')).toBe('0.5')
+    expect(handle.getAttribute('aria-valuemin')).toBe('0')
+    expect(handle.getAttribute('aria-valuemax')).toBe('1')
+  })
 })

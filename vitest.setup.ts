@@ -36,10 +36,13 @@ if (OBSERVE === undefined) {
   )
 }
 
-/** The options `@solidjs/vite-plugin`'s performance-tracks plugin enables the
- *  engine with: no console output and no extra checks, just the attribution
- *  the diagnostics are derived from. */
-const releaseAttribution = attribution.enable({ log: false, checks: false })
+/** The engine with everything it judges turned on — the diagnostics a dev
+ *  server raises plus the checks that judge a graph over several runs, of
+ *  which `UNSTABLE_MEMO_OUTPUT` is the one these packages keep earning: a
+ *  memo rebuilding an equivalent object re-runs every subscriber. Only the
+ *  per-re-run console print is off; every finding still reaches
+ *  `OBSERVE.diagnostics`, which is what the `afterEach` below reads. */
+const releaseAttribution = attribution.enable({ log: false })
 afterAll(() => releaseAttribution())
 
 /** One diagnostic, with the stack at the moment Solid raised it: `ownerPath`

@@ -144,39 +144,53 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
 
   const context = useInternalResizableContext(localProps.contextId)
 
-  const ariaInformation = createMemo(() => {
-    const handle = ref()
-    if (!handle) {
-      return undefined
-    }
-    const panels = context.panels()
-    const [precidingPanels, followingPanels] = splitPanels({
-      panels,
-      focusedElement: handle,
-    })
-    const ariaControls = precidingPanels[precidingPanels.length - 1]?.data.id
-    const ariaValueMax = followingPanels.reduce(
-      (acc, panel) =>
-        acc - resolveSize(panel.data.minSize, context.rootSize()),
-      1,
-    )
-    const ariaValueMin = precidingPanels.reduce(
-      (acc, panel) =>
-        acc + resolveSize(panel.data.minSize, context.rootSize()),
-      0,
-    )
-    const ariaValueNow = precidingPanels.reduce(
-      (acc, panel) => acc + resolveSize(panel.size(), context.rootSize()),
-      0,
-    )
+  const ariaInformation = createMemo(
+    () => {
+      const handle = ref()
+      if (!handle) {
+        return undefined
+      }
+      const panels = context.panels()
+      const [precidingPanels, followingPanels] = splitPanels({
+        panels,
+        focusedElement: handle,
+      })
+      const ariaControls = precidingPanels[precidingPanels.length - 1]?.data.id
+      const ariaValueMax = followingPanels.reduce(
+        (acc, panel) =>
+          acc - resolveSize(panel.data.minSize, context.rootSize()),
+        1,
+      )
+      const ariaValueMin = precidingPanels.reduce(
+        (acc, panel) =>
+          acc + resolveSize(panel.data.minSize, context.rootSize()),
+        0,
+      )
+      const ariaValueNow = precidingPanels.reduce(
+        (acc, panel) => acc + resolveSize(panel.size(), context.rootSize()),
+        0,
+      )
 
-    return {
-      ariaControls,
-      ariaValueMax: fixToPrecision(ariaValueMax),
-      ariaValueMin: fixToPrecision(ariaValueMin),
-      ariaValueNow: fixToPrecision(ariaValueNow),
-    }
-  })
+      return {
+        ariaControls,
+        ariaValueMax: fixToPrecision(ariaValueMax),
+        ariaValueMin: fixToPrecision(ariaValueMin),
+        ariaValueNow: fixToPrecision(ariaValueNow),
+      }
+    },
+    {
+      // The four values, not the object carrying them: the memo rebuilds it
+      // whenever the panels, their sizes or the root's size change, and most
+      // of those changes leave the handle standing where it stood. Without
+      // this gate every one of them would re-run the effect that writes the
+      // attributes.
+      equals: (prev, next) =>
+        prev?.ariaControls === next?.ariaControls &&
+        prev?.ariaValueMax === next?.ariaValueMax &&
+        prev?.ariaValueMin === next?.ariaValueMin &&
+        prev?.ariaValueNow === next?.ariaValueNow,
+    },
+  )
 
   /** The aria values are measurements of where the mounted handle sits
    *  between the panels, so they are applied to the element rather than

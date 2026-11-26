@@ -1680,7 +1680,12 @@ describe('Resizable.Root', () => {
     const appliesPerChange: number[] = []
     const collapsedPerChange: boolean[] = []
     const orientations: string[] = []
-    for (const next of ['vertical', 'horizontal', 'vertical'] as const) {
+    for (const next of [
+      'vertical',
+      'horizontal',
+      'vertical',
+      'horizontal',
+    ] as const) {
       applies = 0
       setOrientation(next)
       flush()
@@ -1689,11 +1694,16 @@ describe('Resizable.Root', () => {
       orientations.push(panel.getAttribute('data-orientation')!)
     }
 
-    expect(appliesPerChange).toEqual([1, 1, 1])
-    expect(orientations).toEqual(['vertical', 'horizontal', 'vertical'])
+    expect(appliesPerChange).toEqual([1, 1, 1, 1])
+    expect(orientations).toEqual([
+      'vertical',
+      'horizontal',
+      'vertical',
+      'horizontal',
+    ])
     // Half of an 800px-tall root is not the 100px collapsed size, and half of
     // the 200px-wide one is: the element says so in the flush the orientation
     // changed in.
-    expect(collapsedPerChange).toEqual([false, true, false])
+    expect(collapsedPerChange).toEqual([false, true, false, true])
   })
 })
