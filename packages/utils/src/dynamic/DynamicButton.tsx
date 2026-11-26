@@ -1,13 +1,8 @@
-import {
-  createMemo,
-  createSignal,
-  omit,
-} from 'solid-js'
+import { createMemo, omit } from 'solid-js'
 import type { ValidComponent } from '@solidjs/web'
+import type { DynamicAttributes, DynamicProps } from '@src/dynamic/types'
 import type { ElementOf, Ref } from '@src/dom'
-import createTagName from '@src/create/tagName'
 import Dynamic from '@src/dynamic/Dynamic'
-import type { DynamicProps } from '@src/dynamic/types'
 import { isButton } from '@src/assertions'
 import { mergeRefs } from '@src/reactivity'
 
@@ -30,14 +25,28 @@ export type DynamicButtonProps<T extends ValidComponent = 'button'> = Partial<
 const DynamicButton = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, DynamicButtonProps<T>>,
 ) => {
-  const [ref, setRef] = createSignal<HTMLElement | null>(null)
+  const buttonProps = props as DynamicButtonProps<'button'> &
+    DynamicAttributes<ValidComponent>
+  const otherProps = omit(buttonProps, 'as', 'ref', 'type')
 
-  const buttonProps = props as DynamicButtonProps<'button'>
-  const otherProps = omit(buttonProps, 'ref', 'type')
+  /** What `Dynamic` renders, with this component's `button` default standing
+   *  in for the `div` one `Dynamic` applies on its own. */
+  const as = createMemo<ValidComponent>(() => buttonProps.as ?? 'button')
 
-  const tagName = createTagName({
-    element: ref,
-    fallback: 'button',
+  /** The tag of the rendered element, read off the prop that decides it: a
+   *  string `as` is the tag, and a component `as` renders what it likes with
+   *  `type` and `role` handed to it as props, so the `button` default stands.
+   *
+   *  Measuring the mounted element instead would put `type` and `role` on the
+   *  far side of the ref: Solid's spread applies the ref and the attributes in
+   *  one effect, so a tag name read back through that ref makes the effect
+   *  re-run on its own write (`EFFECT_WRITES_OWN_SOURCE`) — two flushes, with
+   *  the element in the document carrying a native `type` it is about to drop
+   *  in between, and the same wrong markup served by SSR, where no effect ever
+   *  corrects it. */
+  const tagName = createMemo(() => {
+    const component = as()
+    return typeof component === 'string' ? component : 'button'
   })
 
   const memoizedIsButton = createMemo(() => {
@@ -46,9 +55,13 @@ const DynamicButton = <T extends ValidComponent = 'button'>(
 
   return (
     <Dynamic<DynamicButtonElementProps>
-      as="button"
+      as={as()}
       // === SharedElementProps ===
-      ref={mergeRefs(setRef, buttonProps.ref)}
+      // The consumer's `ref` is the only one there is — this component keeps
+      // none of its own — and `omit` drops it from the spread below, so the
+      // element is handed exactly one ref: their optional one, normalized
+      // into the callback the element props take.
+      ref={mergeRefs(buttonProps.ref)}
       type={memoizedIsButton() ? 'button' : undefined}
       // === ElementProps ===
       role={!memoizedIsButton() ? 'button' : undefined}

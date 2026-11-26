@@ -5,7 +5,6 @@ import {
   createSignal,
   merge,
   omit,
-  untrack,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
 import { createDrawerContext, createInternalDrawerContext } from '@src/context'
@@ -22,6 +21,7 @@ import createSize from '@corvu-next/utils/create/size'
 import createTransitionSize from '@corvu-next/transition-size'
 import Dialog from '@corvu-next/dialog'
 import { resolveSnapPoint } from '@src/lib'
+import { mergeDefaults } from '@corvu-next/utils/reactivity'
 
 export type DrawerRootProps = {
   /**
@@ -125,7 +125,7 @@ type TransitionState = 'opening' | 'closing' | 'snapping' | 'resizing' | null
 
 /** Context wrapper for the drawer. Is required for every drawer you create. */
 const DrawerRoot: Component<DrawerRootProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialOpen: false,
       snapPoints: [0, 1],
@@ -204,63 +204,79 @@ const DrawerRoot: Component<DrawerRootProps> = (props) => {
 
   const [isDragging, setIsDragging] = createSignal(false, { ownedWrite: true })
 
-  // Solid 2 derived signal: createSignal(fn) for derived-but-writable state.
-  // Replaces createWritableMemo from @solid-primitives/memo.
-  const [transitionState, setTransitionState] = createSignal<TransitionState>(
-    (): TransitionState => {
-      if (sizeTransitioning()) return 'resizing'
-      return null
-    },
-    { ownedWrite: true },
-  )
-
   const drawerStyles = createMemo(() => {
     const contentRef = dialogContext()?.contentRef()
     if (!contentRef) return undefined
     return getComputedStyle(contentRef)
   })
 
-  const [transitionAwareOpen, setTransitionAwareOpen] = createSignal(false, { ownedWrite: true })
+  /** Whether the content is on screen: on from the moment `open` turns on,
+   *  and off only once the closing transition has finished — which is what
+   *  keeps a drawer in the document while it animates out.
+   *
+   *  It is DERIVED from `open`, so the content mounts, and carries its
+   *  `data-open`, in the flush `open` changed in. An effect writing this
+   *  instead would hand the content element's props one flush of the drawer
+   *  closed and the next of it open, for every single open. */
+  const [transitionAwareOpen, setTransitionAwareOpen] = createSignal<boolean>(
+    (wasOpen): boolean => open() || wasOpen === true,
+    { ownedWrite: true },
+  )
+
+  /** The transition the drawer is playing. Derived where the state follows
+   *  from the drawer itself — a resize it is animating, and the close it
+   *  begins the moment `open` turns off — and written for the states only a
+   *  paint or a drag can know: `opening`, `snapping`, and the end of each of
+   *  them. A write holds until one of the derived facts changes again. */
+  const [transitionState, setTransitionState] = createSignal<TransitionState>(
+    (): TransitionState => {
+      if (sizeTransitioning()) return 'resizing'
+      if (!open() && transitionAwareOpen()) return 'closing'
+      return null
+    },
+    { ownedWrite: true },
+  )
+
+  /** The same fact as plain state, for the transition to compare the open it
+   *  is told about against: the presence above is already on by the time the
+   *  effect below runs, so it cannot say whether this open is the one the
+   *  transition has yet to play. */
+  let shown = false
 
   createEffect(
     () => open(),
     (_open) => {
-      untrack(() => {
-        if (transitionAwareOpen() === _open) {
-          return
-        }
+      if (shown === _open) return
 
-        if (_open) {
-          setTransitionAwareOpen(true)
-          afterPaint(() => {
-            setTransitionState('opening')
-            setActiveSnapPoint(defaultedProps.defaultSnapPoint)
-            const transitionDuration = parseFloat(
-              drawerStyles()!.transitionDuration,
-            )
-            if (transitionDuration === 0) {
-              setTransitionState(null)
-            }
-          })
-        } else {
-          setTransitionState('closing')
-          setActiveSnapPoint(0)
-          afterPaint(() => {
-            const transitionDuration = parseFloat(
-              drawerStyles()!.transitionDuration,
-            )
-            if (transitionDuration === 0) {
-              closeDrawer()
-            }
-          })
-        }
-      })
+      if (_open) {
+        shown = true
+        afterPaint(() => {
+          setTransitionState('opening')
+          setActiveSnapPoint(defaultedProps.defaultSnapPoint)
+          const transitionDuration = parseFloat(
+            drawerStyles()!.transitionDuration,
+          )
+          if (transitionDuration === 0) {
+            setTransitionState(null)
+          }
+        })
+      } else {
+        setActiveSnapPoint(0)
+        afterPaint(() => {
+          const transitionDuration = parseFloat(
+            drawerStyles()!.transitionDuration,
+          )
+          if (transitionDuration === 0) {
+            closeDrawer()
+          }
+        })
+      }
     },
   )
 
   const closeDrawer = () => {
+    shown = false
     setTransitionAwareOpen(false)
-    setTransitionState(null)
   }
 
   const drawerSize = createSize({

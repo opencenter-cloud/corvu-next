@@ -1,7 +1,6 @@
 import {
   createEffect,
   createSignal,
-  merge,
   omit,
   untrack,
 } from 'solid-js'
@@ -17,7 +16,7 @@ import createOnce from '@corvu-next/utils/create/once'
 import createSize from '@corvu-next/utils/create/size'
 import type { ElementOf } from '@corvu-next/utils/dom'
 import { isFunction } from '@corvu-next/utils'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 import type { Ref } from '@corvu-next/utils/dom'
 
 export type OtpFieldRootCorvuProps = {
@@ -78,7 +77,7 @@ export type OtpFieldRootChildrenProps = {
 const OtpFieldRoot = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, OtpFieldRootProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       shiftPWManagers: true,
     },
@@ -113,7 +112,10 @@ const OtpFieldRoot = <T extends ValidComponent = 'div'>(
     () => value(),
     (currentValue) => {
       if (currentValue.length === defaultedProps.maxLength) {
-        defaultedProps.onComplete?.(currentValue)
+        // The consumer's handler is an event handler to them: run it untracked
+        // so reads inside it neither subscribe this effect nor warn as strict
+        // reads.
+        untrack(() => defaultedProps.onComplete?.(currentValue))
       }
     },
   )

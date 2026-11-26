@@ -2,7 +2,7 @@
 
 Dismissible layer utility for SolidJS 2.0 — nestable layers with outside click, escape key, and outside focus strategies.
 
-> **Note:** This is the Solid 2.0 fork of [solid-dismissible](https://corvu.dev/docs/utilities/dismissible). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-dismissible](https://corvu.dev/docs/utilities/dismissible). It targets `solid-js@^2.0.0`.
 
 ## Features
 

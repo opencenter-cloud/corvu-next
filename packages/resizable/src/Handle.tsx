@@ -8,7 +8,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  merge,
   omit,
   Show,
 } from 'solid-js'
@@ -23,7 +22,7 @@ import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
 import { registerHandle, unregisterHandle } from '@src/lib/handleManager'
 import { dataIf } from '@corvu-next/utils'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalResizableContext } from '@src/context'
 
 export type ResizableHandleCorvuProps = {
@@ -78,11 +77,7 @@ export type ResizableHandleSharedElementProps<
 
 export type ResizableHandleElementProps = ResizableHandleSharedElementProps & {
   role: 'separator'
-  'aria-controls': string | undefined
   'aria-orientation': 'horizontal' | 'vertical'
-  'aria-valuemax': number | undefined
-  'aria-valuemin': number | undefined
-  'aria-valuenow': number | undefined
   'data-active': '' | undefined
   'data-dragging': '' | undefined
   'data-orientation': 'horizontal' | 'vertical'
@@ -102,7 +97,7 @@ export type ResizableHandleProps<T extends ValidComponent = 'button'> =
 const ResizableHandle = <T extends ValidComponent = 'button'>(
   props: DynamicProps<T, ResizableHandleProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       startIntersection: true,
       endIntersection: true,
@@ -149,100 +144,150 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
 
   const context = useInternalResizableContext(localProps.contextId)
 
-  const ariaInformation = createMemo(() => {
-    const handle = ref()
-    if (!handle) {
-      return undefined
-    }
-    const panels = context.panels()
-    const [precidingPanels, followingPanels] = splitPanels({
-      panels,
-      focusedElement: handle,
-    })
-    const ariaControls = precidingPanels[precidingPanels.length - 1]?.data.id
-    const ariaValueMax = followingPanels.reduce(
-      (acc, panel) =>
-        acc - resolveSize(panel.data.minSize, context.rootSize()),
-      1,
-    )
-    const ariaValueMin = precidingPanels.reduce(
-      (acc, panel) =>
-        acc + resolveSize(panel.data.minSize, context.rootSize()),
-      0,
-    )
-    const ariaValueNow = precidingPanels.reduce(
-      (acc, panel) => acc + resolveSize(panel.size(), context.rootSize()),
-      0,
-    )
+  const ariaInformation = createMemo(
+    () => {
+      const handle = ref()
+      if (!handle) {
+        return undefined
+      }
+      const panels = context.panels()
+      const [precidingPanels, followingPanels] = splitPanels({
+        panels,
+        focusedElement: handle,
+      })
+      const ariaControls = precidingPanels[precidingPanels.length - 1]?.data.id
+      const ariaValueMax = followingPanels.reduce(
+        (acc, panel) =>
+          acc - resolveSize(panel.data.minSize, context.rootSize()),
+        1,
+      )
+      const ariaValueMin = precidingPanels.reduce(
+        (acc, panel) =>
+          acc + resolveSize(panel.data.minSize, context.rootSize()),
+        0,
+      )
+      const ariaValueNow = precidingPanels.reduce(
+        (acc, panel) => acc + resolveSize(panel.size(), context.rootSize()),
+        0,
+      )
 
-    return {
-      ariaControls,
-      ariaValueMax: fixToPrecision(ariaValueMax),
-      ariaValueMin: fixToPrecision(ariaValueMin),
-      ariaValueNow: fixToPrecision(ariaValueNow),
-    }
-  })
+      return {
+        ariaControls,
+        ariaValueMax: fixToPrecision(ariaValueMax),
+        ariaValueMin: fixToPrecision(ariaValueMin),
+        ariaValueNow: fixToPrecision(ariaValueNow),
+      }
+    },
+    {
+      // The four values, not the object carrying them: the memo rebuilds it
+      // whenever the panels, their sizes or the root's size change, and most
+      // of those changes leave the handle standing where it stood. Without
+      // this gate every one of them would re-run the effect that writes the
+      // attributes.
+      equals: (prev, next) =>
+        prev?.ariaControls === next?.ariaControls &&
+        prev?.ariaValueMax === next?.ariaValueMax &&
+        prev?.ariaValueMin === next?.ariaValueMin &&
+        prev?.ariaValueNow === next?.ariaValueNow,
+    },
+  )
+
+  /** The aria values are measurements of where the mounted handle sits
+   *  between the panels, so they are applied to the element rather than
+   *  handed to the spread beside the ref that measures it: the spread applies
+   *  a ref and the attributes next to it in one effect, so attributes derived
+   *  from that ref make the effect re-run on its own write
+   *  (`EFFECT_WRITES_OWN_SOURCE`) — two flushes, with the handle in the
+   *  document carrying no aria values in between. These four are corvu's own
+   *  and no longer among the element props, so nothing else writes them. */
+  createEffect(
+    () => ({ element: ref(), aria: ariaInformation() }),
+    ({ element, aria }) => {
+      if (!element) return
+      setAttribute(element, 'aria-controls', aria?.ariaControls)
+      setAttribute(element, 'aria-valuemax', aria?.ariaValueMax)
+      setAttribute(element, 'aria-valuemin', aria?.ariaValueMin)
+      setAttribute(element, 'aria-valuenow', aria?.ariaValueNow)
+    },
+  )
 
   let globalHandleCallbacks: HandleCallbacks | null = null
 
-  createEffect((_prev: undefined | Handle) => {
-    if (localProps.disabled === true) return undefined
-    const element = ref()
-    if (!element) return undefined
-
-    const globalHandle: Handle = {
-      element,
+  /** The handle's registration in the global handle list. `registerHandle`
+   *  pairs the handle with the touching handles of other resizables and
+   *  writes THEIR `startIntersectionHandle` / `endIntersectionHandle`
+   *  signals, so it belongs in the effect's callback, where a write to
+   *  another owner's signal is an imperative one the next flush carries —
+   *  from the compute it would be a write made while a computation is
+   *  running (`REACTIVE_WRITE_IN_OWNED_SCOPE`).
+   *
+   *  Everything reactive the registration needs therefore comes through the
+   *  compute, the two intersection flags included: `setHandle` reads them
+   *  when `registerHandle` calls it, which is now inside the callback, where
+   *  reading a prop would be an untracked read of reactive state. */
+  createEffect(
+    () => ({
+      element: localProps.disabled === true ? null : ref(),
       orientation: context.orientation(),
-      handleCursorStyle: context.handleCursorStyle,
       altKey: localProps.altKey,
-      startIntersection: {
-        handle: startIntersectionHandle,
-        setHandle: (handle) => {
-          if (localProps.startIntersection !== true) return
-          setStartIntersectionHandle(handle)
-        },
-      },
-      endIntersection: {
-        handle: endIntersectionHandle,
-        setHandle: (handle) => {
-          if (localProps.endIntersection !== true) return
-          setEndIntersectionHandle(handle)
-        },
-      },
-      hovered,
-      focused,
-      hoveredAsIntersection,
-      setHoveredAsIntersection,
-      active,
-      setActive,
-      dragging,
-      setDragging,
-      onDrag: (delta: number, altKey: boolean) => {
-        if (localProps.onHandleDrag !== undefined) {
-          const dragEvent = new CustomEvent('drag', {
-            cancelable: true,
-          })
-          localProps.onHandleDrag(dragEvent)
-          if (dragEvent.defaultPrevented) return
-        }
-        context.onDrag(element, delta, altKey)
-      },
-      onDragEnd: (event) => {
-        localProps.onHandleDragEnd?.(event)
-        context.onDragEnd()
-      },
-    }
+      startIntersection: localProps.startIntersection,
+      endIntersection: localProps.endIntersection,
+    }),
+    (registration) => {
+      const element = registration.element
+      if (!element) return
 
-    globalHandleCallbacks = registerHandle(globalHandle)
-    return globalHandle
-  }, (nextHandle) => {
-    if (!nextHandle) return
-    // Cleanup: unregister the handle when compute returns a new value or on dispose
-    return () => {
-      unregisterHandle(nextHandle)
-      globalHandleCallbacks = null
-    }
-  })
+      const globalHandle: Handle = {
+        element,
+        orientation: registration.orientation,
+        handleCursorStyle: context.handleCursorStyle,
+        altKey: registration.altKey,
+        startIntersection: {
+          handle: startIntersectionHandle,
+          setHandle: (handle) => {
+            if (registration.startIntersection !== true) return
+            setStartIntersectionHandle(handle)
+          },
+        },
+        endIntersection: {
+          handle: endIntersectionHandle,
+          setHandle: (handle) => {
+            if (registration.endIntersection !== true) return
+            setEndIntersectionHandle(handle)
+          },
+        },
+        hovered,
+        focused,
+        hoveredAsIntersection,
+        setHoveredAsIntersection,
+        active,
+        setActive,
+        dragging,
+        setDragging,
+        onDrag: (delta: number, altKey: boolean) => {
+          if (localProps.onHandleDrag !== undefined) {
+            const dragEvent = new CustomEvent('drag', {
+              cancelable: true,
+            })
+            localProps.onHandleDrag(dragEvent)
+            if (dragEvent.defaultPrevented) return
+          }
+          context.onDrag(element, delta, altKey)
+        },
+        onDragEnd: (event) => {
+          localProps.onHandleDragEnd?.(event)
+          context.onDragEnd()
+        },
+      }
+
+      globalHandleCallbacks = registerHandle(globalHandle)
+
+      return () => {
+        unregisterHandle(globalHandle)
+        globalHandleCallbacks = null
+      }
+    },
+  )
 
   const setHoveredAndNotify = (state: HoverState) => {
     setHovered(state)
@@ -341,11 +386,7 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       onPointerDown={onPointerDown}
       // === ElementProps ===
       role="separator"
-      aria-controls={ariaInformation()?.ariaControls}
       aria-orientation={context.orientation()}
-      aria-valuemax={ariaInformation()?.ariaValueMax}
-      aria-valuemin={ariaInformation()?.ariaValueMin}
-      aria-valuenow={ariaInformation()?.ariaValueNow}
       data-active={dataIf(active())}
       data-dragging={dataIf(dragging())}
       data-orientation={context.orientation()}
@@ -411,6 +452,20 @@ const ResizableHandle = <T extends ValidComponent = 'button'>(
       </Show>
     </Dynamic>
   )
+}
+
+/** Writes an attribute, or removes it where there is no value — what Solid
+ *  does with an `undefined` attribute prop. */
+const setAttribute = (
+  element: Element,
+  name: string,
+  value: string | number | undefined,
+) => {
+  if (value === undefined) {
+    element.removeAttribute(name)
+  } else {
+    element.setAttribute(name, String(value))
+  }
 }
 
 export default ResizableHandle

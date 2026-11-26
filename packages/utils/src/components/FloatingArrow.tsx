@@ -1,7 +1,6 @@
 import {
   children,
   createMemo,
-  merge,
   omit,
   Show,
 } from 'solid-js'
@@ -10,6 +9,7 @@ import { Dynamic, type DynamicProps } from '@src/dynamic'
 import { combineStyle } from '@src/dom'
 import type { FloatingState } from '@src/create/floating'
 import { PositionToDirection } from '@src/floating/lib'
+import { mergeDefaults } from '@src/reactivity'
 
 export type FloatingArrowCorvuProps = {
   floatingState: FloatingState
@@ -51,7 +51,7 @@ const TransformOrigin = {
 const FloatingArrow = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, FloatingArrowProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       size: 16,
     },

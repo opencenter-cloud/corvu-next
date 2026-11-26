@@ -7,7 +7,7 @@
 Validates that all `@corvu-next/*` packages work in a real Astro docs application. Documents 9 primitives and 8 utilities with live examples and typedoc-generated API reference.
 
 - **Framework:** Astro 7, `@corvu-next/astrojs-solid-next`, Tailwind CSS 4
-- **Runtime:** solid-js@2.0.0-beta.19, @solidjs/web@2.0.0-beta.19
+- **Runtime:** solid-js@2.0.3, @solidjs/web@2.0.3
 - **Search:** Pagefind (production builds only)
 - **Provenance:** Imported from `corvudev/corvu@ff79bca9`, ported to Solid 2
 

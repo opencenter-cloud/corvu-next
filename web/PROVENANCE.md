@@ -11,7 +11,7 @@ This directory is imported from upstream `corvudev/corvu`.
 
 1. **Package name:** `@corvu/web` → `@corvu-next/web`
 2. **Integration:** `@astrojs/solid-js@^5.1.0` → `@corvu-next/astrojs-solid-next` (workspace link)
-3. **Solid version:** `solid-js@^1.9.8` → `solid-js@2.0.0-beta.19` + `@solidjs/web@2.0.0-beta.19`
+3. **Solid version:** `solid-js@^1.9.8` → `solid-js@2.0.3` + `@solidjs/web@2.0.3`
 4. **Package references:** `@corvu/*` → `@corvu-next/*`; `solid-list` → `@corvu-next/solid-list`; `solid-persistent` → `@corvu-next/solid-persistent`
 5. **Site URL:** `https://corvu.dev` → `http://localhost:4321` (local-only)
 6. **Removed:** `@astrojs/sitemap` (not needed for local dev), eslint/prettier deps (not needed)

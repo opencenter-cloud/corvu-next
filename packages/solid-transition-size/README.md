@@ -2,7 +2,7 @@
 
 Animated size transition utility for SolidJS 2.0 — smoothly animates height/width changes.
 
-> **Note:** This is the Solid 2.0 fork of [solid-transition-size](https://corvu.dev/docs/utilities/transition-size). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-transition-size](https://corvu.dev/docs/utilities/transition-size). It targets `solid-js@^2.0.0`.
 
 ## Features
 

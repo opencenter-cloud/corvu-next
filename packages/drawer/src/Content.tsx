@@ -16,7 +16,6 @@ import {
   locationIsDraggable,
   resolveSnapPoint,
 } from '@src/lib'
-import { combineStyle } from '@corvu-next/utils/dom'
 import Dialog from '@corvu-next/dialog'
 import type { DynamicProps } from '@corvu-next/utils/dynamic'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
@@ -65,6 +64,28 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
 
   let pointerDown = false
   let dragStartPos: number | null = null
+
+  /**
+   * The drag's own bookkeeping, kept here rather than read back out of the
+   * context's signals. A signal write is staged until the end of the frame,
+   * so a handler that writes one and reads it again in the same frame — the
+   * ordinary shape of a `touchstart`, `touchmove`, `touchend` sequence a
+   * browser can deliver within one — would see the value from before it. The
+   * signals are still written, for everything that renders from them; these
+   * are what the handlers themselves decide on.
+   */
+  let dragging = false
+  let draggedTranslate: number | null = null
+
+  /** The translate the drawer is at: the one this drag last wrote while it
+   * is dragging, and the context's otherwise. */
+  const currentTranslate = () => draggedTranslate ?? drawerContext.translate()
+
+  const stopDragging = () => {
+    dragging = false
+    draggedTranslate = null
+    drawerContext.setIsDragging(false)
+  }
 
   // Values used to handle dragging on scrollable elements.
   let currentPointerStart: [number, number] = [0, 0]
@@ -126,6 +147,36 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     return undefined
   })
 
+  /**
+   * The drawer's own styles, written to the content element rather than
+   * handed to the spread that renders it. Every one of them is derived from
+   * the drawer's size, which is measured off that element: Solid's spread
+   * applies the ref and the props beside it in one effect, so a style
+   * derived from a measurement of the element the same effect mounts closes
+   * a cycle — the ref write, the size write, the style — that Solid reports
+   * as `EFFECT_WRITES_OWN_SOURCE` and settles in three flushes, each
+   * rendering the drawer at an intermediate place. Written here, the
+   * element is measured once and styled once, and the consumer's own
+   * `style` still goes through the spread.
+   */
+  createEffect(
+    () => ({
+      element: dialogContext.contentRef(),
+      transform: transformValue(),
+      transitionDuration: drawerContext.isDragging() ? '0ms' : undefined,
+      height: transitionHeight(),
+      width: transitionWidth(),
+    }),
+    ({ element, transform, transitionDuration, height, width }) => {
+      if (!element) return
+      setStyleProperty(element, 'transform', transform)
+      setStyleProperty(element, 'transition-duration', transitionDuration)
+      setStyleProperty(element, 'height', height)
+      setStyleProperty(element, 'width', width)
+    },
+    { name: 'drawerContentStyle' },
+  )
+
   // Split-phase effect: compute phase tracks `dialogContext.open()`,
   // effect phase adds/removes listeners.
   createEffect(
@@ -147,15 +198,17 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         document.removeEventListener('contextmenu', onUp)
       }
     },
+    { name: 'drawerDragListeners' },
   )
 
   createEffect(
     () => drawerContext.transitionState(),
     (state) => {
       if (state === 'closing') {
-        drawerContext.setIsDragging(false)
+        stopDragging()
       }
     },
+    { name: 'drawerStopDragOnClose' },
   )
 
   const onPointerDown = (event: PointerEvent) => {
@@ -192,7 +245,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onMove = (target: HTMLElement, x: number, y: number) => {
     if (!pointerDown) return
 
-    if (!drawerContext.isDragging() || dragStartPos === null) {
+    if (!dragging || dragStartPos === null) {
       const selection = window.getSelection()
       if (selection && selection.toString().length > 0) {
         onUp()
@@ -237,8 +290,9 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       }
 
       cachedMoveTimestamp = new Date()
-      cachedTranslate = drawerContext.translate()
+      cachedTranslate = currentTranslate()
 
+      dragging = true
       drawerContext.setIsDragging(true)
       drawerContext.setTransitionState(null)
     }
@@ -268,9 +322,10 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       drawerContext.velocityCacheReset()
     ) {
       cachedMoveTimestamp = now
-      cachedTranslate = drawerContext.translate()
+      cachedTranslate = currentTranslate()
     }
 
+    draggedTranslate = -delta
     drawerContext.setTranslate(-delta)
   }
 
@@ -285,25 +340,26 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
   const onUp = () => {
     pointerDown = false
 
-    if (!drawerContext.isDragging()) return
+    if (!dragging) return
 
+    const translate = currentTranslate()
     const now = new Date()
     const velocity = drawerContext.velocityFunction(
-      -(cachedTranslate - drawerContext.translate()),
+      -(cachedTranslate - translate),
       now.getTime() - cachedMoveTimestamp.getTime() || 1,
     )
 
-    const translateWithVelocity = drawerContext.translate() * velocity
+    const translateWithVelocity = translate * velocity
 
     const closestSnapPoint = findClosestSnapPoint(
       snapPoints(),
-      drawerContext.translate(),
+      translate,
       translateWithVelocity,
       drawerContext.allowSkippingSnapPoints(),
     )
 
     drawerContext.setTransitionState('snapping')
-    drawerContext.setIsDragging(false)
+    stopDragging()
 
     drawerContext.setActiveSnapPoint(closestSnapPoint.value)
     if (closestSnapPoint.offset === drawerContext.drawerSize()) {
@@ -327,17 +383,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
     >
       contextId={(props as DrawerContentProps).contextId}
       // === SharedElementProps ===
-      style={combineStyle(
-        {
-          transform: transformValue(),
-          'transition-duration': drawerContext.isDragging()
-            ? '0ms'
-            : undefined,
-          height: transitionHeight(),
-          width: transitionWidth(),
-        },
-        (props as DrawerContentProps).style,
-      )}
+      style={(props as DrawerContentProps).style}
       // === ElementProps ===
       onPointerDown={onPointerDown}
       onTouchStart={(e) => {
@@ -368,3 +414,17 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
 }
 
 export default DrawerContent
+
+/** Writes an inline style property, or removes it where there is no value —
+ *  what Solid does with an `undefined` entry of a style prop. */
+const setStyleProperty = (
+  element: HTMLElement,
+  property: string,
+  value: string | undefined,
+) => {
+  if (value === undefined) {
+    element.style.removeProperty(property)
+  } else {
+    element.style.setProperty(property, value)
+  }
+}

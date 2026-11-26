@@ -5,21 +5,66 @@
  * https://github.com/theKashey/react-remove-scroll
  */
 
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, createSignal, createUniqueId, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import {
+  type Accessor,
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  onCleanup,
+  untrack,
+} from 'solid-js'
 import type { Axis } from '@corvu-next/utils'
 import { contains } from '@corvu-next/utils/dom'
 import createStyle from '@corvu-next/utils/create/style'
 import { getScrollAtLocation } from '@corvu-next/utils/scroll'
 
-const [preventScrollStack, setPreventScrollStack] = createSignal<string[]>(
-  [],
-  { ownedWrite: true },
-)
+/** One utility on the page, and when it last turned on: `enabledSince` is a
+ *  derivation read where the stack is read, so a utility turning on or off
+ *  is in the stack in that flush: a stack an effect wrote instead made every
+ *  reader run twice for one write of `enabled` (`EFFECT_RELAY_TEAR`), the
+ *  first time against the stack as it was. */
+type PreventScrollRegistration = {
+  id: string
+  enabledSince: Accessor<number | undefined>
+}
+
+const [preventScrollRegistrations, setPreventScrollRegistrations] =
+  createSignal<PreventScrollRegistration[]>([], { ownedWrite: true })
+
+/** Handed out in the order utilities turn on, so the greatest one is the one
+ *  enabled last. */
+let enableStamp = 0
+
+/** Whether this utility is the one enabled last: only that one listens, so
+ *  the listeners of the dialog behind a dialog do nothing. A utility that is
+ *  re-enabled takes a fresh stamp and so moves to the top of the stack,
+ *  which is what decides it — not the order the utilities were created in,
+ *  which for a page whose dialogs all mount up front is no order at all. */
 const isActive = (id: string) => {
-  const stack = preventScrollStack()
-  const index = stack.indexOf(id)
-  return index !== -1 && index === stack.length - 1
+  let topId: string | undefined
+  let top = 0
+  for (const entry of preventScrollRegistrations()) {
+    const since = entry.enabledSince()
+    if (since !== undefined && since > top) {
+      top = since
+      topId = entry.id
+    }
+  }
+  return topId === id
+}
+
+/** Everything the body-style effect's apply phase styles the body from. */
+type BodyStyleInput = {
+  enabled: boolean
+  hideScrollbar: boolean
+  preventScrollbarShift: boolean
+  preventScrollbarShiftMode: 'padding' | 'margin'
 }
 
 /**
@@ -42,7 +87,7 @@ const createPreventScroll = (props: {
   restoreScrollPosition?: MaybeAccessor<boolean>
   allowPinchZoom?: MaybeAccessor<boolean>
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       element: null,
       enabled: true,
@@ -61,36 +106,51 @@ const createPreventScroll = (props: {
   let currentTouchStartAxis: Axis | null = null
   let currentTouchStartDelta: number | null = null
 
-  // Effect 1: Stack management
-  createEffect(
-    (prev: undefined | boolean) => {
-      const enabled = access(props.enabled ?? true)
-      return enabled
-    },
-    (enabled: boolean, prev?: boolean) => {
-      if (!enabled) return
-
-      setPreventScrollStack((stack) => [...stack, preventScrollId])
-
-      return () => {
-        setPreventScrollStack((stack) =>
-          stack.filter((id) => id !== preventScrollId),
-        )
-      }
-    },
+  // This utility's place in the stack, for as long as it lives. The stamp is
+  // taken the first time `enabled` is on and dropped when it goes off, so it
+  // says when this utility last turned on.
+  const enabledSince = createMemo<number | undefined>((prev) =>
+    access(props.enabled ?? true) ? (prev ?? ++enableStamp) : undefined,
+  )
+  const registration: PreventScrollRegistration = {
+    id: preventScrollId,
+    enabledSince,
+  }
+  setPreventScrollRegistrations((registrations) => [
+    ...registrations,
+    registration,
+  ])
+  onCleanup(() =>
+    setPreventScrollRegistrations((registrations) =>
+      registrations.filter((entry) => entry !== registration),
+    ),
   )
 
   // Effect 2: Body style application (scrollbar hide + shift compensation)
   createEffect(
-    (prev: undefined | { enabled: boolean; hideScrollbar: boolean }) => {
+    (prev: undefined | BodyStyleInput): BodyStyleInput => {
       const enabled = access(props.enabled ?? true)
       const hideScrollbar = access(props.hideScrollbar ?? true)
-      return { enabled, hideScrollbar }
+      // The apply phase below is a strict-read window: a consumer's reactive
+      // `preventScrollbarShift` or `preventScrollbarShiftMode` read there is a
+      // `STRICT_READ_UNTRACKED`, and a change to it would not restyle the
+      // body. Both are read here, so the body's style follows them.
+      const preventScrollbarShift = access(
+        defaultedProps.preventScrollbarShift,
+      )
+      // The default widens the literal union to `string`, and only the two
+      // words the prop declares ever reach it.
+      const preventScrollbarShiftMode = access(
+        defaultedProps.preventScrollbarShiftMode,
+      ) as 'padding' | 'margin'
+      return {
+        enabled,
+        hideScrollbar,
+        preventScrollbarShift,
+        preventScrollbarShiftMode,
+      }
     },
-    (
-      next: { enabled: boolean; hideScrollbar: boolean },
-      prev?: { enabled: boolean; hideScrollbar: boolean },
-    ) => {
+    (next: BodyStyleInput, prev?: BodyStyleInput) => {
       if (!next.enabled || !next.hideScrollbar) {
         return
       }
@@ -99,12 +159,12 @@ const createPreventScroll = (props: {
 
       const scrollbarWidth = window.innerWidth - body.offsetWidth
 
-      if (access(defaultedProps.preventScrollbarShift)) {
+      if (next.preventScrollbarShift) {
         const style: Partial<CSSStyleDeclaration> = { overflow: 'hidden' }
         const properties: { key: string; value: string }[] = []
 
         if (scrollbarWidth > 0) {
-          if (access(defaultedProps.preventScrollbarShiftMode) === 'padding') {
+          if (next.preventScrollbarShiftMode === 'padding') {
             style.paddingRight = `calc(${
               window.getComputedStyle(body).paddingRight
             } + ${scrollbarWidth}px)`
@@ -129,10 +189,14 @@ const createPreventScroll = (props: {
           style,
           properties,
           cleanup: () => {
-            if (
-              access(defaultedProps.restoreScrollPosition) &&
-              scrollbarWidth > 0
-            ) {
+            // Whether to restore the scroll position is decided when the
+            // style is reverted, not when it was applied, and this runs in a
+            // cleanup, which tracks nothing: `untrack` says so, so a reactive
+            // value here is read as the plain lookup it is.
+            const restoreScrollPosition = untrack(() =>
+              access(defaultedProps.restoreScrollPosition),
+            )
+            if (restoreScrollPosition && scrollbarWidth > 0) {
               window.scrollTo(offsetLeft, offsetTop)
             }
           },

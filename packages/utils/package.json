@@ -83,20 +83,24 @@
     "@floating-ui/dom": "^1.7.3"
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.19",
-    "@solidjs/web": "2.0.0-beta.19"
+    "@solidjs/web": "^2.0.0",
+    "solid-js": "^2.0.0"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.19",
-    "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.19",
+    "@solidjs/vite-plugin": "3.0.1",
+    "@solidjs/web": "2.0.3",
+    "happy-dom": "^21.0.4",
+    "solid-js": "2.0.3",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vite": "^8",
+    "vitest": "^5.1.1"
   },
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf .turbo dist node_modules",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
     "typedoc": "typedoc --json api.json --entryPoints ./src/index.ts --tsconfig ./tsconfig.json"
   }
 }

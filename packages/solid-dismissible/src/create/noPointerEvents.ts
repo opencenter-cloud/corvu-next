@@ -1,12 +1,16 @@
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import { createEffect } from 'solid-js'
 import createStyle from '@corvu-next/utils/create/style'
 
 /**
  * Disables pointer events on the `<body>` element.
  */
 const createNoPointerEvents = (props: { enabled?: MaybeAccessor<boolean> }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
     },

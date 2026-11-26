@@ -1,4 +1,11 @@
-import { fixToPrecision, resolveSize, splitPanels } from '@src/lib/utils'
+import {
+  fixLayoutToPrecision,
+  fixToPrecision,
+  panelSizeConstraints,
+  resolveSize,
+  splitPanels,
+  storedCollapsedSize,
+} from '@src/lib/utils'
 import type { PanelInstance, ResizeStrategy } from '@src/lib/types'
 import { handleResizeConstraints } from '@src/lib/cursor'
 import { type Setter } from 'solid-js'
@@ -138,7 +145,7 @@ const distributePercentage = (props: {
   ) {
     const panel = props.panels[i]!
     const panelSize = props.initialSizes[i + props.initialSizesStartIndex]!
-    const collapsedSize = resolveSize(
+    const collapsedSize = storedCollapsedSize(
       panel.data.collapsedSize ?? 0,
       props.rootSize,
     )
@@ -198,7 +205,7 @@ const distributePercentage = (props: {
     props.initialSizes[panelIndex + props.initialSizesStartIndex]!
 
   const minSize = resolveSize(panel.data.minSize, props.rootSize)
-  const collapsedSize = resolveSize(
+  const collapsedSize = storedCollapsedSize(
     panel.data.collapsedSize ?? 0,
     props.rootSize,
   )
@@ -292,12 +299,16 @@ const getResizeDirection = (props: {
  * Resizes panels based on given resize actions.
  * @param initialSizes - The initial sizes of the panels.
  * @param collapsible - Whether the panels are allowed to collapse to distribute the percentage.
+ * @param requestedPanel - The index of the panel whose size was asked for, and `requestedSize` the size it was asked for. When the layout can give that size it is written as it was asked for and a panel derived from it carries what rounding leaves; when it cannot, that panel holds a derived size like any other. A drag passes `null` for both, because it asks for no size in particular: every panel is then derived.
+ * @param requestedSize - The size `requestedPanel` was asked for.
  * @param resizeActions - The resize actions to distribute the percentage.
  * @param resizableData - Data related to the resizable instance.
  */
 const resize = (props: {
   initialSizes: number[]
   collapsible: boolean
+  requestedPanel: number | null
+  requestedSize: number | null
   resizeActions: {
     precedingPanels: PanelInstance[]
     followingPanels: PanelInstance[]
@@ -310,6 +321,7 @@ const resize = (props: {
   }
 }) => {
   let newSizes = props.initialSizes
+  let panelsInLayout: PanelInstance[] = []
   for (const resizeAction of props.resizeActions) {
     const [, distributedSizesPreceding] = distributePercentage({
       desiredPercentage: resizeAction.deltaPercentage,
@@ -331,18 +343,30 @@ const resize = (props: {
     })
 
     newSizes = [...distributedSizesPreceding, ...distributedSizesFollowing]
+    panelsInLayout = [
+      ...resizeAction.precedingPanels,
+      ...resizeAction.followingPanels,
+    ]
   }
 
-  newSizes = newSizes.map(fixToPrecision)
-  const totalSize = newSizes.reduce((totalSize, size) => totalSize + size, 0)
-  if (totalSize !== 1) {
-    const offset = totalSize - 1
-    const offsetPerPanel = offset / newSizes.length
-    // TODO: Recognize min and max sizes
-    newSizes = newSizes.map((size) => size - offsetPerPanel)
-  }
-
-  props.resizableData.setSizes(newSizes.map(fixToPrecision))
+  // A resize moves size between the panels and leaves their total where it
+  // was, and the layout is then written the one way a layout is written: each
+  // panel within the sizes it may be reported at, and whatever the panels are
+  // away from the whole root shared out between them. So a resize of a layout
+  // that is not full fills it, taking the room a panel still to mount would
+  // have had.
+  props.resizableData.setSizes(
+    fixLayoutToPrecision({
+      sizes: newSizes,
+      constraints: panelsInLayout.map((panel) =>
+        panelSizeConstraints(panel, props.resizableData.rootSize),
+      ),
+      requested:
+        props.requestedPanel === null || props.requestedSize === null
+          ? []
+          : [{ panel: props.requestedPanel, size: props.requestedSize }],
+    }),
+  )
 }
 
 /**
@@ -353,6 +377,7 @@ const resize = (props: {
  * @param panels - The panels to resize.
  * @param initialSizes - The initial sizes of the panels.
  * @param collapsible - Whether the panels are allowed to collapse to distribute the percentage.
+ * @param requestedSize - The size this panel was asked for, which is what the layout gives it when it can.
  * @param resizableData - Data related to the resizable instance.
  */
 const resizePanel = (props: {
@@ -362,6 +387,7 @@ const resizePanel = (props: {
   panels: PanelInstance[]
   initialSizes: number[]
   collapsible: boolean
+  requestedSize: number
   resizableData: {
     rootSize: number
     orientation: 'horizontal' | 'vertical'
@@ -406,6 +432,8 @@ const resizePanel = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: panelIndex,
+      requestedSize: props.requestedSize,
       resizeActions: [
         {
           precedingPanels: precedingPanelsIncluding,
@@ -452,6 +480,8 @@ const resizePanel = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: panelIndex,
+      requestedSize: props.requestedSize,
       resizeActions: [
         {
           precedingPanels,
@@ -548,6 +578,8 @@ const deltaResize = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: false,
+      requestedPanel: null,
+      requestedSize: null,
       resizeActions: [
         {
           precedingPanels: precedingPanelsIncluding,
@@ -586,6 +618,8 @@ const deltaResize = (props: {
     resize({
       initialSizes: props.initialSizes,
       collapsible: true,
+      requestedPanel: null,
+      requestedSize: null,
       resizeActions: [
         {
           precedingPanels,
@@ -605,7 +639,7 @@ const deltaResize = (props: {
       let betweenCollapse = false
       const precedingPanel = precedingPanels[precedingPanels.length - 1]!
       if (precedingPanel.data.collapsible) {
-        const precedingCollapsedSize = resolveSize(
+        const precedingCollapsedSize = storedCollapsedSize(
           precedingPanel.data.collapsedSize ?? 0,
           props.resizableData.rootSize,
         )
@@ -620,7 +654,7 @@ const deltaResize = (props: {
       }
       const followingPanel = followingPanels[0]!
       if (followingPanel.data.collapsible) {
-        const followingCollapsedSize = resolveSize(
+        const followingCollapsedSize = storedCollapsedSize(
           followingPanel.data.collapsedSize ?? 0,
           props.resizableData.rootSize,
         )

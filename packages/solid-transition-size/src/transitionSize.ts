@@ -1,5 +1,5 @@
 import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { type Accessor, createEffect, createSignal } from 'solid-js'
+import { type Accessor, createEffect, createSignal, untrack } from 'solid-js'
 import { afterPaint } from '@corvu-next/utils/dom'
 
 /**
@@ -39,11 +39,25 @@ function createTransitionSize(props: {
   transitioning: Accessor<boolean>
   transitionSize: Accessor<number | [number, number] | null>
 } {
-  const [transitioning, setTransitioning] = createSignal(false)
+  // `reset()` runs from the effect's cleanup — an owned scope — when the
+  // element goes away mid-transition, so both signals accept owned writes.
+  const [transitioning, setTransitioning] = createSignal(false, {
+    ownedWrite: true,
+  })
   const [transitionSize, setTransitionSize] = createSignal<
     number | [number, number] | null
-  >(null)
+  >(null, { ownedWrite: true })
 
+  /**
+   * Whether a size transition is running. The `ResizeObserver` callback, the
+   * `transitionend` listener and the effect's cleanup all read it, and none
+   * of them is a tracking scope: a signal read there is the stale read
+   * Solid's strict-read diagnostic names, and a write made in the same frame
+   * would not be visible to it either. This is the utility's own
+   * bookkeeping, like `startSize` below; the signal is written beside it, for
+   * what renders from it.
+   */
+  let isTransitioning = false
   let startSize: [number, number] | null = null
 
   createEffect(
@@ -70,7 +84,7 @@ function createTransitionSize(props: {
   )
 
   const resizeObserverCallback = ([entry]: ResizeObserverEntry[]) => {
-    if (transitioning()) return
+    if (isTransitioning) return
     const target = entry!.target as HTMLElement
     const currentSize: [number, number] = [
       target.offsetWidth,
@@ -85,6 +99,7 @@ function createTransitionSize(props: {
         startSize[1] !== currentSize[1]
       ) {
         setTransitionSize(startSize)
+        isTransitioning = true
         setTransitioning(true)
         afterPaint(() => {
           setTransitionSize(currentSize)
@@ -104,6 +119,7 @@ function createTransitionSize(props: {
         getSizeOfDimension(dimension, currentSize)
       ) {
         setTransitionSize(getSizeOfDimension(dimension, startSize!))
+        isTransitioning = true
         setTransitioning(true)
         afterPaint(() => {
           setTransitionSize(getSizeOfDimension(dimension, currentSize))
@@ -119,13 +135,15 @@ function createTransitionSize(props: {
   }
 
   const reset = () => {
-    if (!transitioning()) return
-    const element = access(props.element)
+    if (!isTransitioning) return
+    // One read of where the element is now, not a dependency of anything.
+    const element = untrack(() => access(props.element))
     if (element) {
       startSize = [element.offsetWidth, element.offsetHeight]
     } else {
       startSize = null
     }
+    isTransitioning = false
     setTransitioning(false)
     setTransitionSize(null)
   }

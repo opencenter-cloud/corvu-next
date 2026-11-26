@@ -1,8 +1,8 @@
 # Solid 2.0 Migration Lessons Learned
 
-> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages migrated to `solid-js@2.0.0-beta.19`).
+> **Purpose:** For anyone migrating Solid 1.x libraries to Solid 2.0, documents hard-won lessons from the @corvu-next fork (20 packages, now built and type-checked against stable `solid-js@2.0.3`).
 
-Last updated: 2026-07-16 (lessons #26–29 added; header updated to reflect beta.19)
+Last updated: 2026-11-24 (every lesson re-checked against `solid-js@2.0.3`, `@solidjs/web@2.0.3` and `@solidjs/compiler@2.0.2`; lesson #30 added)
 
 ---
 
@@ -1757,7 +1757,7 @@ The `@astrojs/solid-js` integration (v7.x) imports from Solid 1 paths and uses A
 1. **`solid-js/web`** → must become `@solidjs/web`
 2. **`Suspense`** → renamed to `Loading` in `@solidjs/web`
 3. **`createStore` + `reconcile` from `solid-js/store`** → `createStore` moved to `solid-js`; `reconcile` removed (use draft-based mutation)
-4. **`renderToStringAsync`** — still exists in `@solidjs/web` but may throw on browser-only components during SSR
+4. **`renderToStringAsync`** — removed in stable 2.0; `await renderToStream(...)` resolves with the fully settled HTML (see lesson #30)
 
 ### Fix — Fork the Integration
 
@@ -1765,13 +1765,13 @@ Fork `@astrojs/solid-js` (6 source files) and patch:
 
 ```typescript
 // server.ts — key changes
-import { renderToStringAsync } from '@solidjs/web'  // not solid-js/web
+import { renderToStream } from '@solidjs/web'       // not solid-js/web
 import { Loading } from '@solidjs/web'              // not Suspense
 
 // Wrap renderToStaticMarkup in try-catch for browser-only components
 async function renderToStaticMarkup(Component, props, slotted, metadata) {
   try {
-    const html = await renderToStringAsync(() => /* ... */)
+    const html = await renderToStream(() => /* ... */)
     return { html }
   } catch {
     return { html: '' }  // graceful fallback — component hydrates client-side
@@ -1823,7 +1823,7 @@ Alternatively, use `client:only` on the Astro island to skip SSR entirely:
 
 ### `VoidComponent` Still Exists
 
-Despite early migration docs suggesting `VoidComponent` was removed, it still exists in `solid-js@2.0.0-beta.19`. No rename needed — keep using it.
+Despite early migration docs suggesting `VoidComponent` was removed, it still exists in `solid-js@2.0.3`. No rename needed — keep using it.
 
 ### Where This Applies
 
@@ -1831,9 +1831,411 @@ Any Astro 5+ project using Solid 2 components needs a forked integration until `
 
 ---
 
+## 30. Beta → Stable 2.0.x — What Actually Breaks
+
+Code that ran on `2.0.0-beta.19` does not automatically compile on stable `2.0.x`. Two changes
+broke this repository; everything else in this document survived unchanged.
+
+### The compiler rejects Solid 1 JSX namespaces
+
+`on:`, `oncapture:`, `attr:`, `bool:`, `use:` and `classList` are **compile errors** on native
+elements now, not silently-accepted leftovers. Beta compiled `on:mousemove={handler}` into a
+native listener; stable stops the build:
+
+```
+`on:mousemove` on <a> uses the `on:` namespace, which was removed in Solid 2.0.
+Use a camelCase handler such as `onClick={handler}` for Solid events, or a `ref`
+callback that calls `addEventListener` for listener options or custom event names.
+```
+
+`onMouseMove` is not always a drop-in replacement: `mousemove` is one of the delegated events,
+so a handler on a node that is replaced while the pointer is over it goes through delegation.
+Where a native listener is what you want, attach it from the `ref` callback:
+
+```tsx
+<a
+  ref={(element) => {
+    element.addEventListener('mousemove', () => props.onMouseMove())
+  }}
+>
+```
+
+### `renderToStringAsync` is gone
+
+`@solidjs/web` stable exports `renderToString` (synchronous) and `renderToStream`. Awaiting the
+stream is the async render: it resolves with the complete HTML once every boundary settles.
+
+```typescript
+// beta.19
+const html = await renderToStringAsync(renderFn, { renderId })
+
+// 2.0.3 — note: the return value is a thenable, not a Promise, so no `.catch()`
+let html: string
+try {
+  html = await renderToStream(renderFn, { renderId, noScripts: !needsHydrate })
+} catch {
+  html = ''
+}
+```
+
+`noScripts` is a declared option on both functions now, so the `as any` cast the beta port
+needed can go.
+
+### The compiler package changed name
+
+`babel-preset-solid` is Solid 1's preset. Solid 2 ships `@solidjs/compiler` (native, the default
+in `@solidjs/vite-plugin`) and `@solidjs/babel-plugin` (the JavaScript fallback for Babel
+pipelines). Both READMEs ask for exact version pins. `vite-plugin-solid` is now
+`@solidjs/vite-plugin` — same options except `hot`, which became `refresh`, and it requires
+Vite 8 or 9 and Node >= 22.12.
+
+If you build libraries with tsup/esbuild, `esbuild-plugin-solid` pulls in the Solid 1 preset.
+Calling `transform()` from `@solidjs/compiler` yourself is a few lines and keeps the prebuilt
+output and the JSX your consumers compile on the same code generator — see `tsup.preset.ts`
+in this repository.
+
+### What did not change
+
+`ownedWrite`, the split-phase `createEffect(compute, apply)` contract, `merge`/`omit`,
+`onSettled`, and effects re-running their apply phase whenever the compute re-runs (they never
+compare the computed value) all behave on 2.0.3 exactly as the lessons above describe for
+beta.19.
+
+---
+
+## 31. One Frame, Many Registrations — Staged Writes and Settle Order
+
+### Symptoms
+
+A parent that keeps a list of children registering themselves from `onSettled` ends up with
+two children on the same index, every child holding the first entry of an array the consumer
+indexed by position, or an extra entry in an array the consumer controls.
+
+### Root Cause
+
+Two things, and they are separate:
+
+1. **A write is staged until the end of the frame that made it.** The children mounted in
+   one frame all register from settle callbacks of that frame, so an accessor read from any
+   of them reports the value from before the frame — not what the earlier registrants wrote.
+   Reading `list()` to decide what to append sees the list as it was: empty. Every child
+   then computes the same position and takes index 0.
+2. **Registration order is not document order.** Siblings created while their parent renders
+   do settle in document order: an owned `onSettled` is a tracked effect, tracked effects
+   append at the tail of their height on the dirty heap, and the heap drains ascending and
+   is iterated forward. Five signals-only constructions on 2.0.3 all settled in creation
+   order. Rendering is where it turns around: measured with `solid-js` / `@solidjs/web`
+   2.0.3's `Dynamic`, which renders through nested memos, two siblings under a component
+   that returns a thunk rendering it (which is what `@corvu-next`'s own `Dynamic` is)
+   settle in reverse of the order they were created in. Nothing promises an order either
+   way, so do not derive one from registration.
+
+So registration order is not a child's place in the layout — and it must not be the layout
+either. Where a parent builds its layout out of the children as they register, fold its own
+join rule over the children **of that frame** in document order on every registration of
+the frame, onto the layout the frames before it left, so the layout is what the children
+describe in document order: on Solid 1 that is what the parent produced anyway, since
+children registered in creation order (measured on `solid-js` 1.9.17: refs and registration
+effects both run A, B, C).
+
+Scope the fold to the frame. Order *within* a frame is arbitrary and must not show; order
+*across* frames is real time, and a child mounting later joins the layout as it stands —
+folding every child again instead moves children already on screen, unevenly. A frame ends
+when its writes are applied, so a tracked reader of the list the children register into
+cannot run before the last of them has registered: that reader is the frame boundary, and
+it costs nothing else.
+
+Replacing the parent's rule — equal shares for the children that gave no value, say — is a
+change to what every consumer sees, it is not the port's to make, and it does not even
+remove the dependence: a frame mixing a child that gave a value with one that did not still
+comes out two ways, by which of them settled last.
+
+### Fix
+
+Read the value from inside its own setter — `setList((list) => …)` is handed the value staged
+earlier in the same frame, so the second registrant sees the first. For a functional write
+this also makes a hand-rolled "write in flight" ledger unnecessary: Solid's setter composes
+staged writes already. Keep that list sorted by `compareDocumentPosition` inside the same
+setter, so one list is the layout and the order of registration never enters it.
+
+Then let anything the consumer indexed by position (an `initialSizes` array, say) follow that
+list instead of being read once at registration: each registration re-derives the entry of
+every child still following it, from its place in the list as it then stands, so a child
+registering in front of others moves them to their own entries. Which children still follow
+is a fact to record, not a number to compare: mark them as moved from every path that sets
+values — a child moved and then put back on exactly its entry has still been moved. And
+re-derive only where it cannot break the invariant the whole array carries: in a layout whose
+sizes must sum to 1, a registration that took room out of the layout has already changed
+every other entry, so writing the entries back over it would push the sum past 1.
+
+And when the invariant is a sum of rounded numbers, do not test it with equality. Values kept
+to p decimal places leave the total of n of them up to n × 10⁻ᵖ off: three thirds held to six
+places sum to `0.999999`, and a value pinned to a bound the consumer gave — a seventh, say —
+leaves the same kind of remainder. A layout is full when its total is within that bound, and
+the remainder is carried by one of the values, so a full layout is handed on summing to 1 to
+the places the values are kept at. Dropping the correction instead does not work: a write
+that pins several values to bounds of their own rounds each of them the same way, and with
+nothing to absorb it the total walks away from 1 until the layout stops counting as full.
+
+Which value carries it is not free either. A value someone asked for must come back as they
+asked it, so the remainder goes to the ones the write derived, the largest first and on a tie
+the first of them. A request the other values' bounds cut short was never given, so that one is
+derived too and can carry like any other. A write that asks for no particular value, a drag
+over a handle, derives all of them, and the largest still carries it; only a write with
+nothing derived at all, one value asked for and no other, can carry nothing. Picking "the
+largest value" without that distinction is right only while the largest happens to be a
+derived one.
+
+And rounding has to respect the set of values each one is held to, which is not always an
+interval. A value sitting on a bound of the consumer's — a minimum of a seventh — rounds to
+the nearest six-place value and is then reported below the minimum it was pinned to. Round
+such a value toward the inside of its bound instead, up at a minimum and down at a maximum,
+and let the remainder go only to a value with room for it. A panel that can collapse is the
+harder case: its sizes are its collapsed size, or anything from its minimum to its maximum,
+and never the gap between, so one interval cannot describe it. Give such a thing bounds that
+depend on what the write is doing to it — pinned at the collapsed size when the write
+collapses it, its minimum and maximum when it does not — and compare "is it collapsed?"
+through the same rounding the write applies, everywhere the question is asked. Otherwise a
+collapsed size the writes cannot store, an eleventh, never compares equal to a stored size
+and the thing silently stops reading as collapsed.
+
+Request and bounds before the total. The derived values carry in turn, the largest first and
+on a tie the first of them, each taking as much of what is left as its own bounds allow and
+passing the rest to the next, so nothing is carried only when every one of them is already
+pinned in the direction it would move them; the total is then left up to n × 10⁻ᵖ off, which
+is still within what counts as full, and the next write with room in it brings it back.
+Bounds the consumer gave that cannot all hold together are the one case that leaves the
+total further off, and they win: every value sits at the bound it cannot pass, and the
+layout they describe is what is reported.
+
+And every write has to go through the one step, not just the obvious ones. A child joining
+the set and the children that stay when one leaves are writes of the whole layout too: left
+outside, the join hands its neighbours shares their bounds refuse, and the departure hands a
+share to a child that was resting at a value of its own — a collapsed panel, opened by a
+share it never asked for. Both go through the step: the join as a value that is given when
+the others have room for it and derived when they do not, the departure as a write nobody
+asked for, where every child is derived. And a join into a set that does not add up to the
+whole — which the bounds of a previous write can leave behind — takes only the room that is
+left, or it stacks on top of a whole that was already short. Where the set as described does
+not fit the whole, the value a bound of its own raised holds there and every other value
+shares what is over, within its own bounds — none of them singled out for being the one that
+registered last, or the result would depend on an order nothing promises. A bound beats the
+total only when every other value is pinned at a bound of its own too.
+
+Finally, a step that takes the values and the bounds as two lists must refuse a pair that
+does not match, naming both lengths. A missing bound that falls back to "anything from 0 to
+1" disables every bound at once, quietly.
+
+Every registration still sorts with `compareDocumentPosition`; what this removes is the
+`querySelectorAll` scan of the parent at each registration, which also counted children that
+never register.
+
+### Where This Applies
+
+`@corvu-next/resizable`'s `registerPanel`. Any primitive whose children self-register and
+whose parent keeps a positional array.
+
+---
+
+## 32. A Staged Write Is Not Readable In Its Own Frame
+
+### Symptoms
+
+A drag does nothing. The sheet stays where it is through every `touchmove`, and releasing
+it past the dismiss threshold does not close it. An OTP field focused by the user shows no
+caret and no active slot until something else moves the selection.
+
+### Root Cause
+
+A signal write is staged until the end of the frame that made it, so a handler that writes
+a signal and reads it again in the same frame reads the value from before it:
+
+```ts
+setDragging(true)
+dragging() // false
+```
+
+On Solid 1 the same two lines answered `true`, and primitives were written that way:
+`Drawer.Content` wrote `isDragging` on the first move and then used it, on that move and
+on every move after, to tell "start this drag" from "continue it". A browser can deliver a
+whole touch sequence inside one frame, and then every move starts the drag again, anchors
+it at the point it just reached — a delta of zero — and the release, reading the same flag,
+decides no drag is in progress and returns.
+
+The same shape, one handler on: the OTP field's focus handler wrote `isFocused` and then
+called the selection sync, which asks whether the field is focused. It read `false`, synced
+the selection of an unfocused field and left no slot active.
+
+### Fix
+
+State a handler decides on belongs to the handler, not to a signal it reads back. Keep the
+drag's bookkeeping — whether a drag is running, where it started, the translate it is at —
+in plain variables the handlers own, and write the signals as well, for everything that
+renders from them. Where the value is needed one call deeper, hand it on as an argument
+rather than reading the signal there:
+
+```ts
+context.setIsFocused(true)
+onSelectionChange(undefined, true) // not: read context.isFocused()
+```
+
+A read *before* a write in the same handler is fine, and so is a write in one handler read
+in a later frame. What does not work is the round trip.
+
+### Where This Applies
+
+Any handler that writes a signal and then branches on it: drags, pointer and touch
+sequences, focus and blur pairs, keyboard repeats. Audit by looking for a setter and a read
+of the same signal in one function — `@corvu-next/drawer`'s `Content` and
+`@corvu-next/otp-field`'s `Input` both had one. Elsewhere in these packages the reads come
+first (`@corvu-next/resizable`'s drag reads the sizes it started from once and derives
+every move from that cached list, its handle's blur reads `hovered` before writing
+`focused`, `@corvu-next/list`'s keyboard handler reads `active` once and writes once), and
+`@corvu-next/presence` only reads its state in an animation event, which is a later frame
+than the effect that wrote it.
+
+---
+
+## 33. Booleans Are Not Attribute Values
+
+### Symptoms
+
+An attribute a consumer's CSS keys on is gone, or carries the wrong word. In Solid 1
+`spellcheck={false}` rendered `spellcheck="false"`; in Solid 2 the attribute is removed,
+and an input with no `spellcheck` attribute inherits spellchecking rather than having it
+off.
+
+### Root Cause
+
+Solid 2's `setAttribute` treats a boolean as the presence of the attribute: `true` writes
+an empty value, `false` and `null` remove it. Solid 1 stringified whatever it was given. So
+the three kinds of attribute have to be told apart:
+
+- **A flag** — corvu's `data-open`, `data-dragging`, `data-transitioning` — is present or
+  absent, and a stylesheet selects on `[data-open]`. `dataIf(condition)` returning
+  `'' | undefined` is the shape that survives both versions, and it is what upstream used.
+- **A true boolean attribute** — `disabled`, `checked` — is the same in both: a `false`
+  means absent, which is what it meant on Solid 1 too.
+- **An enumerated attribute** — `spellcheck`, `draggable`, `contenteditable`, `aria-*` —
+  carries a *word*, and an absent one is a third state, not `false`. These must be written
+  as `'true'`/`'false'` strings, which is what `aria-expanded`, `aria-modal` and
+  `aria-disabled` already did here and what `spellcheck` now does.
+
+### Fix
+
+Audit every attribute with a boolean-typed expression. Assert the rendered value in a test
+— `getAttribute('data-open') === ''` and `hasAttribute('data-closed') === false`, not
+`toBeTruthy()` — because the difference between `""` and `"false"` is exactly what breaks a
+consumer's CSS.
+
+### Where This Applies
+
+Any ported component library whose public API is its DOM attributes.
+
+---
+
+## 34. A Strict-Read Window Is Wider Than JSX
+
+### Symptoms
+
+`STRICT_READ_UNTRACKED` in the dev build: "Reactive value … read directly in an effect
+callback will not update."
+
+### Root Cause
+
+Solid 2 reports a read of a reactive value made inside a reactive scope that is not
+tracking. The compute phase of an effect tracks; the *apply* phase, its cleanup, and
+anything they call synchronously do not. `@corvu-next/transition-size` kept "a transition is
+running" in a signal and read it from `reset()`, which the effect's cleanup calls — a read
+in exactly that window, and one that would also be stale if the write happened in the same
+frame (lesson 32).
+
+A DOM listener or a `setTimeout` callback registered from an effect is *not* in that window
+— it runs with no owner — so a one-shot read of the current value there is fine, and that is
+what `createTooltip`, `createOutsidePointer` and the dismissible primitives do.
+
+### Fix
+
+State the callbacks own goes in plain variables, with the signal written beside it for
+rendering. Where a genuine one-shot read of someone else's signal is needed in an apply
+phase or a cleanup, wrap it in `untrack` and say why.
+
+### Where This Applies
+
+Effect apply phases, effect cleanups, and any helper they call. Mount every component of a
+package in a test under a setup that fails on Solid's dev diagnostics, and the window
+reports itself.
+
+---
+
+## 35. An Edge Belongs To The Apply Phase, Not The Compute
+
+### Symptoms
+
+A dialog mounted closed and then opened does not lock the page behind it. Everything gated
+on "is the content present" is wrong, while the same dialog mounted already open is right.
+
+### Root Cause
+
+A split-phase `createEffect(compute, apply)` runs its *compute* once per dependency change
+and its *apply* once per committed change. `@corvu-next/presence` detected the `show` edge
+by threading the previous value through the compute's own return:
+
+```ts
+createEffect(
+  (prevResult) => {
+    const show = access(props.show)
+    const prev = prevResult?.show ?? show   // the previous COMPUTE, not the previous APPLY
+    const display = refStyles()?.display    // a second dependency
+    return { prev, show, display }
+  },
+  ({ prev, show }) => {
+    if (prev === show) return               // edge lost
+    …
+  },
+)
+```
+
+The compute also depends on the element's computed styles, and so on the element ref, which
+commits in the same flush the dialog opens in. Two compute runs, one apply: the second run
+read `prev` as its own `show`, and the apply saw no change at all.
+
+Solid's own `prev` is not the trap: the second argument the *apply* receives is the value
+from the previous apply (`_prevValue` is assigned only in an effect run), so it is safe.
+What is unsafe is state a compute threads through its return value, because the compute is
+allowed to run as often as its dependencies change.
+
+### Fix
+
+Keep the previous value in a plain variable the apply owns, seeded the same way the state
+is:
+
+```ts
+let appliedShow = untrack(() => access(props.show))
+createEffect(
+  () => ({ show: access(props.show), display: refStyles()?.display }),
+  ({ show }) => {
+    const prev = appliedShow
+    appliedShow = show
+    if (prev === show) return
+    …
+  },
+)
+```
+
+Test it in the shape that produces the extra compute run — the element rendered by the same
+flip — not only by toggling a signal, which passes either way.
+
+### Where This Applies
+
+Any split-phase effect that detects a change rather than just applying a value, and whose
+compute reads more than the thing it is detecting.
+
+---
+
 ## Links
 
-- [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/next/documentation/solid-2.0/MIGRATION.md)
-- [Solid 2.0 Beta Announcement](https://github.com/solidjs/solid/discussions/2596)
+- [Solid 2.0 Migration Guide](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)
+- [Solid 2.0 docs — migrating from Solid 1](https://docs.solidjs.com/migration/from-solid-1)
 - [@corvu-next npm](https://www.npmjs.com/org/corvu-next)
 - [@corvu-next GitHub](https://github.com/opencenter-cloud/corvu-next)

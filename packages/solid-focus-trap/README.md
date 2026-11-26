@@ -2,7 +2,7 @@
 
 Focus trap utility for SolidJS 2.0 — traps keyboard focus within a container element.
 
-> **Note:** This is the Solid 2.0 fork of [solid-focus-trap](https://corvu.dev/docs/utilities/focus-trap). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-focus-trap](https://corvu.dev/docs/utilities/focus-trap). It targets `solid-js@^2.0.0`.
 
 ## Features
 

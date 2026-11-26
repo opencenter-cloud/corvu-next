@@ -1,6 +1,6 @@
 import type { AstroIntegration, AstroRenderer } from 'astro';
 import type { PluginOption, Plugin } from 'vite';
-import solid, { type Options as ViteSolidPluginOptions } from 'vite-plugin-solid';
+import solid, { type Options as ViteSolidPluginOptions } from '@solidjs/vite-plugin';
 import { getContainerRenderer as getContainerRendererImpl } from './container-renderer.js';
 
 export function getContainerRenderer(): AstroRenderer {

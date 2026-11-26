@@ -9,7 +9,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  merge,
   onCleanup,
   omit,
   Show,
@@ -18,7 +17,7 @@ import type { JSX, ValidComponent } from '@solidjs/web'
 import { isServer } from '@solidjs/web'
 import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import createOtpFieldStyleElement from '@src/lib/style'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
 import { useInternalOtpFieldContext } from '@src/context'
 
 export type OtpFieldInputCorvuProps = {
@@ -53,8 +52,18 @@ export type OtpFieldInputSharedElementProps<
   style: string | JSX.CSSProperties
 }
 
-export type OtpFieldInputElementProps = OtpFieldInputSharedElementProps & {
+export type OtpFieldInputElementProps = Omit<
+  OtpFieldInputSharedElementProps,
+  'spellcheck'
+> & {
   pattern: string | undefined
+  /**
+   * `spellcheck` is an enumerated attribute, not a boolean one: the word
+   * `false` is what turns spellchecking off, and no attribute at all means
+   * the element inherits it. Solid 2 renders a `false` by removing the
+   * attribute, so the value written here is the word.
+   */
+  spellcheck: 'true' | 'false'
   'data-corvu-otp-field-input': '' | null
 }
 
@@ -68,7 +77,7 @@ export type OtpFieldInputProps<T extends ValidComponent = 'input'> =
 const OtpFieldInput = <T extends ValidComponent = 'input'>(
   props: DynamicProps<T, OtpFieldInputProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       pattern: '^\\d*$',
       noScriptCSSFallback: DEFAULT_NOSCRIPT_CSS_FALLBACK,
@@ -210,7 +219,11 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
       context.value().length,
     )
     context.setIsFocused(true)
-    onSelectionChange()
+    // The focus state this handler just set, handed on rather than read back
+    // out of the signal: a write is staged until the end of the frame, so
+    // `context.isFocused()` is still `false` here and the selection would be
+    // synced as the one of an unfocused field — no active slot, no caret.
+    onSelectionChange(undefined, true)
   }
 
   const onBlur: JSX.EventHandlerUnion<HTMLInputElement, FocusEvent> = (
@@ -219,7 +232,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     if (callEventHandler(defaultedProps.onBlur, event)) return
     shiftKeyDown = false
     context.setIsFocused(false)
-    onSelectionChange()
+    onSelectionChange(undefined, false)
   }
 
   const onMouseOver: JSX.EventHandlerUnion<HTMLInputElement, MouseEvent> = (
@@ -253,11 +266,14 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
     shiftKeyDown = false
   }
 
-  const onSelectionChange = (inputType?: string) => {
+  const onSelectionChange = (
+    inputType?: string,
+    isFocused = context.isFocused(),
+  ) => {
     const element = ref()
     if (!element) return
     if (
-      context.isFocused() === false ||
+      isFocused === false ||
       document.activeElement !== element ||
       element.selectionStart === null ||
       element.selectionEnd === null
@@ -375,7 +391,7 @@ const OtpFieldInput = <T extends ValidComponent = 'input'>(
         inputMode="numeric"
         autocomplete={defaultedProps.autocomplete ?? 'one-time-code'}
         disabled={defaultedProps.disabled}
-        spellcheck={defaultedProps.spellcheck ?? false}
+        spellcheck={(defaultedProps.spellcheck ?? false) ? 'true' : 'false'}
         style={combineStyle(
           {
             display: 'flex',

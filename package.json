@@ -9,16 +9,16 @@
     "clean": "turbo run clean && rm -rf .turbo node_modules",
     "dev": "turbo watch dev --filter=@corvu-next/dev",
     "lint": "turbo run lint",
-    "publish:packages": "pnpm build && pnpm publish -r --access public --filter='@corvu-next/*'"
+    "publish:packages": "pnpm build && pnpm publish -r --access public --filter='@corvu-next/*'",
+    "test": "turbo run test"
   },
   "devDependencies": {
+    "@solidjs/compiler": "2.0.2",
+    "solid-js": "2.0.3",
+    "tsup": "^8.5.0",
     "turbo": "^2.5.5",
-    "typedoc": "^0.28.20"
+    "typedoc": "^0.28.20",
+    "vitest": "^5.1.1"
   },
-  "license": "MIT",
-  "pnpm": {
-    "overrides": {
-      "babel-preset-solid": "2.0.0-beta.19"
-    }
-  }
+  "license": "MIT"
 }

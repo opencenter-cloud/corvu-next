@@ -2,26 +2,70 @@ import {
   type Accessor,
   type Component,
   createContext,
-  createEffect,
+  createMemo,
   createSignal,
   createUniqueId,
-  merge,
   omit,
+  onCleanup,
   useContext,
 } from 'solid-js'
 import type { JSX } from '@solidjs/web'
-import { access } from '@corvu-next/utils/reactivity'
+import { access, mergeDefaults } from '@corvu-next/utils/reactivity'
 import createDismissible from '@src/create/dismissible'
 import type { CreateDismissibleProps } from '@src/create/dismissible'
 import { isFunction } from '@corvu-next/utils'
 
+/** What a layer tells the stacks about itself: both are read where the stack
+ *  is read, so a layer that is enabled, or renamed, is in the stack in the
+ *  flush that changed it. `enabledSince` says when the layer last turned on,
+ *  and is `undefined` while it is off. */
+type LayerRegistration = {
+  id: Accessor<string>
+  enabledSince: Accessor<number | undefined>
+}
+
+/** Handed out in the order layers turn on, so the greatest one is the layer
+ *  enabled last. */
+let enableStamp = 0
+
+/** The ids of the enabled layers of a stack, the one enabled last — the one
+ *  on top — last. A layer that is re-enabled takes a fresh stamp and so
+ *  moves back to the top, which is what decides the stack: not the order
+ *  the layers were created in, which for layers that mount up front and only
+ *  flip `enabled` is no order at all. */
+const enabledLayers = (registrations: LayerRegistration[]) =>
+  registrations
+    .flatMap((layer) => {
+      const since = layer.enabledSince()
+      return since === undefined ? [] : [{ since, id: layer.id() }]
+    })
+    .sort((a, b) => a.since - b.since)
+    .map((layer) => layer.id)
+
 type DismissibleContextValue = {
   layers: Accessor<string[]>
-  onLayerShow: (newLayer: string) => void
-  onLayerDismiss: (dismissedLayer: string) => void
+  registerLayer: (registration: LayerRegistration) => void
 }
 
 const DismissibleContext = createContext<DismissibleContextValue | null>(null)
+
+/** Adds a layer to a list for as long as the component that calls this
+ *  lives. The list is membership only — which layers exist — and carries no
+ *  meaningful order: what orders the stack is each layer's `enabledSince`
+ *  stamp, read where the stack is read. */
+const registerLayerIn = (
+  setRegistrations: (
+    update: (registrations: LayerRegistration[]) => LayerRegistration[],
+  ) => unknown,
+  registration: LayerRegistration,
+) => {
+  setRegistrations((registrations) => [...registrations, registration])
+  onCleanup(() =>
+    setRegistrations((registrations) =>
+      registrations.filter((entry) => entry !== registration),
+    ),
+  )
+}
 
 export type DismissibleProps = {
   /**
@@ -40,7 +84,7 @@ export type DismissibleChildrenProps = {
 
 /** A component that can be dismissed by pressing the escape key or clicking outside of it. Can be nested. */
 const Dismissible: Component<DismissibleProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       dismissibleId: createUniqueId(),
     },
@@ -52,25 +96,25 @@ const Dismissible: Component<DismissibleProps> = (props) => {
     return (<DismissibleLayer {...props} />) as unknown as JSX.Element
   }
 
-  const [layers, setLayers] = createSignal<string[]>(
-    [defaultedProps.dismissibleId],
+  /** The layers of this stack, derived from what they are rather than kept
+   *  in sync by an effect: an effect that wrote the stack made every reader
+   *  of it run twice for one write of `enabled` — once against the stack as
+   *  it was, once after the write landed (`EFFECT_RELAY_TEAR`) — so the
+   *  frame a dialog opened in still named the layer below it as the last
+   *  one. */
+  const [registrations, setRegistrations] = createSignal<LayerRegistration[]>(
+    [],
     { ownedWrite: true },
   )
 
-  const onLayerShow = (dismissibleId: string) => {
-    setLayers((layers) => [...layers, dismissibleId])
-  }
-
-  const onLayerDismiss = (dismissibleId: string) => {
-    setLayers((layers) => layers.filter((layer) => layer !== dismissibleId))
-  }
+  const layers = () => enabledLayers(registrations())
 
   return (
     <DismissibleContext
       value={{
         layers,
-        onLayerShow,
-        onLayerDismiss,
+        registerLayer: (registration) =>
+          registerLayerIn(setRegistrations, registration),
       }}
     >
       <DismissibleLayer {...props} />
@@ -78,13 +122,17 @@ const Dismissible: Component<DismissibleProps> = (props) => {
   ) as unknown as JSX.Element
 }
 
-const [activeDismissibles, setActiveDismissibles] = createSignal<string[]>(
-  [],
-  { ownedWrite: true },
-)
+/** Every dismissible layer on the page. Membership only; the stack order
+ *  comes from each layer's `enabledSince` stamp. */
+const [dismissibleRegistrations, setDismissibleRegistrations] = createSignal<
+  LayerRegistration[]
+>([], { ownedWrite: true })
+
+/** The ids of the layers that are enabled, the one on top last. */
+const activeDismissibles = () => enabledLayers(dismissibleRegistrations())
 
 const DismissibleLayer: Component<DismissibleProps> = (props) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
       dismissibleId: createUniqueId(),
@@ -97,8 +145,14 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
     props,
   )
 
+  // `createDismissible` takes none of these. `dismissibleId` is among them:
+  // `otherProps` is spread into an object literal below, which reads every
+  // key it still carries once and untracked, so leaving the id in it both
+  // raises `STRICT_READ_UNTRACKED` for a reactive one and hands
+  // `createDismissible` a prop it has no use for.
   const otherProps = omit(defaultedProps,
     'enabled',
+    'dismissibleId',
     'children',
     'dismissOnEscapeKeyDown',
     'dismissOnOutsideFocus',
@@ -111,34 +165,20 @@ const DismissibleLayer: Component<DismissibleProps> = (props) => {
 
   const context = useContext(DismissibleContext) as DismissibleContextValue
 
-  createEffect(
-    () => defaultedProps.enabled,
-    (enabled) => {
-      if (enabled) {
-        context.onLayerShow(defaultedProps.dismissibleId)
-        setActiveDismissibles((activeDismissibles) => [
-          ...activeDismissibles,
-          defaultedProps.dismissibleId,
-        ])
-      } else {
-        context.onLayerDismiss(defaultedProps.dismissibleId)
-        setActiveDismissibles((activeDismissibles) =>
-          activeDismissibles.filter(
-            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-          ),
-        )
-      }
-
-      return () => {
-        context.onLayerDismiss(defaultedProps.dismissibleId)
-        setActiveDismissibles((activeDismissibles) =>
-          activeDismissibles.filter(
-            (dismissibleId) => dismissibleId !== defaultedProps.dismissibleId,
-          ),
-        )
-      }
-    },
+  /** What this layer is, read wherever a stack is read: an id a consumer
+   *  changes, or an `enabled` they flip, reaches both stacks in that flush,
+   *  and the layer leaves them when it unmounts. The stamp is taken the
+   *  first time `enabled` is on and dropped when it goes off, so it says
+   *  when this layer last turned on. */
+  const enabledSince = createMemo<number | undefined>((prev) =>
+    defaultedProps.enabled ? (prev ?? ++enableStamp) : undefined,
   )
+  const registration: LayerRegistration = {
+    id: () => defaultedProps.dismissibleId,
+    enabledSince,
+  }
+  context.registerLayer(registration)
+  registerLayerIn(setDismissibleRegistrations, registration)
 
   const isLastLayer = () => {
     return (

@@ -2,7 +2,7 @@
 
 Persistent rendering utility for SolidJS 2.0 — keeps components in the DOM when hidden for faster show/hide transitions.
 
-> **Note:** This is the Solid 2.0 fork of [solid-persistent](https://corvu.dev/docs/utilities/persistent). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-persistent](https://corvu.dev/docs/utilities/persistent). It targets `solid-js@^2.0.0`.
 
 ## Features
 

@@ -4,7 +4,6 @@ import {
   createMemo,
   createSignal,
   createUniqueId,
-  merge,
   omit,
   onCleanup,
   onSettled,
@@ -16,8 +15,8 @@ import { Dynamic, type DynamicProps } from '@corvu-next/utils/dynamic'
 import type { PanelInstance, ResizeStrategy } from '@src/lib/types'
 import createOnce from '@corvu-next/utils/create/once'
 import { createResizablePanelContext } from '@src/panelContext'
-import { mergeRefs } from '@corvu-next/utils/reactivity'
-import { resolveSize } from '@src/lib/utils'
+import { mergeDefaults, mergeRefs } from '@corvu-next/utils/reactivity'
+import { resolveSize, storedCollapsedSize } from '@src/lib/utils'
 import { useInternalResizableContext } from '@src/context'
 
 export type ResizablePanelCorvuProps = {
@@ -131,7 +130,7 @@ export type ResizablePanelChildrenProps = {
 const ResizablePanel = <T extends ValidComponent = 'div'>(
   props: DynamicProps<T, ResizablePanelProps<T>>,
 ) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       initialSize: null,
       minSize: 0,
@@ -209,7 +208,10 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     },
     (next: { size: number; onResize?: (size: number) => void } | undefined) => {
       if (next !== undefined) {
-        next.onResize?.(next.size)
+        // The consumer's handler is an event handler to them: run it untracked
+        // so reads inside it neither subscribe this effect nor warn as strict
+        // reads.
+        untrack(() => next.onResize?.(next.size))
       }
     },
   )
@@ -225,26 +227,41 @@ const ResizablePanel = <T extends ValidComponent = 'div'>(
     return instance.size()
   }
 
-  const collapsed = createMemo<boolean>((prev) => {
-    const instance = panelInstance()
+  const collapsed = createMemo<boolean>(() => {
     if (localProps.collapsible !== true) {
       return false
     }
-    const collapsed = instance
+    const instance = panelInstance()
+    // Through the same rounding the layout writes with, so a collapsed size
+    // of an eleventh, which the layout cannot store as it is, still reads as
+    // collapsed.
+    return instance
       ? instance.size() ===
-        resolveSize(localProps.collapsedSize, context.rootSize())
+          storedCollapsedSize(localProps.collapsedSize, context.rootSize())
       : false
-
-    if (instance && prev !== collapsed) {
-      if (collapsed && localProps.onCollapse !== undefined) {
-        localProps.onCollapse(instance.size())
-      } else if (!collapsed && localProps.onExpand !== undefined) {
-        localProps.onExpand(instance.size())
-      }
-    }
-
-    return collapsed
   })
+
+  // The consumer is told about a collapse from here rather than from the memo
+  // above: their handler may write a signal or a store, which a computation
+  // rejects, and it is an event handler from their side, so it runs untracked.
+  // The previous state is seeded with `false` because that is what the memo
+  // reports until the panel is registered — a panel that mounts collapsed
+  // reports it, one that mounts expanded stays silent, as before.
+  createEffect(
+    () => ({ collapsed: collapsed(), instance: panelInstance() }),
+    (next, prev) => {
+      const wasCollapsed = prev?.collapsed ?? false
+      const instance = next.instance
+      if (!instance || wasCollapsed === next.collapsed) return
+      untrack(() => {
+        if (next.collapsed) {
+          localProps.onCollapse?.(instance.size())
+        } else {
+          localProps.onExpand?.(instance.size())
+        }
+      })
+    },
+  )
 
   const resize = (size: Size, strategy?: ResizeStrategy) => {
     const instance = panelInstance()

@@ -1,5 +1,9 @@
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, merge } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import { createEffect } from 'solid-js'
 
 /**
  * Listens for the escape key to be pressed and calls the `onEscapeKeyDown` callback.
@@ -11,7 +15,7 @@ const createEscapeKeyDown = (props: {
   enabled?: MaybeAccessor<boolean>
   onEscapeKeyDown: (event: KeyboardEvent) => void
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
     },

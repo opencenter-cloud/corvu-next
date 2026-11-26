@@ -1,7 +1,7 @@
 {
   "name": "corvu-next",
   "version": "0.1.5",
-  "description": "Unstyled, accessible UI primitives for SolidJS 2 \u2014 @corvu-next meta package.",
+  "description": "Unstyled, accessible UI primitives for SolidJS 2 — @corvu-next meta package.",
   "license": "MIT",
   "author": {
     "name": "Jasmin Noetzli (upstream), @corvu-next contributors (fork)"
@@ -92,24 +92,23 @@
     }
   },
   "dependencies": {
-    "@corvu-next/accordion": "0.1.5",
-    "@corvu-next/calendar": "0.1.5",
-    "@corvu-next/dialog": "0.1.5",
-    "@corvu-next/disclosure": "0.1.5",
-    "@corvu-next/drawer": "0.1.5",
-    "@corvu-next/otp-field": "0.1.5",
-    "@corvu-next/popover": "0.1.5",
-    "@corvu-next/resizable": "0.1.5",
-    "@corvu-next/tooltip": "0.1.5"
+    "@corvu-next/accordion": "workspace:*",
+    "@corvu-next/calendar": "workspace:*",
+    "@corvu-next/dialog": "workspace:*",
+    "@corvu-next/disclosure": "workspace:*",
+    "@corvu-next/drawer": "workspace:*",
+    "@corvu-next/otp-field": "workspace:*",
+    "@corvu-next/popover": "workspace:*",
+    "@corvu-next/resizable": "workspace:*",
+    "@corvu-next/tooltip": "workspace:*"
   },
   "peerDependencies": {
-    "solid-js": "2.0.0-beta.19",
-    "@solidjs/web": "2.0.0-beta.19"
+    "@solidjs/web": "^2.0.0",
+    "solid-js": "^2.0.0"
   },
   "devDependencies": {
-    "@solidjs/web": "2.0.0-beta.19",
-    "esbuild-plugin-solid": "^0.6.0",
-    "solid-js": "2.0.0-beta.19",
+    "@solidjs/web": "2.0.3",
+    "solid-js": "2.0.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },

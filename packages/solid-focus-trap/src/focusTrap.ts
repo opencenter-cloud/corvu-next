@@ -1,5 +1,9 @@
-import { access, type MaybeAccessor } from '@corvu-next/utils/reactivity'
-import { createEffect, createMemo, createSignal, merge, untrack } from 'solid-js'
+import {
+  access,
+  type MaybeAccessor,
+  mergeDefaults,
+} from '@corvu-next/utils/reactivity'
+import { createEffect, createMemo, createSignal, untrack } from 'solid-js'
 import { afterPaint } from '@corvu-next/utils/dom'
 
 const focusableElementSelector =
@@ -31,7 +35,7 @@ const createFocusTrap = (props: {
   onInitialFocus?: (event: Event) => void
   onFinalFocus?: (event: Event) => void
 }) => {
-  const defaultedProps = merge(
+  const defaultedProps = mergeDefaults(
     {
       enabled: true,
       observeChanges: true,

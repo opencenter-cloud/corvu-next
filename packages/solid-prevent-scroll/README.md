@@ -2,7 +2,7 @@
 
 Scroll prevention utility for SolidJS 2.0 — locks background scrolling for modals and overlays.
 
-> **Note:** This is the Solid 2.0 fork of [solid-prevent-scroll](https://corvu.dev/docs/utilities/prevent-scroll). It targets `solid-js@2.0.0-beta.17`.
+> **Note:** This is the Solid 2.0 fork of [solid-prevent-scroll](https://corvu.dev/docs/utilities/prevent-scroll). It targets `solid-js@^2.0.0`.
 
 ## Features
 
