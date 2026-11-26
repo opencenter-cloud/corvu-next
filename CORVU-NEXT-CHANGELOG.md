@@ -271,7 +271,11 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     carrying the drawer's state from before it — and again in the next one. The content is present
     from the moment `open` turns on until the closing transition has finished, and it is closing
     from the moment `open` turns off; the states only a paint or a drag can know — `opening`,
-    `snapping`, and the end of each — are still written.
+    `snapping`, and the end of each — are still written, and each of those writes applies the
+    element's props again in the flush it lands in. What the derivation removes is the second
+    apply within the flush `open` changed in, which is what `Root.test.tsx` measures: it counts
+    the applies of that flush alone and starts the next count before the paint the transition
+    is scheduled from.
 
   No finding is waived: every diagnostic Solid raises, at every severity, fails the test that
   raised it. Nothing is allowed by name either, so a diagnostic Solid adds is covered the day it

@@ -1627,4 +1627,73 @@ describe('Resizable.Root', () => {
       Number(handle.getAttribute('aria-valuenow')),
     ).toBeGreaterThan(0.4)
   })
+
+  /**
+   * The counterpart of the drawer's apply-count test, for the one fact a
+   * resizable measures: its own size. The panel element applies all of its
+   * props in one effect, so counting how often one of them is read counts how
+   * often the element was written.
+   *
+   * The orientation feeds both the panel's own props and the dimension the
+   * root is measured in. A measurement taken from an effect arrives a flush
+   * after the element it describes, so the panels register against a root of
+   * no size and the panel element then carries a collapse state judged
+   * against a size the root never had.
+   */
+  test('applies the panel element props once per change of the orientation', () => {
+    const [orientation, setOrientation] = createSignal<
+      'horizontal' | 'vertical'
+    >('horizontal')
+
+    let applies = 0
+    const label = () => {
+      applies++
+      return orientation()
+    }
+
+    // 200px across and 800px down, so the dimension the root is measured in
+    // decides whether a panel of half the layout is at its collapsed size.
+    const mounted = mount(() => (
+      <Resizable
+        orientation={orientation()}
+        ref={(element: HTMLElement) => {
+          Object.defineProperty(element, 'offsetWidth', { value: 200 })
+          Object.defineProperty(element, 'offsetHeight', { value: 800 })
+        }}
+      >
+        <Resizable.Panel
+          collapsible
+          collapsedSize="100px"
+          aria-label={label()}
+        />
+        <Resizable.Handle />
+        <Resizable.Panel />
+      </Resizable>
+    ))
+
+    const panel = mounted.querySelector('[data-corvu-resizable-panel]')!
+
+    // The panels registered against the root's real width, so half of a
+    // 200px-wide root is the panel's own 100px collapsed size.
+    expect(panel.hasAttribute('data-collapsed')).toBe(true)
+
+    const appliesPerChange: number[] = []
+    const collapsedPerChange: boolean[] = []
+    const orientations: string[] = []
+    for (const next of ['vertical', 'horizontal', 'vertical'] as const) {
+      applies = 0
+      setOrientation(next)
+      flush()
+      appliesPerChange.push(applies)
+      collapsedPerChange.push(panel.hasAttribute('data-collapsed'))
+      orientations.push(panel.getAttribute('data-orientation')!)
+    }
+
+    expect(appliesPerChange).toEqual([1, 1, 1])
+    expect(orientations).toEqual(['vertical', 'horizontal', 'vertical'])
+    // Half of an 800px-tall root is not the 100px collapsed size, and half of
+    // the 200px-wide one is: the element says so in the flush the orientation
+    // changed in.
+    expect(collapsedPerChange).toEqual([false, true, false])
+  })
 })

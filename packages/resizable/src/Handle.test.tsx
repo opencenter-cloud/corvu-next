@@ -52,6 +52,7 @@ const END_INTERSECTION = '[data-corvu-resizable-handle-end-intersection]'
 describe('Resizable.Handle', () => {
   test('pairs with the touching handle of another resizable', () => {
     let across!: HTMLElement
+    let down!: HTMLElement
 
     mount(() => (
       <>
@@ -68,15 +69,26 @@ describe('Resizable.Handle', () => {
         <Resizable orientation="vertical">
           <Resizable.Panel />
           <Resizable.Handle
-            ref={(element: HTMLElement) => stubRect(element, downRect)}
+            ref={(element: HTMLElement) => {
+              down = element
+              stubRect(element, downRect)
+            }}
           />
           <Resizable.Panel />
         </Resizable>
       </>
     ))
 
-    // The handle running down the page starts where this one ends, so this
-    // one carries the intersection affordance that drags both.
+    // The handle that paired the two drags: a registration that threw would
+    // leave it without the callbacks its pointer handler drags through.
+    down.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }),
+    )
+    flush()
+    expect(down.hasAttribute('data-dragging')).toBe(true)
+
+    // And the handle running down the page starts where the other one ends,
+    // so that one carries the intersection affordance that drags both.
     expect(across.querySelector(END_INTERSECTION)).not.toBeNull()
   })
 
