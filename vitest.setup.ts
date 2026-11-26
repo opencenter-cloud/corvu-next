@@ -36,13 +36,33 @@ if (OBSERVE === undefined) {
   )
 }
 
-/** The engine with everything it judges turned on — the diagnostics a dev
- *  server raises plus the checks that judge a graph over several runs, of
- *  which `UNSTABLE_MEMO_OUTPUT` is the one these packages keep earning: a
- *  memo rebuilding an equivalent object re-runs every subscriber. Only the
- *  per-re-run console print is off; every finding still reaches
- *  `OBSERVE.diagnostics`, which is what the `afterEach` below reads. */
-const releaseAttribution = attribution.enable({ log: false })
+/** The engine with the checks that judge the GRAPH on, and every check that
+ *  judges the CLOCK of the machine that ran it off — the set kolu's
+ *  `@kolu/solid-test-setup` installs, so a finding is the same finding in
+ *  either repository. On: every diagnostic a dev server raises, plus the
+ *  three count checks — `wideDeps` (200 sources on one scope),
+ *  `unstableMemos` (four consecutive equal-but-new memo outputs) and
+ *  `fanOut` (250 subscribers). `UNSTABLE_MEMO_OUTPUT` is the one these
+ *  packages keep earning: a memo rebuilding an equivalent object re-runs
+ *  every subscriber. Off, named key by key because `checks: false` would
+ *  take the counts with them: `hotRuns` (120 runs in 1000ms, two codes),
+ *  `hotTime` (8ms of self-time), `wastedRecompute` (5 runs, 80% unchanged,
+ *  2ms of compute), `holds` (also `UNTRACKED_ASYNC_HANDLER`), `longHolds`,
+ *  `waterfalls` and `stackedHolds`. Each of those times a real wait, so on a
+ *  loaded box they fail a test for the latency of the machine rather than
+ *  for anything in the code. `log: false` is the per-re-run console print
+ *  only; every finding still reaches `OBSERVE.diagnostics`, which is what
+ *  the `afterEach` below reads. */
+const releaseAttribution = attribution.enable({
+  log: false,
+  hotRuns: false,
+  hotTime: false,
+  wastedRecompute: false,
+  holds: false,
+  longHolds: false,
+  waterfalls: false,
+  stackedHolds: false,
+})
 afterAll(() => releaseAttribution())
 
 /** One diagnostic, with the stack at the moment Solid raised it: `ownerPath`

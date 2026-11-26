@@ -48,6 +48,13 @@ const acrossRect = { top: 100, bottom: 110, left: 0, right: 200 }
  *  the bottom edge above: the two handles meet at a corner. */
 const downRect = { top: 110, bottom: 300, left: 100, right: 110 }
 const END_INTERSECTION = '[data-corvu-resizable-handle-end-intersection]'
+/** The four the handle owns and writes itself, in the order it writes them. */
+const ARIA_ATTRIBUTES = [
+  'aria-controls',
+  'aria-valuemax',
+  'aria-valuemin',
+  'aria-valuenow',
+] as const
 
 describe('Resizable.Handle', () => {
   test('pairs with the touching handle of another resizable', () => {
@@ -147,6 +154,12 @@ describe('Resizable.Handle', () => {
    * handle standing exactly where it stood. A rebuilt object that says the
    * same thing is not a change, and a memo that reports it as one re-runs
    * every subscriber — here, the effect that writes four attributes.
+   *
+   * Five orientation changes, one past the four consecutive equal-but-new
+   * outputs the attribution engine reports, so the guard does not sit on its
+   * threshold; and the four attributes are read back from the element, so
+   * the re-application is caught as DOM writes rather than only as a
+   * diagnostic.
    */
   test('reports no change while the handle stands where it stood', () => {
     const [orientation, setOrientation] = createSignal<
@@ -172,19 +185,37 @@ describe('Resizable.Handle', () => {
     ))
 
     const handle = mounted.querySelector('[data-corvu-resizable-handle]')!
+    const firstPanel = mounted.querySelector('[data-corvu-resizable-panel]')!
+
+    // What the handle says before anything moves, so the writes below can be
+    // compared against it rather than against a value copied into the test.
+    const settled = ARIA_ATTRIBUTES.map((name) => handle.getAttribute(name))
+    expect(settled).toEqual([firstPanel.id, '1', '0', '0.5'])
+
+    // Every write of one of the four, whatever value it writes: the element
+    // says the same thing after a re-application as before it, so counting
+    // the writes is the only way the test can see one.
+    let applies = 0
+    const write = handle.setAttribute.bind(handle)
+    handle.setAttribute = (name: string, value: string) => {
+      if ((ARIA_ATTRIBUTES as readonly string[]).includes(name)) applies++
+      write(name, value)
+    }
 
     for (const next of [
       'vertical',
       'horizontal',
       'vertical',
       'horizontal',
+      'vertical',
     ] as const) {
       setOrientation(next)
       flush()
     }
 
-    expect(handle.getAttribute('aria-valuenow')).toBe('0.5')
-    expect(handle.getAttribute('aria-valuemin')).toBe('0')
-    expect(handle.getAttribute('aria-valuemax')).toBe('1')
+    expect(ARIA_ATTRIBUTES.map((name) => handle.getAttribute(name))).toEqual(
+      settled,
+    )
+    expect(applies).toBe(0)
   })
 })

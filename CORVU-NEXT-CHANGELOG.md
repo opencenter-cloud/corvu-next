@@ -283,6 +283,9 @@ All packages now target the stable Solid 2 release line instead of `2.0.0-beta.1
     values it carries (`UNSTABLE_MEMO_OUTPUT`).
 
   No finding is waived: every diagnostic Solid raises, at every severity, fails the test that
-  raised it, and the engine runs with its own checks on — the ones that judge a graph over
-  several runs, not just one write. Nothing is allowed by name either, so a diagnostic Solid
-  adds is covered the day it ships.
+  raised it, and the engine runs with the checks that COUNT the graph on — `wideDeps` (200
+  sources on one scope), `unstableMemos` (four consecutive equal-but-new memo outputs) and
+  `fanOut` (250 subscribers). The checks that TIME the machine — `hotRuns`, `hotTime`,
+  `wastedRecompute`, `holds`, `longHolds`, `waterfalls` and `stackedHolds` — are off key by
+  key, so no test fails for the latency of the box that ran it. Nothing is allowed by name
+  either, so a diagnostic Solid adds is covered the day it ships.
