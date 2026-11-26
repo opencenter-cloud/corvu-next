@@ -174,6 +174,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
       setStyleProperty(element, 'height', height)
       setStyleProperty(element, 'width', width)
     },
+    { name: 'drawerContentStyle' },
   )
 
   // Split-phase effect: compute phase tracks `dialogContext.open()`,
@@ -197,6 +198,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         document.removeEventListener('contextmenu', onUp)
       }
     },
+    { name: 'drawerDragListeners' },
   )
 
   createEffect(
@@ -206,6 +208,7 @@ const DrawerContent = <T extends ValidComponent = 'div'>(
         stopDragging()
       }
     },
+    { name: 'drawerStopDragOnClose' },
   )
 
   const onPointerDown = (event: PointerEvent) => {
